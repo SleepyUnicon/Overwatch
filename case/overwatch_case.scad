@@ -59,6 +59,10 @@ esp_h      = 28.0;
 esp_d      = 25.0;   // with its cables seated
 usb_w      = 12.0;
 usb_h      =  8.0;
+// How far forward of the back wall the port's centre sits: the board's own
+// thickness plus the shelf it stands on. Generous, because the shelf is a
+// rest rather than a hole pattern.
+usb_port_z = 12.0;
 
 // ---- tolerances -----------------------------------------------------
 // Asked for explicitly, and they are not all the same number because
@@ -77,6 +81,10 @@ depth_tol  = 2.0;    // slack in the depth stack. The two depths that set
 
 // ---- the shell ------------------------------------------------------
 wall       = 2.0;
+
+// Back to the board's own size. There is no joint land because there is
+// no overlapping joint: four screws hold the halves together, and a screw
+// needs a post, not a rim.
 face_w     = pcb_w + 2 * (wall + clear);   // 90.8
 face_h     = pcb_h + 2 * (wall + clear);   // 54.8
 corner_r   = 4.0;
@@ -92,9 +100,46 @@ cavity_d   = (panel_d - frame_t) + esp_d + depth_tol;
 body_d     = frame_t + cavity_d + back_t;
 
 // ---- the snap -------------------------------------------------------
-skirt_d    = 8.0;    // how far the frame's skirt reaches into the tray
-catch_h    = 1.0;    // how far the catch stands out
-catch_w    = 12.0;
+// Four printed snap pegs on the tray, clicking into BLIND sockets in the
+// bezel. Nothing shows on the front face.
+//
+// The version before this used through-holes with a countersink, and it
+// worked -- but a countersunk through-hole is indistinguishable from a
+// screw hole, and four of them on the front is the one place they must
+// not be. "Everything snap on" has to mean invisible, or it has bought
+// nothing over screws.
+//
+// WHERE THE ROOM IS. The bezel is 5.0 thick and its cross-section changes
+// partway down:
+//
+//     z 0.0 .. 3.4   the frame -- 10.6 mm bands left and right
+//     z 3.4 .. 5.0   the PCB pocket opens; only 2.0 mm of rim left
+//
+// So the two halves meet rim to rim, 2 x 2, with no overlap to snap into
+// -- which is why the skirt failed and why the pegs cannot grip the edge.
+// But those 10.6 mm bands are solid for the first 3.4 mm, and a socket
+// entered from BEHIND can live in them without ever breaking through.
+//
+// The socket, in tray coordinates (0 at the tray's face, the bezel
+// running -5.0 .. 0):
+//
+//     bore  -2.6 ..  0.0   at 3.4, what the barb squeezes through
+//     ring  -3.8 .. -2.6   at 4.2, what it springs out into
+//     solid -5.0 .. -3.8   1.2 mm of front skin. Nothing shows.
+//
+// The peg is SPLIT so the two prongs can close to clear the bore; a solid
+// one would have to stretch the bezel, and PLA does not stretch.
+peg_od     = 5.0;    // the post standing in the cavity
+shaft_d    = 3.0;    // clears the 3.4 bore
+barb_d     = 4.2;    // springs into the ring
+barb_tip   = 2.8;    // lead-in, so it starts itself
+split_w    = 1.2;    // the slot that lets the prongs close
+scr_x      = 40.0;   // centred in the 10.6 mm side bands
+scr_y      = 12.0;   // clear of the slanted floor -- see the assert
+sock_bore  = 3.4;
+sock_ring  = 4.2;
+skin_t     = 1.2;    // solid front face left over the socket
+ring_t     = 1.2;    // how tall the detent ring is
 
 // ---- the loom -------------------------------------------------------
 // 13 dupont jumpers between the panel's header and the ESP32.
@@ -132,6 +177,26 @@ tie_w      = 4.0;    // zip-tie slot, for strain relief at the port
 // and the ESP32 sits on that rising floor.
 lean       = 15;
 
+// Checked at render time, because the last version shipped a bezel whose
+// rim the board pocket sawed clean off and nothing said so.
+//
+// A post has to land in the SOLID band beside the aperture. If the
+// aperture ever grows, or the screws move in, they end up over the hole
+// and the bezel has four notches instead of four bosses.
+_ap_cx   = -pcb_w / 2 + glass_left + glass_w / 2;
+_ap_half = (glass_w + 2 * glass_gap) / 2;
+
+assert(scr_x - peg_od / 2 > _ap_cx + _ap_half ||
+       scr_x + peg_od / 2 < -(_ap_cx - _ap_half),
+       "screw posts overlap the glass aperture");
+assert(scr_x + peg_od / 2 < face_w / 2,
+       "screw posts hang off the edge of the bezel");
+
+// The cavity floor is slanted, so the tightest point is the BACK wall.
+_floor_back = -face_h / 2 + wall + cavity_d * tan(lean);
+assert(-scr_y - peg_od / 2 > _floor_back,
+       "lower screw posts punch through the slanted bottom");
+
 // =====================================================================
 // helpers
 // =====================================================================
@@ -162,47 +227,46 @@ module desk_cut(drop = 0) {
 // front_bezel
 // =====================================================================
 module front_bezel() {
-	// The aperture, in the glass's own place on the board. The glass is
-	// not centred -- 8 left against 9 right -- so the hole is not
-	// centred either. Centring it would put the picture 0.5 mm off and
-	// show a different amount of red down each side.
+	// Where the glass sits within the face. The glass is not centred on
+	// the board -- 8 mm of red on the left against 9 on the right -- so
+	// the hole is not centred either. Centring it would put the picture
+	// 0.5 mm off and show a different amount of red down each side.
 	ap_cx = -pcb_w / 2 + glass_left + glass_w / 2;
 
 	difference() {
-		union() {
-			rbox(face_w, face_h, frame_t, corner_r);
-			// the skirt that reaches into the tray
-			translate([0, 0, frame_t])
-				difference() {
-					rbox(face_w - 2 * wall,
-					     face_h - 2 * wall, skirt_d,
-					     corner_r - wall);
-					translate([0, 0, -1])
-						rbox(face_w - 4 * wall,
-						     face_h - 4 * wall,
-						     skirt_d + 2,
-						     corner_r - 2 * wall);
-				}
-		}
+		rbox(face_w, face_h, frame_t, corner_r);
 
-		// the glass aperture, straight through the frame
+		// the glass aperture, straight through
 		translate([ap_cx, 0, -1])
 			linear_extrude(frame_t + 2)
 			rrect(glass_w + 2 * glass_gap,
 			      glass_h + 2 * glass_gap, 1.5);
 
-		// the pocket the board drops into from behind, leaving `ledge`
-		// of frame under each red strip to hold it
+		// the pocket the board drops into from behind, leaving the
+		// two side ledges to hold it
 		translate([0, 0, glass_pro])
-			linear_extrude(pcb_t + clear + 1)
+			linear_extrude(frame_t)
 			rrect(pcb_w + 2 * clear, pcb_h + 2 * clear, 1.5);
-	}
 
-	// catches, on the skirt's left and right faces
-	for (x = [-1, 1])
-		translate([x * (face_w / 2 - wall), 0, frame_t + skirt_d - 2.5])
-			scale([x, 1, 1])
-			catch();
+		// Four BLIND sockets for the tray's pegs, entered from behind
+		// and stopping skin_t short of the front face.
+		for (x = [-1, 1], y = [-1, 1])
+			translate([x * scr_x, y * scr_y, 0]) {
+				// the bore
+				translate([0, 0, skin_t + ring_t])
+					cylinder(d = sock_bore,
+						 h = frame_t - skin_t - ring_t
+						     + 1);
+				// the detent ring the barb springs into
+				translate([0, 0, skin_t])
+					cylinder(d = sock_ring, h = ring_t);
+			}
+
+		// the grille, in the 5.4 mm the module leaves below the glass
+		for (i = [-2 : 2])
+			translate([i * 3.2, -face_h / 2 + 4.2, -0.01])
+				linear_extrude(1.4) rrect(1.5, 3.4, 0.7);
+	}
 }
 
 // The bezel, with its share of the slant taken off. Only 5 mm of depth,
@@ -246,22 +310,26 @@ module back_tray() {
 			desk_cut(wall);
 		}
 
-		// windows the frame's catches drop into
-		for (x = [-1, 1])
-			translate([x * (face_w / 2 - wall / 2), 0,
-				   skirt_d - 2.5 + catch_h / 2])
-				cube([wall * 2, catch_w + 0.6, 3.2],
-				     center = true);
-
-		// The USB slot, in the BACK WALL. That is the point of
-		// mounting the board here: the port faces out through the one
-		// wall with nothing in front of it, and the cable leaves
-		// straight back instead of bending round a corner.
+		// The USB slot, in the RIGHT SIDE WALL.
 		//
-		// Sat high enough to clear the rising cavity floor, which at
-		// the back wall is 10.7 mm up from where it starts.
-		translate([face_w / 2 - 24, -face_h / 2 + 16, cavity_d - 1])
-			cube([usb_w, usb_h, back_t + 2]);
+		// It was in the back wall, with a comment explaining that the
+		// back is the one wall with nothing in front of it. That was
+		// reasoning about a board that does not exist: a DevKitC
+		// carries its connector on a SHORT END, in the plane of the
+		// board. Laid flat -- the only way 52 x 28 fits a 34.8 mm
+		// cavity -- that port points at a SIDE wall. To face the back
+		// the board would have to stand on edge and need 52 mm of
+		// depth against the 34.8 there is.
+		//
+		// The board sits with its port end against this wall
+		// (x -8.6 .. 43.4) and centred about y = +4, which keeps its
+		// lower edge clear of the slanted floor. The slot is cut
+		// oversize because the shelf it rests on is deliberately a
+		// shelf and not a hole pattern -- see esp_side.
+		translate([face_w / 2 - wall - 1,
+			   4 - (usb_w + 2) / 2,
+			   cavity_d - usb_port_z - (usb_h + 2) / 2])
+			cube([wall + 2, usb_w + 2, usb_h + 2]);
 
 		// vents over the board
 		for (i = [-3 : 3])
@@ -278,6 +346,47 @@ module back_tray() {
 				cube([tie_w, 2.2, back_t + 2], center = true);
 	}
 
+	// The screw posts, rising off the back wall to meet the bezel.
+	//
+	// They stand in the cavity rather than in the corners, which is only
+	// possible because the BOARD is not in the cavity -- it sits in the
+	// bezel's pocket, in front of z=0 here. All that is back here is the
+	// panel's rear components, and they do not reach the side bands.
+	for (x = [-1, 1], y = [-1, 1])
+		translate([x * scr_x, y * scr_y, 0])
+			difference() {
+				union() {
+					// The post. +1 INTO the back wall:
+					// ending flush leaves coincident
+					// faces, which OpenSCAD does not
+					// merge -- they came out as loose
+					// cylinders rattling in a tray.
+					cylinder(d = peg_od, h = cavity_d + 1);
+					// the shaft, through the bore
+					translate([0, 0, -(frame_t - skin_t
+							   - ring_t)])
+						cylinder(d = shaft_d,
+							 h = frame_t - skin_t
+							     - ring_t);
+					// The barb, into the ring. +0.6 so it
+					// OVERLAPS the shaft -- meeting it
+					// exactly is the same coincident-face
+					// trap, and it came out as eight
+					// loose prongs.
+					translate([0, 0, -(frame_t - skin_t)])
+						cylinder(d1 = barb_tip,
+							 d2 = barb_d,
+							 h = ring_t + 0.6);
+				}
+				// The split, the whole sprung length and a
+				// little into the post, so the prongs hinge
+				// from solid material.
+				translate([-split_w / 2, -(barb_d + 2) / 2,
+					   -frame_t - 1])
+					cube([split_w, barb_d + 2,
+					      frame_t + 9]);
+			}
+
 	// --- the loom's side of the cavity ---------------------------
 	//
 	// Two pillars with a gap the bundle drops behind. Not a closed
@@ -292,9 +401,13 @@ module back_tray() {
 	for (ly = [-4, 14])
 		translate([lx, ly, cavity_d - 9])
 			difference() {
-				cylinder(d = loom_d + 2 * 2.5, h = 9);
+				// h = 10, not 9: the extra millimetre buries
+				// the clip in the back wall. Ending flush
+				// leaves coincident faces that do not merge,
+				// and the clip prints as a loose ring.
+				cylinder(d = loom_d + 2 * 2.5, h = 10);
 				translate([0, 0, -1])
-					cylinder(d = loom_d, h = 11);
+					cylinder(d = loom_d, h = 12);
 				// The mouth, facing the middle of the case.
 				// Starts at the CENTRE and runs outward: the
 				// first version started a whole loom_d out,
@@ -310,7 +423,7 @@ module back_tray() {
 	// other side is the loom's.
 	for (dy = [-1, 1])
 		translate([esp_side * 18, dy * 9, cavity_d - 5])
-			cylinder(d = 5, h = 5);
+			cylinder(d = 5, h = 6);   // +1 into the back wall
 }
 
 // =====================================================================

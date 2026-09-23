@@ -7,7 +7,7 @@ No screws.
 | part | what it is | print it |
 |---|---|---|
 | `front_bezel.stl` | the frame. Glass sits flush in it. | face **down** |
-| `back_tray.stl` | the box. ESP32 mounts here, USB out of the back wall. | back wall **down**, no supports |
+| `back_tray.stl` | the box. ESP32 mounts here, USB out of the **right side**. | back wall **down**, no supports |
 
 ```sh
 openscad -D 'PART="front"' -o front_bezel.stl overwatch_case.scad
@@ -55,12 +55,42 @@ dark **glass**, not the lit pixels; a 2.8" active area is 57.6 x 43.2.
 measured directly. The active area only decides whether the picture looks
 centred in the hole.
 
-## No screws, and that is a bezel decision
+## Four hidden snaps — nothing on the front face
 
-Corner posts for M3 have to clear the PCB corner, which puts the frame at
-98 x 62 against this one's **90.8 x 54.8**. That is 3.6 mm more border on
-every side, spent on the one dimension being minimised. The tray snaps in
-instead: two catches on the bezel's skirt, two windows in the tray's walls.
+Printed **snap pegs on the tray**, clicking into **blind sockets** in the
+bezel. No screws, and nothing visible from the front.
+
+An earlier version used through-holes with a countersink. It worked, and it
+was wrong: a countersunk through-hole is indistinguishable from a screw hole,
+and four of them on the front is the one place they must not be. "Snap on" has
+to mean invisible or it has bought nothing over screws.
+
+**Where the room is.** The bezel's cross-section changes partway down:
+
+```
+z 0.0 .. 3.4   the frame -- 10.6 mm bands left and right
+z 3.4 .. 5.0   the PCB pocket opens; only 2.0 mm of rim left
+```
+
+So the halves meet rim to rim, 2 × 2, with no overlap to snap into — which is
+why the skirt failed and why a peg cannot grip the edge. But those **10.6 mm
+bands are solid for the first 3.4 mm**, and a socket entered from behind can
+live in them without ever breaking through.
+
+The socket, in tray coordinates (0 at the tray's face, bezel running −5.0 … 0):
+
+```
+bore  -2.6 ..  0.0   at 3.4, what the barb squeezes through
+ring  -3.8 .. -2.6   at 4.2, what it springs out into
+solid -5.0 .. -3.8   1.2 mm of front skin. Nothing shows.
+```
+
+The peg is **split** so the two prongs can close to clear the bore. A solid one
+would have to stretch the bezel, and PLA does not stretch, it cracks.
+
+They cost no border: the pegs sit in the side bands, where the panel's own dead
+red strip already forces 10 mm of bezel. A 5 mm peg fits with room over, so the
+border stays **2.4 mm**.
 
 ## Depth, and the tolerances
 
@@ -153,6 +183,22 @@ about 14 mm on their own, and 14 + 25 for the ESP32 is 39 against a 32.8 mm
 cavity — it would not close. Measure the module front-to-back with a jumper
 seated, square to the board. If it is over about 12, raise `panel_d` and
 `cavity_d` follows, or fit right-angle headers.
+
+## Two checks worth keeping
+
+`overwatch_case.scad` asserts at render time, because the failures above were
+silent:
+
+- screw posts must land in the solid band beside the aperture, not over it;
+- the lower posts must clear the **slanted** cavity floor. That floor rises
+  0.268 mm per mm of depth, so the tight point is the back wall — at
+  `scr_y = 18` the posts went 3.9 mm out through the bottom of the case. 12
+  keeps them 2.1 mm clear.
+
+When checking an STL for loose parts, count **shells minus internal voids**.
+A blind screw hole is its own closed surface, so the tray reads as 5 shells
+and is a single solid with four blind holes — a raw shell count calls that
+broken when it is correct.
 
 ## A note on judging renders
 
