@@ -60,7 +60,35 @@ struct rec {
 	uint8_t main_src;		/* 0 unset -> claude; else enum cfg_main_src */
 	uint8_t edition;		/* 0 unset -> claude; else enum cfg_edition */
 	uint8_t edition_locked;		/* 1 once stamped; see cfg_set_edition */
+	uint8_t dark;			/* 0 unset -> light; 1 dark. See ui_theme.c */
 	uint32_t crc;		/* over everything above, always last */
+} __packed;
+
+/*
+ * The layout before the theme flag. A record written by any earlier firmware
+ * is this, and it has to keep loading: the alternative is that installing the
+ * update silently resets the user's WiFi, brightness and timezone, which is a
+ * far worse trade than carrying one more struct. `dark` reads 0 -> light,
+ * which is the default a board that never had the setting should land on.
+ */
+struct rec_pre_dark {
+	uint32_t magic;
+	uint32_t seq;
+	uint8_t mode;
+	uint8_t weekly_sel;
+	uint8_t tz_set;
+	uint8_t bright_pct;
+	int32_t tz_min;
+	char ssid[CFG_SSID_MAX];
+	char psk[CFG_PSK_MAX];
+	char token[CFG_TOKEN_MAX];
+	char ap_psk[CFG_AP_PSK_MAX];
+	uint8_t ota_state;
+	char ota_target[CFG_OTA_VER_MAX];
+	uint8_t main_src;
+	uint8_t edition;
+	uint8_t edition_locked;
+	uint32_t crc;
 } __packed;
 
 /* The layout before the edition latch. Everything else is identical, so the
@@ -173,7 +201,44 @@ static bool slot_load(int off, struct rec *out)
 		return true;
 	}
 
-	/* Not a current record -- try the layout from before the edition latch. */
+	/* Not a current record -- try the layout from before the theme flag.
+	 *
+	 * Newest layout first, which is the order the existing branches were
+	 * already in. Each older struct is a byte-prefix of the next with its
+	 * own crc field landing inside the newer one's payload, so the only
+	 * thing stopping an older reader from matching a newer record is that
+	 * the bytes there would have to happen to equal a valid CRC. That is
+	 * not a guarantee worth leaning on when ordering costs nothing.
+	 */
+	struct rec_pre_dark pd;
+
+	memcpy(&pd, buf, sizeof(pd));
+	if (pd.magic == REC_MAGIC &&
+	    pd.crc == crc32_ieee((const uint8_t *)&pd,
+				 offsetof(struct rec_pre_dark, crc))) {
+		memset(out, 0, sizeof(*out));
+		out->magic = pd.magic;
+		out->seq = pd.seq;
+		out->mode = pd.mode;
+		out->weekly_sel = pd.weekly_sel;
+		out->tz_set = pd.tz_set;
+		out->bright_pct = pd.bright_pct;
+		out->tz_min = pd.tz_min;
+		memcpy(out->ssid, pd.ssid, sizeof(out->ssid));
+		memcpy(out->psk, pd.psk, sizeof(out->psk));
+		memcpy(out->token, pd.token, sizeof(out->token));
+		memcpy(out->ap_psk, pd.ap_psk, sizeof(out->ap_psk));
+		out->ota_state = pd.ota_state;
+		memcpy(out->ota_target, pd.ota_target, sizeof(out->ota_target));
+		out->main_src = pd.main_src;
+		out->edition = pd.edition;
+		out->edition_locked = pd.edition_locked;
+		out->dark = 0;		/* never set -> light, the default */
+		out->crc = rec_crc(out);
+		return true;
+	}
+
+	/* Not that either -- try the layout from before the edition latch. */
 	struct rec_pre_lock pl;
 
 	memcpy(&pl, buf, sizeof(pl));
@@ -570,6 +635,22 @@ int cfg_set_bright_pct(uint8_t pct)
 {
 	k_mutex_lock(&cfg_lock, K_FOREVER);
 	cfg.bright_pct = pct;
+
+	int rc = persist();
+
+	k_mutex_unlock(&cfg_lock);
+	return rc;
+}
+
+bool cfg_get_dark(void)
+{
+	return cfg.dark != 0;
+}
+
+int cfg_set_dark(bool dark)
+{
+	k_mutex_lock(&cfg_lock, K_FOREVER);
+	cfg.dark = dark ? 1 : 0;
 
 	int rc = persist();
 

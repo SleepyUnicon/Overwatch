@@ -21,4 +21,18 @@
  */
 void ui_sleep_run(bool (*awake)(void), const char *peek_note);
 
+/*
+ * The face as a PAGE rather than as a doze: play it, and come back on the
+ * first touch anywhere.
+ *
+ * Its own entry point because the two uses want opposite things from a tap.
+ * Dozing treats a tap as "show me the dashboard for ten seconds and carry on
+ * sleeping", which is right when the board dozed off by itself and you want a
+ * glance without ending it. Here the user ASKED for the face, so the only
+ * thing a tap can sensibly mean is "done, take me back" -- and if it did not
+ * mean that there would be no way out at all, which is what shipping
+ * ui_sleep_run(NULL, NULL) did.
+ */
+void ui_sleep_show_face(void);
+
 #endif /* UI_SLEEP_H */

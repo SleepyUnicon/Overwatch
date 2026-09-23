@@ -13,7 +13,10 @@
 
 #include "proto.h"
 #include "usage_view.h"
+#include "ui_pages.h"
+#include "ui_music.h"
 #include "cfg_store.h"
+#include "ui_theme.h"
 #include "backlight.h"
 #include "net_wifi.h"
 #include "net_time.h"
@@ -111,6 +114,32 @@ static void panel_fix_madctl(void)
 }
 
 #endif /* CONFIG_BLINK_PANEL_PILOT */
+
+/*
+ * Rebuild the gauge screen because the theme changed.
+ *
+ * A switch is a rebuild rather than a restyle: LVGL keeps no back-reference
+ * from a styled object to the value it was given, so repainting in place would
+ * mean walking every object and knowing which role each colour played. Getting
+ * one wrong leaves a single unreadable label that nobody finds until a
+ * customer does. This path already exists for mode changes and is known to
+ * work; the theme borrows it.
+ *
+ * Run from the mode loop, never from an LVGL event: it deletes the screen the
+ * event is being dispatched on.
+ */
+static void theme_rebuild(void)
+{
+	if (!ui_theme_rebuild_pending()) {
+		return;
+	}
+	ui_theme_rebuild_clear();
+	usage_view_deinit();
+	ui_pages_detach();
+	usage_view_init();
+	ui_pages_init(lv_scr_act());
+	ui_settings_attach(lv_scr_act());
+}
 
 #if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
 /*
@@ -1374,6 +1403,7 @@ static void run_standalone(void)
 						   : net_wifi_last_error();
 
 		usage_view_deinit();	/* gauges out before setup in */
+		ui_pages_detach();	/* ...and the overlays that hung off it */
 		run_provisioning(err);	/* reboots when done */
 	}
 
@@ -1419,11 +1449,13 @@ static void run_standalone(void)
 			ui_anim_run(standalone_anim_pump);
 		}
 		ui_settings_service(standalone_anim_pump);
+		theme_rebuild();
 
 		int64_t now = k_uptime_get();
 
 		if (now - last_tick >= 1000) {
 			usage_view_tick_1s();
+			ui_music_tick_1s();
 			last_tick = now;
 
 			int hh = -1, mm = 0;
@@ -1649,6 +1681,7 @@ static void run_usb(void)
 			ui_anim_run(usb_anim_pump);
 		}
 		ui_settings_service(usb_anim_pump);
+		theme_rebuild();
 
 		if (!usage_view_have_data()) {
 			/* Keep the bar honest: hello was answered at boot,
@@ -1718,6 +1751,7 @@ static void run_usb(void)
 
 		if (now - last_tick >= 1000) {
 			usage_view_tick_1s();
+			ui_music_tick_1s();
 			last_tick = now;
 
 			int hh = -1, mm = 0;
@@ -1759,6 +1793,9 @@ int main(void)
 	ui_touchfx_init();	/* light touch-echo feedback on every press */
 
 	cfg_init();
+	/* Straight after cfg_init, because it reads from it and because every
+	 * screen built below asks ui_theme() for its colours. */
+	ui_theme_init();
 	ota_boot_begin();	/* unconfirmed image? start the confirm clock */
 	/* ...and from here the boot screen's own wait loops feed it too; they
 	 * block for seconds against a 30 s window. */
@@ -1830,6 +1867,7 @@ int main(void)
 	if (proto_host_seen()) {
 		printk("[usage] mode: USB bridge\n");
 		usage_view_init();
+		ui_pages_init(lv_scr_act());
 		/* Same CONNECTING bar as standalone (user request
 		 * 2026-07-16); the link step is already done -- the daemon
 		 * spoke during the splash. */
@@ -1855,6 +1893,7 @@ int main(void)
 		 * holding the splash color for the scan's 1-2 s (user
 		 * feedback 2026-07-16). The scan runs under the boot bar. */
 		usage_view_init();
+		ui_pages_init(lv_scr_act());
 		/* Step list before the first frame: one rendered frame of a
 		 * wrong takeover flashes visibly on this panel
 		 * (user-reported 2026-07-15). */
@@ -1898,6 +1937,7 @@ int main(void)
 	 */
 	printk("[usage] mode: USB bridge (no host yet)\n");
 	usage_view_init();
+	ui_pages_init(lv_scr_act());
 	usage_view_boot_begin(usb_boot_steps, 2);
 	lv_timer_handler();
 	ui_boot_teardown();

@@ -1,0 +1,49 @@
+/*
+ * Discrete ESP32 DevKitC + a separate 2.8" SPI panel on jumper wires,
+ * instead of the CYD's single PCB.
+ *
+ *   west build ... -- ... -DEXTRA_DTC_OVERLAY_FILE=boards/wired.overlay
+ *
+ * The CYD pin map is unchanged and does not need to be: the panel is wired to
+ * the pins the firmware already expects. This file changes one thing, and it
+ * is the one thing a breadboard changes.
+ *
+ * SPI CLOCK. The CYD runs the panel at 32 MHz, measured on ITS PCB - short
+ * controlled-impedance traces with a ground plane under them. A 20 cm Dupont
+ * jumper has none of that, and at 32 MHz the panel either latches garbage or
+ * never latches its init at all - which looks exactly like the solid white
+ * screen a 40 MHz overclock gives on a real CYD.
+ *
+ * Start at 10 MHz, then walk it up (16, then 20) and stop one step below
+ * wherever it breaks.
+ */
+
+&ili9341 {
+	mipi-max-frequency = <10000000>;
+};
+
+/*
+ * TOUCH: both axes inverted relative to the CYD.
+ *
+ * Measured 2026-09-23 with the touch echo (ui_touchfx.c): a tap on the
+ * top-left bloomed bottom-right, a tap on the top-right bloomed bottom-left.
+ * Diagonally opposite on both, which is a 180 degree turn of the touch plane,
+ * not a scale or offset error.
+ *
+ * Why it moved: the CYD overlay's `invert-x` was fitted against the
+ * PRODUCTION panel's MADCTL (MV|MY). wired.conf takes this module down the
+ * pilot path, which leaves the driver's own MADCTL (MV) - so the display's
+ * row order flipped and the mapping that was solved against the old one no
+ * longer holds.
+ *
+ * Toggling BOTH flags is the whole correction, and it does not matter that
+ * the overlay warns these apply before the ROTATED_90 compensation: inverting
+ * both axes is a 180 degree rotation, and rotations commute, so it lands the
+ * same either side of the compensation.
+ */
+/ {
+	lvgl_pointer {
+		/delete-property/ invert-x;
+		invert-y;
+	};
+};

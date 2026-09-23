@@ -36,9 +36,38 @@ import urllib.request
 # 75 s of every firmware flash (user-reported 2026-08-30).
 NO_WINDOW = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
 
-RELEASE_BASE = "https://github.com/KfirLevy258/Blink/releases/latest/download/"
-MANIFEST_URL = RELEASE_BASE + "manifest.json"
-FIRMWARE_URL = RELEASE_BASE + "blink-fw.bin"
+# WHOSE feed this daemon follows. Set it to the repo that publishes the
+# firmware THESE boards run, and nobody else's.
+#
+# It was KfirLevy258/Blink, which is upstream. That is correct for a Blink
+# and wrong for an Overwatch: this fork's firmware is a different build --
+# 10 MHz panel clock, CONFIG_BLINK_PANEL_PILOT, the touch axis fix, the
+# widget pages, the cross navigation. Pulling upstream's CYD image onto one
+# of these gives a mirrored screen with inverted touch and none of it.
+#
+# The boards are not defenceless: they are signed with a key in ~/.blink/,
+# so MCUboot rejects an image signed with anyone else's and reverts
+# (OVERWATCH.md's step 3 is explicit about this). But that safety net is
+# accidental rather than designed, and it only catches the image AFTER the
+# daemon has downloaded 1.3 MB, written it to slot 1 and rebooted the board.
+# The owner sees a reboot they did not ask for, and nothing anywhere says
+# why.
+#
+# EMPTY MEANS OFF, and empty is the default, because right now there is no
+# Overwatch release feed to point at. Put the repo here the day you publish
+# one -- "youruser/Overwatch" -- and both the firmware feed and the app
+# self-updater come back on together.
+RELEASE_REPO = ""
+
+RELEASE_BASE = ("https://github.com/%s/releases/latest/download/"
+                % RELEASE_REPO) if RELEASE_REPO else ""
+MANIFEST_URL = RELEASE_BASE + "manifest.json" if RELEASE_BASE else ""
+FIRMWARE_URL = RELEASE_BASE + "blink-fw.bin" if RELEASE_BASE else ""
+
+
+def feed_configured():
+    """Is there a release feed to ask? See RELEASE_REPO."""
+    return bool(RELEASE_REPO)
 
 
 
@@ -94,7 +123,18 @@ def _get(url, timeout=30):
 
 
 def fetch_manifest(get=_get):
-    """{"version","size","sha256"} for the latest release, or None."""
+    """{"version","size","sha256"} for the latest release, or None.
+
+    None when no feed is configured, which is the same answer callers
+    already handle for "could not reach it" -- so an unconfigured fork does
+    nothing at all rather than following somebody else's releases.
+    """
+    # Only the REAL network path is gated. A caller that injects `get` is
+    # supplying the bytes itself -- that is how the manifest-contract tests
+    # check the parser -- and refusing to parse them because no repo is
+    # configured would be answering a question nobody asked.
+    if get is _get and not feed_configured():
+        return None
     try:
         m = json.loads(get(MANIFEST_URL).decode("utf-8"))
     except Exception as e:
@@ -109,6 +149,8 @@ def fetch_manifest(get=_get):
 
 def fetch_firmware(get=_get):
     """The release binary. ~1.3 MB, so this blocks for a few seconds."""
+    if get is _get and not feed_configured():
+        raise RuntimeError("no release feed configured; see ota.RELEASE_REPO")
     return get(FIRMWARE_URL, timeout=300)
 
 
@@ -304,3 +346,51 @@ def flash(port, blob, run=subprocess.run):
             os.unlink(img)
         except OSError:
             pass
+
+
+# --------------------------------------------------------------- kit flashing
+#
+# flash() above replaces the app slot on a board that already boots. A kit
+# builder is holding a chip that has never been programmed, so there is no
+# MCUboot for an app-slot write to land behind, and nothing to talk to over
+# the protocol. That is a different operation with different failure modes,
+# not a flag on the same one.
+
+FULL_OFFSET = "0x0"
+
+
+def flash_image(port, path, run=subprocess.run, baud=460800):
+    """Write a merged bootloader+app image at offset 0. Returns (ok, message).
+
+    `path` is what tools/package_firmware.py produced. Faster baud than
+    FLASH_BAUD because this writes ~1.5 MB rather than a slot, and unlike the
+    OTA path there is no daemon mid-conversation to disturb -- at 115200 this
+    is about four minutes of dark screen, which reads as a hang.
+    """
+    exe = _esptool()
+    if not exe:
+        return False, ("esptool not found -- pip install esptool"
+                       " into the interpreter running this")
+
+    if not os.path.exists(path):
+        return False, "no image at %s" % path
+
+    # Same refusal as flash(): the key lives with the factory tool, and
+    # guessing here would brick a chip that is merely encrypted.
+    enc = flash_encrypted_chip(port, run=run)
+    if enc is None:
+        return False, "Could not check the chip; not flashing"
+    if enc:
+        return False, "Encrypted chip; needs the factory tool"
+
+    write = ["write_flash", FULL_OFFSET, path]
+    ok, why = _esptool_run(exe, port, baud, write, run)
+    if ok:
+        return True, "written and verified"
+    # Retry once at the conservative baud before giving up. A fast write is
+    # the first thing to fail on the long dupont jumpers a kit is wired with,
+    # and it fails as a timeout rather than anything that names the cause.
+    ok, why2 = _esptool_run(exe, port, FLASH_BAUD, write, run)
+    if ok:
+        return True, "written and verified (fell back to %d baud)" % FLASH_BAUD
+    return False, why2 or why

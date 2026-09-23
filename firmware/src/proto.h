@@ -62,4 +62,25 @@ bool proto_ota_staged(void);
  */
 void proto_send_pref(void);
 
+/*
+ * Ask the computer to launch the app in `slot`.
+ *
+ * Fire and forget on this side: the board does not block and does not retry.
+ * The daemon answers with a `launched` message carrying the same slot and an
+ * ok flag, which ui_launcher_result() draws -- so a lost message shows as a
+ * button that lit and went back to rest, never as one that claims success it
+ * did not get.
+ */
+void proto_send_launch(int slot);
+
+/*
+ * Ask the computer to drive the player: "play", "prev" or "next".
+ *
+ * A fixed verb from a table this file owns, never a string off the panel --
+ * the same rule proto_send_launch follows with its slot number. The board
+ * cannot name an application or a track, only pick one of three things it was
+ * compiled knowing how to ask for.
+ */
+void proto_send_music(const char *cmd);
+
 #endif /* PROTO_H */

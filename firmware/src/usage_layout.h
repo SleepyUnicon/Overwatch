@@ -50,7 +50,7 @@
 #define TITLE_Y			6
 #define HDR_ROW_Y		8
 #define DOT_SZ			12
-#define BRAND_TEXT		"BLINK"
+#define BRAND_TEXT		"OVERWATCH"
 /*
  * How wide BRAND_TEXT actually draws, because the pip row to its left is
  * positioned against it and a guess is not good enough.
@@ -66,7 +66,14 @@
  * pip row's clearance, which is why this is now a constant the layout test
  * asserts rather than prose nobody re-derives.
  */
-#define BRAND_W			52
+/* OVERWATCH, not BLINK, so this is no longer the hand-summed 52 the comment
+ * above derives. 110 is measured off a render rather than added up from the
+ * font's advance table - it is nine glyphs instead of five and the arithmetic
+ * stopped being worth trusting. Its only consumer is the layout host test's
+ * model of the brand's box; the firmware positions the label by centring it,
+ * not by this. Conservative on purpose: too wide only makes the test stricter
+ * about the pip row's clearance. */
+#define BRAND_W			110
 
 /*
  * The clock sits under the brand, and it does NOT own a row of its own.
@@ -238,9 +245,32 @@
  */
 
 /* The two arcs. */
-#define GAUGE_CX		80
-#define GAUGE_ARC_Y		44
-#define GAUGE_ARC_SZ		120
+/*
+ * Pulled in from 80 so the side arrows have room to exist.
+ *
+ * At 80 with a 120 px arc the two dials spanned x=20..140 and 180..300, which
+ * left 20 px of margin either side -- and the left and right hit strips are
+ * 44 wide (ui_settings.c mk_edge_zone). The arrows were drawn ON the dials.
+ * 64 with a 100 px arc spans 46..146 and 174..274, so each edge keeps 46 px
+ * clear: the strip fits with 2 px to spare.
+ */
+#define GAUGE_CX		64
+/*
+ * Centred in the band that is actually free, not in the screen.
+ *
+ * At 44 the arcs ran 44..144 and left 66 px of nothing between them and the
+ * face cue -- the dials read as pinned to the top, which is what was
+ * reported. The header ends at 40 (STATUS_Y 24 plus a 16 px line) and the
+ * face box starts at 210, so the free band is 40..210 and its middle is 125.
+ * A 100 px arc centred there starts at 75 and leaves 35 px clear above and
+ * below, which is the same gap top and bottom.
+ *
+ * It also lands the arc's middle within 5 px of the side cues, which sit at
+ * LV_ALIGN_*_MID and so at y=120. Those read as a row with the dials now
+ * rather than floating below them.
+ */
+#define GAUGE_ARC_Y		75
+#define GAUGE_ARC_SZ		100
 /*
  * Centred on the ring, not offset from its top.
  *
@@ -252,7 +282,21 @@
  * can actually see, and writing it as this expression means the label
  * follows automatically if the ring's size or position ever changes again.
  */
-#define GAUGE_PCT_Y		(GAUGE_ARC_Y + (GAUGE_ARC_SZ - GAUGE_PCT_FONT_H) / 2)
+/*
+ * Unit over percentage, both INSIDE the ring.
+ *
+ * The caption used to sit below the arc ("SESSION 5h") with the countdown
+ * under that, which spent two lines of screen on saying what the ring already
+ * implied and left the ring itself empty apart from a number with no unit.
+ * Stacking them puts the whole fact in one place: 5h, then 2%.
+ *
+ * The arc runs GAUGE_ARC_Y..+GAUGE_ARC_SZ, so 75..175 and its middle is 125.
+ * The unit is a 16 px line at 107 and the percentage a 22 px one at 123, so
+ * the pair occupies 107..145 and centres on 126 -- one pixel low, which is
+ * the right way to miss: the ring's gap is at the bottom.
+ */
+#define GAUGE_UNIT_Y		(GAUGE_ARC_Y + 32)
+#define GAUGE_PCT_Y		(GAUGE_ARC_Y + 48)
 /*
  * The ring's own hollow (GAUGE_ARC_SZ minus the stroke on both sides), not a
  * guess -- this used to just equal that by coincidence (96 = 120 - 2*12

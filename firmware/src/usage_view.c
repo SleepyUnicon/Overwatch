@@ -14,13 +14,14 @@
 #include "fmt.h"
 #include "usage_state.h"
 #include "cfg_store.h"
+#include "ui_theme.h"
 
 /* Severity colours: green under 60%, amber approaching, red near the limit. */
-#define COL_BG		lv_color_hex(0x0E1116)
-#define COL_PANEL	lv_color_hex(0x05070A)
-#define COL_TRACK	lv_color_hex(0x272C34)
-#define COL_TEXT	lv_color_hex(0xE6E8EB)
-#define COL_DIM		lv_color_hex(0x8A9199)
+#define COL_BG	lv_color_hex(ui_theme()->bg)	/* plain white ground */
+#define COL_PANEL	lv_color_hex(ui_theme()->panel)	/* cards, barely off the ground */
+#define COL_TRACK	lv_color_hex(ui_theme()->track)	/* the unfilled arc */
+#define COL_TEXT	lv_color_hex(ui_theme()->text)	/* near-black ink, 18.5:1 on white */
+#define COL_DIM	lv_color_hex(ui_theme()->dim)	/* secondary ink, 5.98:1 */
 /*
  * The severity ramp: green, amber, red -- and all three sit inside a 1.16x
  * luminance band on purpose.
@@ -58,15 +59,15 @@
  * panel actually shows -- see tests/usage_contrast, where computing contrast
  * for a colour the hardware cannot display was the gap that let this ship.
  */
-#define COL_GREEN	lv_color_hex(0x0DA243)
-#define COL_GREEN_INK	lv_color_hex(0x06210F)
-#define COL_AMBER	lv_color_hex(0xBA8107)
-#define COL_RED		lv_color_hex(0xFF1900)
+#define COL_GREEN	lv_color_hex(ui_theme()->green)	/* 5.46:1 - white gives the severity ramp room the orange never could */
+#define COL_GREEN_INK	lv_color_hex(ui_theme()->green_ink)
+#define COL_AMBER	lv_color_hex(ui_theme()->amber)	/* 5.93:1 */
+#define COL_RED	lv_color_hex(ui_theme()->red)	/* 6.15:1 */
 /* 3.91:1 against the background. Was #555B63 at 2.76:1, which is under the
  * 3:1 minimum for a graphic element -- and these are the swipe chevrons, which
  * exist only because nobody discovered the gestures without them. An
  * affordance too dim to notice is not an affordance. */
-#define COL_GREY	lv_color_hex(0x6B7280)
+#define COL_GREY	lv_color_hex(ui_theme()->grey)	/* 3.99:1 */
 
 /*
  * Provider identity colours.
@@ -87,7 +88,7 @@
  * band, still 1.56:1 apart from each other so the pair survives for anyone who
  * cannot resolve the hue difference.
  */
-#define COL_OTHER	lv_color_hex(0x4387DF)	/* anything else: a cool blue */
+#define COL_OTHER	lv_color_hex(ui_theme()->other)	/* anything else: a cool blue */
 
 struct gauge {
 	lv_obj_t *arc;
@@ -457,7 +458,9 @@ static void build_gauge(struct gauge *g, lv_obj_t *parent, lv_coord_t cx,
 	g->name = lv_label_create(parent);
 	lv_label_set_text(g->name, title);
 	lv_obj_set_style_text_color(g->name, COL_DIM, 0);
-	lv_obj_align(g->name, LV_ALIGN_TOP_MID, cx, GAUGE_NAME_Y);
+	lv_obj_set_width(g->name, GAUGE_PCT_MAX_W);
+	lv_obj_set_style_text_align(g->name, LV_TEXT_ALIGN_CENTER, 0);
+	lv_obj_align(g->name, LV_ALIGN_TOP_MID, cx, GAUGE_UNIT_Y);
 
 	/* The inner ring's own figure, small and dim under the countdown. The
 	 * primary provider keeps the big number; this one is there to be
@@ -473,6 +476,14 @@ static void build_gauge(struct gauge *g, lv_obj_t *parent, lv_coord_t cx,
 	lv_obj_set_width(g->countdown, GAUGE_CD_MAX_W);
 	lv_obj_set_style_text_align(g->countdown, LV_TEXT_ALIGN_CENTER, 0);
 	lv_obj_align(g->countdown, LV_ALIGN_TOP_MID, cx, GAUGE_CD_Y);
+	/*
+	 * Hidden, not deleted. render_countdown() and the usage setters go on
+	 * writing to it every second from several places; deleting it would
+	 * mean a NULL check at each one, and the object costs less than the
+	 * chance of missing one. What it showed -- "--" until a reset time
+	 * arrives -- was the row under the caption that was asked to go.
+	 */
+	lv_obj_add_flag(g->countdown, LV_OBJ_FLAG_HIDDEN);
 
 }
 
@@ -507,7 +518,7 @@ static void render_countdown(struct gauge *g)
 
 #if HAVE_PER_MODEL
 static const char *const sel_name[PEEK_ROWS] = {
-	"WEEKLY 7d", "WEEKLY FABLE",
+	"7d", "FABLE",
 };
 static const char *const sel_label[PEEK_ROWS] = { "All models", "Fable" };
 
@@ -532,7 +543,7 @@ static void render_weekly(void)
 	 * the number under it. */
 	double pct = last_w_pct;
 
-	lv_label_set_text(weekly.name, "WEEKLY 7d");
+	lv_label_set_text(weekly.name, "7d");
 #endif
 	if (pct < 0) {
 		lv_label_set_text(weekly.pct, "--%");
@@ -606,6 +617,60 @@ static void peek_scrim_cb(lv_event_t *e)
 #endif /* HAVE_PER_MODEL */
 
 
+/*
+ * The bottom edge's cue: a face, drawn rather than written.
+ *
+ * It said "FACE" in words, which was honest and looked like a label for the
+ * countdown above it rather than a control. There is no face glyph in the
+ * Montserrat build LVGL ships, so this is three primitives -- two eyes and a
+ * mouth -- in a 40x26 container that keeps them positioned relative to each
+ * other instead of to the screen.
+ *
+ * The mouth is an arc with its lower half swept (30..150 degrees, where 0 is
+ * east and angles run clockwise), which reads as a smile at this size where a
+ * straight bar reads as a dash. Everything is COL_GREY, the same weight as
+ * the other three cues: these point at somewhere to go, and none of them is
+ * more important than the gauges they sit around.
+ */
+static void build_face_cue(lv_obj_t *scr)
+{
+	lv_obj_t *box = lv_obj_create(scr);
+
+	lv_obj_set_size(box, 28, 18);
+	lv_obj_align(box, LV_ALIGN_BOTTOM_MID, 0, -2);
+	lv_obj_set_style_bg_opa(box, LV_OPA_TRANSP, 0);
+	lv_obj_set_style_border_width(box, 0, 0);
+	lv_obj_set_style_pad_all(box, 0, 0);
+	lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+	/* Not clickable, like the other cues: the invisible 200x40 strip
+	 * ui_settings.c puts here is the control, and it is far larger. */
+	lv_obj_clear_flag(box, LV_OBJ_FLAG_CLICKABLE);
+
+	for (int i = 0; i < 2; i++) {
+		lv_obj_t *eye = lv_obj_create(box);
+
+		lv_obj_set_size(eye, 3, 3);
+		lv_obj_set_style_radius(eye, LV_RADIUS_CIRCLE, 0);
+		lv_obj_set_style_bg_color(eye, COL_GREY, 0);
+		lv_obj_set_style_bg_opa(eye, LV_OPA_COVER, 0);
+		lv_obj_set_style_border_width(eye, 0, 0);
+		lv_obj_clear_flag(eye, LV_OBJ_FLAG_SCROLLABLE);
+		lv_obj_align(eye, LV_ALIGN_TOP_MID, i == 0 ? -5 : 5, 2);
+	}
+
+	lv_obj_t *mouth = lv_arc_create(box);
+
+	lv_obj_set_size(mouth, 15, 15);
+	lv_obj_align(mouth, LV_ALIGN_TOP_MID, 0, 1);
+	lv_arc_set_bg_angles(mouth, 30, 150);
+	lv_arc_set_angles(mouth, 30, 150);
+	lv_obj_set_style_arc_color(mouth, COL_GREY, LV_PART_MAIN);
+	lv_obj_set_style_arc_width(mouth, 2, LV_PART_MAIN);
+	lv_obj_set_style_arc_opa(mouth, LV_OPA_TRANSP, LV_PART_INDICATOR);
+	lv_obj_remove_style(mouth, NULL, LV_PART_KNOB);
+	lv_obj_clear_flag(mouth, LV_OBJ_FLAG_CLICKABLE);
+}
+
 static lv_obj_t *gauge_scr;
 
 void usage_view_deinit(void)
@@ -675,15 +740,22 @@ void usage_view_init(void)
 	lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 	lv_scr_load(scr);
 
-	/* Header: brand dead-center, quiet data in the corners -- clock left,
-	 * age + dot right, everything at the same small size (the 20 px clock
-	 * shouted over the gauges; user feedback 2026-07-16). */
+	/*
+	 * Header: brand to the RIGHT, quiet data left, the settings gear dead
+	 * centre. The brand had the middle and the middle is now the only
+	 * place a top affordance can go -- an arrow at TOP_MID landed on top
+	 * of the word, which is the overlap that was reported.
+	 *
+	 * -30 rather than -12: the status dot already sits 12 px in and is 12
+	 * wide, so this clears it by 6. Letter spacing drops 2 -> 1 to buy
+	 * that back, keeping the word clear of the pip wall at x=130.
+	 */
 	lv_obj_t *title = lv_label_create(scr);
 
 	lv_label_set_text(title, BRAND_TEXT);
 	lv_obj_set_style_text_color(title, COL_DIM, 0);
-	lv_obj_set_style_text_letter_space(title, 2, 0);
-	lv_obj_align(title, LV_ALIGN_TOP_MID, 0, TITLE_Y);
+	lv_obj_set_style_text_letter_space(title, 1, 0);
+	lv_obj_align(title, LV_ALIGN_TOP_RIGHT, -30, TITLE_Y);
 
 	dot = lv_obj_create(scr);
 	lv_obj_set_size(dot, DOT_SZ, DOT_SZ);
@@ -759,8 +831,11 @@ void usage_view_init(void)
 	 * Ellipsize rather than wrap. Every string this label held used to be
 	 * a fixed literal that fit, so wrapping was unreachable; a project
 	 * name removes that guarantee, and STATUS_Y (24) plus FONT_LINE_H
-	 * (16) puts a second line at y=40 -- on top of the arcs at
-	 * GAUGE_ARC_Y (44). Same call as provider_lbl.
+	 * (16) puts a second line at y=40. That used to land on the arcs at
+	 * GAUGE_ARC_Y 44; they sit at 75 now, so this has 35 px of slack
+	 * rather than none -- kept anyway, because the slack is a side
+	 * effect of a layout choice and not a promise. Same call as
+	 * provider_lbl.
 	 */
 	lv_label_set_long_mode(hint, LV_LABEL_LONG_DOT);
 	/*
@@ -770,7 +845,7 @@ void usage_view_init(void)
 	 * (the class default, and what this was without this call) grows to
 	 * fit the first over-long string it draws. The very next two-line
 	 * string then measures against that already-grown height, the
-	 * inequality flips, and it wraps onto the arcs at GAUGE_ARC_Y instead
+	 * inequality flips, and it wraps down toward the arcs instead
 	 * of ellipsizing -- the exact failure this label exists to prevent.
 	 * Pinning the height keeps the comparison honest on every redraw, not
 	 * just the first one.
@@ -790,7 +865,9 @@ void usage_view_init(void)
 	age_lbl = lv_label_create(scr);
 	lv_label_set_text(age_lbl, "");
 	lv_obj_set_style_text_color(age_lbl, COL_DIM, 0);
-	lv_obj_align(age_lbl, LV_ALIGN_TOP_RIGHT, -30, HDR_ROW_Y);
+	/* Under the brand, not beside it. This and BRAND_TEXT were both at
+	 * TOP_RIGHT -30 and drew straight through each other. */
+	lv_obj_align(age_lbl, LV_ALIGN_TOP_RIGHT, -12, TITLE_Y + 18);
 
 	/* Wall clock. Blank until a time source and timezone are known -- an
 	 * empty label beats a confidently wrong one. */
@@ -855,25 +932,51 @@ void usage_view_init(void)
 	lv_label_set_long_mode(provider_lbl, LV_LABEL_LONG_DOT);
 	lv_obj_set_style_text_align(provider_lbl, LV_TEXT_ALIGN_CENTER, 0);
 	lv_obj_align(provider_lbl, LV_ALIGN_BOTTOM_MID, 0, -PILL_BOTTOM_OFF);
+	/*
+	 * Hidden by request. docs/multi-provider.md 4b makes this pill the tap
+	 * path to the other provider - "the value IS the control" - so hiding
+	 * it would normally strand the Codex page behind a swipe that lands
+	 * half the time. It does not here: ui_settings.c's mk_page_zone is a
+	 * second, invisible tap target doing the same job, and it stays.
+	 */
+	lv_obj_add_flag(provider_lbl, LV_OBJ_FLAG_HIDDEN);
 
-	build_gauge(&session, scr, -GAUGE_CX, "SESSION 5h");
-	build_gauge(&weekly, scr, GAUGE_CX, "WEEKLY 7d");
+	build_gauge(&session, scr, -GAUGE_CX, "5h");
+	build_gauge(&weekly, scr, GAUGE_CX, "7d");
 
 
-	/* Edge affordances: without them nobody discovers the swipes (user
-	 * feedback 2026-07-16). Right chevron pulls in settings, left one
-	 * plays the boot clip. Labels don't catch input, so swipes starting
-	 * on them still reach the screen. */
-	lv_obj_t *chev = lv_label_create(scr);
+	/*
+	 * Edge affordances: without them nobody discovers the swipes (user
+	 * feedback 2026-07-16, and again 2026-09-23 -- "the user doesnt know
+	 * how to use the thing"). Labels don't catch input, so swipes starting
+	 * on them still reach the screen; the hit areas are the invisible
+	 * strips ui_settings.c puts behind them.
+	 *
+	 * NAMED, not just pointed. Two bare chevrons said "there is something
+	 * that way" and left which way to guess, which is survivable with two
+	 * destinations and is not with four. The side edges are 44 px wide so
+	 * they get an icon; the top and bottom have the room for a word and
+	 * take it, because "SETTINGS" needs no learning and a gear does.
+	 */
+	static const struct {
+		lv_align_t align;
+		int dx, dy;
+		const char *text;
+	} edge[] = {
+		{ LV_ALIGN_LEFT_MID,   6,  0, LV_SYMBOL_AUDIO },
+		{ LV_ALIGN_RIGHT_MID, -6,  0, LV_SYMBOL_LIST },
+		{ LV_ALIGN_TOP_MID,    0,  TITLE_Y, LV_SYMBOL_SETTINGS },
+	};
 
-	lv_label_set_text(chev, LV_SYMBOL_RIGHT);
-	lv_obj_set_style_text_color(chev, COL_GREY, 0);
-	lv_obj_align(chev, LV_ALIGN_RIGHT_MID, -3, 0);
+	for (unsigned int i = 0; i < ARRAY_SIZE(edge); i++) {
+		lv_obj_t *chev = lv_label_create(scr);
 
-	chev = lv_label_create(scr);
-	lv_label_set_text(chev, LV_SYMBOL_LEFT);
-	lv_obj_set_style_text_color(chev, COL_GREY, 0);
-	lv_obj_align(chev, LV_ALIGN_LEFT_MID, 3, 0);
+		lv_label_set_text(chev, edge[i].text);
+		lv_obj_set_style_text_color(chev, COL_GREY, 0);
+		lv_obj_align(chev, edge[i].align, edge[i].dx, edge[i].dy);
+	}
+
+	build_face_cue(scr);
 
 #if HAVE_PER_MODEL
 	/* The peek card, hidden until a long press. Created before the

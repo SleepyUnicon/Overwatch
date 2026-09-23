@@ -25,7 +25,8 @@ import subprocess
 import sys
 import time
 
-from pc import (install_codex_hooks, install_hooks, install_statusline, ota,
+from pc import (install_codex_hooks, install_hooks, install_statusline,
+                macperm, ota,
                 protocol, statusline_source, update, win_driver)
 # Eagerly, unlike the other providers, which are imported inside the functions
 # that use them to keep the frozen binary's start-up cheap. This one costs
@@ -1760,8 +1761,15 @@ def _announce():
 
 
 def _install_steps() -> int:
-    """How many numbered steps `blink install` prints on this platform."""
-    return 6 if sys.platform == "win32" else 5
+    """How many numbered steps `blink install` prints on this platform.
+
+    Five everywhere, plus one platform extra: Windows needs the USB driver,
+    macOS needs the Automation grant. Both are 6 and they are NOT the same
+    step, which is why callers ask sys.platform rather than comparing this
+    number -- that shortcut worked only while Windows was the sole platform
+    with an extra, and would have run the driver step on Macs.
+    """
+    return 5 + (1 if sys.platform in ("win32", "darwin") else 0)
 
 
 def _stepper(total):
@@ -1950,9 +1958,18 @@ def cmd_install(_args) -> int:
     else:
         print(_install_codex_hooks())
 
-    if steps == 6:
+    if sys.platform == "win32":
         step("USB driver")
         print(_install_driver_step())
+
+    if sys.platform == "darwin":
+        # Before the service, deliberately. From here on the daemon runs at
+        # login with nobody watching, and macOS shows the Automation prompt
+        # once to whoever is there. Asking now is the difference between one
+        # click and a launcher that is quietly half-broken forever.
+        step("Automation")
+        print()
+        macperm.preflight()
 
     step("Background service")
     print(_install_service())
@@ -2813,6 +2830,126 @@ def cmd_provision(args) -> int:
     return rc
 
 
+def _kit_image(explicit=None):
+    """Where the merged kit image is, or None.
+
+    Order matters: an explicit path is an instruction, a bundled one is what
+    shipped with this download, and a dist/ build is what a maintainer just
+    made. Newest wins within dist/ so re-running the packager does not leave
+    the previous version to be picked up silently.
+    """
+    if explicit:
+        return explicit if os.path.exists(explicit) else None
+    # Beside the program (a customer's download) and the checkout root
+    # (a maintainer's dist/). Frozen, these are the same place.
+    roots = [os.path.dirname(_self_path()),
+             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))]
+    for root in roots:
+        for sub in ("", "dist"):
+            d = os.path.join(root, sub) if sub else root
+            try:
+                found = [os.path.join(d, n) for n in os.listdir(d)
+                         if n.startswith("overwatch-") and n.endswith(".bin")]
+            except OSError:
+                continue
+            if found:
+                return max(found, key=os.path.getmtime)
+    return None
+
+
+def cmd_flash(args) -> int:
+    """Program a blank board from the merged kit image.
+
+    Separate from `provision` because they are different jobs: provision
+    stamps an edition on a board that already runs, this puts firmware on a
+    chip that has never run anything. A kit builder does this one exactly
+    once, having just finished wiring, and it is the step where a mistake
+    looks identical to a soldering fault -- so it says what it is doing.
+    """
+    from claude_usage_bridge import autodetect_port
+
+    img = _kit_image(getattr(args, "image", None))
+    if not img:
+        print("No firmware image found.", file=sys.stderr)
+        print(file=sys.stderr)
+        print("Expected a file named overwatch-<version>.bin next to this",
+              file=sys.stderr)
+        print("program or in dist/. Pass --image to point at one.",
+              file=sys.stderr)
+        return 1
+
+    port = args.port or autodetect_port()
+    if not port:
+        print("No board found. Plug it in over USB, or pass --port.",
+              file=sys.stderr)
+        return 1
+
+    # The daemon holds the port whenever it is running, and esptool cannot
+    # share it. Same sequence as cmd_provision, and for the same reason: a
+    # flash that silently did nothing because the port was busy is the worst
+    # outcome available here.
+    stopped = False
+    if not _skip_service():
+        _kill_recorded_daemon()
+        try:
+            backend().remove()
+            stopped = os.path.exists(installed_bin())
+        except Exception:
+            pass
+        time.sleep(1.0)
+
+    print("Writing %s" % os.path.basename(img))
+    print("  to %s" % port)
+    print("  This takes a minute or two. The screen stays dark until it is done.")
+    ok, why = ota.flash_image(port, img)
+    print("  %s" % why)
+
+    if stopped:
+        print("Background service ... " + _install_service())
+
+    if not ok:
+        print(file=sys.stderr)
+        print("Nothing on the board was left half-written: esptool verifies",
+              file=sys.stderr)
+        print("what it writes and reports a mismatch rather than a success.",
+              file=sys.stderr)
+        return 1
+
+    print()
+    print("Done. The board reboots on its own and should light up.")
+    print("If it stays dark, re-check the wiring against WIRED.md -- at this")
+    print("point the firmware is verified, so a dark screen is the panel.")
+    return 0
+
+
+def cmd_config(_args) -> int:
+    """Open the launcher's config page in the browser.
+
+    The page is served by the daemon, not by this command: a second server on
+    the same port would fail, and one started here would die with the command
+    that opened it. So this only points a browser at what is already running,
+    and says plainly when nothing is.
+    """
+    import urllib.error
+    import urllib.request
+    import webbrowser
+
+    from pc import webconfig
+
+    try:
+        urllib.request.urlopen(webconfig.URL + "/api/state", timeout=2).read()
+    except (urllib.error.URLError, OSError):
+        print("The config page is not running.")
+        print()
+        print("It comes up with the daemon, so start that first:")
+        print("  %s status     (check it is running)" % installed_bin())
+        return 1
+
+    webbrowser.open(webconfig.URL)
+    print("Opened %s" % webconfig.URL)
+    return 0
+
+
 def cmd_run(args) -> int:
     """The daemon. This is what the login service starts.
 
@@ -2864,6 +3001,13 @@ def main(argv=None) -> int:
     prov_p.add_argument("--port", default=None,
                         help="Serial port (default: find the board)")
     prov_p.add_argument("--baud", type=int, default=115200)
+    flash_p = sub.add_parser(
+        "flash", help="Put firmware on a blank board (kit builders)")
+    flash_p.add_argument("--port", default=None,
+                         help="Serial port (default: find the board)")
+    flash_p.add_argument("--image", default=None,
+                         help="Firmware image (default: the one that shipped)")
+    sub.add_parser("config", help="Choose which apps the launcher shows")
     run_p = sub.add_parser("run", help="Run the bridge in the foreground")
     run_p.add_argument("--port", default=None,
                        help="Serial port (default: find the board)")
@@ -2883,6 +3027,8 @@ def main(argv=None) -> int:
         "update": cmd_update,
         "driver": cmd_driver,
         "provision": cmd_provision,
+        "flash": cmd_flash,
+        "config": cmd_config,
         "run": cmd_run,
     }[args.cmd](args)
 

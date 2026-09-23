@@ -9,6 +9,8 @@
 
 #include "proto.h"
 #include "msg_parse.h"
+#include "ui_launcher.h"
+#include "ui_music.h"
 #include "ota.h"
 #include "version.h"
 #include "cfg_store.h"
@@ -126,6 +128,44 @@ void proto_send_pref(void)
 		 "{\"t\":\"pref\",\"v\":%d,\"provider\":\"%s\"}",
 		 PROTO_VERSION,
 		 cfg_get_main_src() == CFG_MAIN_SRC_CODEX ? "codex" : "claude");
+	emit(buf);
+}
+
+void proto_send_launch(int slot)
+{
+	char buf[64];
+
+	/*
+	 * A slot number, never an app name or a path.
+	 *
+	 * The computer owns the list of what is launchable and the board is
+	 * told only what to draw on the buttons, so nothing the board can say
+	 * names a program. That keeps this message incapable of asking the
+	 * host to run something the host has not already agreed to run -- the
+	 * board is an index into the daemon's own table, not a command line.
+	 *
+	 * It is also 30 bytes against the 512 the line budget allows
+	 * (pc/protocol.py MAX_LINE_BYTES), where a path would be unbounded.
+	 */
+	snprintf(buf, sizeof(buf), "{\"t\":\"launch\",\"v\":%d,\"slot\":%d}",
+		 PROTO_VERSION, slot);
+	emit(buf);
+}
+
+void proto_send_music(const char *cmd)
+{
+	char buf[64];
+
+	/* Whitelisted here rather than trusted from the caller. The callers
+	 * are three lv_event user_data pointers in ui_music.c today, and
+	 * the check costs nothing next to a fourth one arriving later with a
+	 * typo that reaches the customer's Mac as an unknown verb. */
+	if (strcmp(cmd, "play") != 0 && strcmp(cmd, "prev") != 0 &&
+	    strcmp(cmd, "next") != 0) {
+		return;
+	}
+	snprintf(buf, sizeof(buf), "{\"t\":\"music\",\"v\":%d,\"cmd\":\"%s\"}",
+		 PROTO_VERSION, cmd);
 	emit(buf);
 }
 
@@ -530,6 +570,60 @@ static void dispatch(const char *json)
 				printk("[cfg] could not store the edition"
 				       " (%d)\n", rc);
 			}
+		}
+	} else if (strcmp(type, "track") == 0) {
+		char artist[32], name[32], why[48];
+		double state = MUSIC_UNKNOWN, pos = -1, dur = -1;
+
+		/*
+		 * An unavailable player is its own message shape, not an empty
+		 * track. "Spotify is not running" and "macOS refused the
+		 * request" need different cures from the owner, and a page
+		 * showing "--" for both teaches neither.
+		 */
+		if (msg_get_str(json, "why", why, sizeof(why))) {
+			ui_music_set_unavailable(why);
+		} else {
+			if (!msg_get_str(json, "a", artist, sizeof(artist))) {
+				artist[0] = '\0';
+			}
+			if (!msg_get_str(json, "n", name, sizeof(name))) {
+				name[0] = '\0';
+			}
+			num(json, "st", &state, MUSIC_UNKNOWN, 1);
+			num(json, "pos", &pos, -1, 86400);
+			num(json, "dur", &dur, -1, 86400);
+			ui_music_set_track(artist, name, (int)state,
+					     (int)pos, (int)dur);
+		}
+	} else if (strcmp(type, "apps") == 0) {
+		/*
+		 * The button names. Six flat keys rather than an array,
+		 * because msg_parse.c reads flat JSON only -- and a flat
+		 * message is what the 512-byte budget can be reasoned about
+		 * at a glance: six 14-character names is 84 bytes of it.
+		 */
+		for (int i = 0; i < 6; i++) {
+			char key[8], name[16];
+
+			snprintf(key, sizeof(key), "s%d", i);
+			if (msg_get_str(json, key, name, sizeof(name))) {
+				ui_launcher_set_slot(i, name);
+			}
+		}
+	} else if (strcmp(type, "launched") == 0) {
+		double sl = -1;
+		bool ok = false;
+
+		/*
+		 * Absence is not failure. A daemon too old to send `ok` must
+		 * not paint every launch red -- it is the one that has been
+		 * doing this correctly all along. No flag means no claim, so
+		 * the button simply returns to rest on its own timer.
+		 */
+		if (msg_get_double(json, "slot", &sl) &&
+		    msg_get_bool(json, "ok", &ok)) {
+			ui_launcher_result((int)sl, ok);
 		}
 	} else if (strcmp(type, "welcome") == 0) {
 		double hv = 0;

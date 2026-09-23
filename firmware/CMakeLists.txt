@@ -11,6 +11,10 @@ target_sources(app PRIVATE
 	src/proto.c
 	src/msg_parse.c
 	src/usage_view.c
+	src/ui_launcher.c
+	src/ui_music.c
+	src/ui_pages.c
+	src/ui_theme.c
 	src/fmt.c
 	src/cfg_store.c
 	src/net_time.c

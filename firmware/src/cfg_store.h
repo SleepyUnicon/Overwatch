@@ -78,6 +78,10 @@ int cfg_set_main_src(uint8_t src);
 
 /* Screen brightness percent, one of 20/40/60/80/100. Persisted so a reboot
  * keeps it. Returns 100 when never set (a fresh or pre-update device). */
+/* Dark theme. 0/unset is light, which is the default a new board lands on. */
+bool cfg_get_dark(void);
+int cfg_set_dark(bool dark);
+
 uint8_t cfg_get_bright_pct(void);
 int cfg_set_bright_pct(uint8_t pct);
 

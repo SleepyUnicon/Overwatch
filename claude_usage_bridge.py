@@ -19,6 +19,11 @@ from pc import (ingest, install_statusline, logbook, protocol,
                 statusline_source, update, win_driver)
 from pc.version import RELEASE_VERSION
 from pc.bridge import Bridge
+# The widget pages (music transport, app launcher) are a SUBCLASS of Bridge,
+# so everything the plain one does still happens; it only adds handlers for
+# the two messages the board sends that upstream has no opinion about.
+from pc import webconfig
+from pc.widget_bridge import WidgetBridge
 
 POLL_INTERVAL_S = 60
 # How often to LOOK at the local state files. Whether anything is SENT is a
@@ -1121,14 +1126,20 @@ def main(argv=None):
 
         tap, write_msg, dispatch = install_tap(send, dispatch, tap)
 
-        bridge = Bridge(write_msg=write_msg, fetch_usage=fetch,
-                        flash_image=flash_image,
-                        report_failure=report_failure,
-                        set_preferred=bus.set_preferred,
-                        self_update=self_update,
-                        pending=update.PendingFirmware(
-                            os.path.join(blink_home, "pending_fw.json")))
+        bridge = WidgetBridge(write_msg=write_msg, fetch_usage=fetch,
+                              flash_image=flash_image,
+                              report_failure=report_failure,
+                              set_preferred=bus.set_preferred,
+                              self_update=self_update,
+                              pending=update.PendingFirmware(
+                                  os.path.join(blink_home, "pending_fw.json")))
         report_failure = None   # handed to the Bridge above; never repeated
+
+        # The launcher's config page, served for as long as the daemon runs.
+        # Started here rather than in WidgetBridge.__init__ so that building a
+        # bridge in a test does not bind a port -- the daemon is the only
+        # thing that should be listening, and there is exactly one of it.
+        webconfig.serve_background()
         # No reset means no boot `hello`, so nothing would trigger the
         # greeting -- see Bridge.greet.
         if already_running:

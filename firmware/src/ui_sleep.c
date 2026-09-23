@@ -74,6 +74,16 @@ static bool awake_now(void)
 	return woken();
 }
 
+/*
+ * The face page's way out. Deliberately does NOT consult woken(): the user
+ * asked for this screen, so a computer that happens to start talking again
+ * must not yank it away mid-blink. Only a touch ends it.
+ */
+static bool tap_only(void)
+{
+	return tapped;
+}
+
 static bool awake_or_tap(void)
 {
 	return woken() || tapped;
@@ -211,4 +221,14 @@ void ui_sleep_run(bool (*awake)(void), const char *peek_note)
 		usage_view_set_status(USAGE_STATUS_STALE);
 	}
 	lv_refr_now(NULL);
+}
+
+
+void ui_sleep_show_face(void)
+{
+	/* Cleared first: `tapped` is a static that outlives the last doze, and
+	 * a stale one would end this the frame it started -- the face would
+	 * flash and vanish with no way to tell that from a crash. */
+	tapped = false;
+	ui_sleep_run(tap_only, NULL);
 }

@@ -50,3 +50,11 @@ bridge.pid
 # clean tree look dirty -- which is exactly how a real uncommitted change goes
 # unnoticed.
 .DS_Store
+
+# Blender OUTPUT, not source. 16 MB of MP4s and 2 MB posters that
+# reveal/scene.py regenerates on demand; git would carry every revision of
+# every one of them forever. The scene scripts are tracked, the renders are
+# not -- they belong on a release, if anywhere.
+reveal/*.mp4
+reveal/poster_*.png
+reveal/frames/

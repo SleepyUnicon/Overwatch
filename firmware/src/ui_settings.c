@@ -36,18 +36,21 @@
 #include "upd_prompt.h"
 #include "upd_row.h"
 #include "usage_view.h"
+#include "ui_pages.h"
+#include "ui_sleep.h"
+#include "ui_theme.h"
 
-#define COL_BG		lv_color_hex(0x0E1116)
-#define COL_TRACK	lv_color_hex(0x272C34)
-#define COL_TEXT	lv_color_hex(0xE6E8EB)
-#define COL_DIM		lv_color_hex(0x8A9199)
-#define COL_RED		lv_color_hex(0xE74C3C)
-#define COL_GREEN	lv_color_hex(0x2ECC71)
-#define COL_AMBER	lv_color_hex(0xF1C40F)
-#define COL_PANEL	lv_color_hex(0x161A20)	/* card fill, sits above COL_BG */
-#define COL_LINE	lv_color_hex(0x20252D)	/* the full-width section rules */
-#define COL_DANGER_BG	lv_color_hex(0x1E1412)	/* factory tile: red-tinted, not solid red */
-#define COL_DANGER_BD	lv_color_hex(0x7A2B23)
+#define COL_BG	lv_color_hex(ui_theme()->bg)
+#define COL_TRACK	lv_color_hex(ui_theme()->track)
+#define COL_TEXT	lv_color_hex(ui_theme()->text)
+#define COL_DIM	lv_color_hex(ui_theme()->dim)
+#define COL_RED	lv_color_hex(ui_theme()->red)
+#define COL_GREEN	lv_color_hex(ui_theme()->green)
+#define COL_AMBER	lv_color_hex(ui_theme()->amber)
+#define COL_PANEL	lv_color_hex(ui_theme()->panel)	/* card fill, sits above COL_BG */
+#define COL_LINE	lv_color_hex(ui_theme()->line)	/* the full-width section rules */
+#define COL_DANGER_BG	lv_color_hex(ui_theme()->danger_bg)	/* factory tile: red-tinted, not solid red */
+#define COL_DANGER_BD	lv_color_hex(ui_theme()->danger_bd)
 
 /*
  * Destructive actions -- and the confirm-then-reboot machinery behind them --
@@ -1466,6 +1469,13 @@ static volatile bool want_open;
  */
 static volatile int want_page;
 static volatile bool want_close;
+/*
+ * A pending move across the cross, UI_DIR_* + 1 so that 0 stays "nothing
+ * asked". Same latch discipline as want_open: the gesture raises it and
+ * ui_settings_service() runs it from thread context.
+ */
+static volatile int want_move;
+static volatile bool want_face;	/* the face page, played by the mode loop */
 
 #if !IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
 /* The shipped panel's furniture: a back control, a list row, and the
@@ -1642,6 +1652,35 @@ static void bright_stop_cb(lv_event_t *e)
 	bright_refresh();
 }
 
+static lv_obj_t *theme_btn;
+static lv_obj_t *theme_lbl;
+
+static void theme_refresh(void)
+{
+	if (theme_lbl == NULL) {
+		return;
+	}
+	/* Names the CURRENT state, not the action. A button that says "Dark"
+	 * while the screen is light is read both ways by different people;
+	 * "Theme: Light" is only read one way. */
+	lv_label_set_text(theme_lbl, ui_theme_is_dark() ? "Theme: Dark"
+							: "Theme: Light");
+}
+
+static void theme_cb(lv_event_t *e)
+{
+	ARG_UNUSED(e);
+
+	/*
+	 * Flips and persists here; the REPAINT is the mode loop's, via
+	 * ui_theme_rebuild_pending(). Rebuilding from inside this callback
+	 * would delete the screen LVGL is dispatching the click on.
+	 */
+	if (ui_theme_set_dark(!ui_theme_is_dark())) {
+		theme_refresh();
+	}
+}
+
 static void show_bright(lv_event_t *e)
 {
 	ARG_UNUSED(e);
@@ -1696,11 +1735,42 @@ static void show_bright(lv_event_t *e)
 				    (void *)(intptr_t)lvl);
 	}
 
-	lv_obj_t *hint = lv_label_create(bright_ov);
+	/*
+	 * The theme toggle, in the band the "Tap a level" hint had.
+	 *
+	 * Here rather than as a third row in the settings list because there
+	 * is no room for one: the two rows end at 176 and the version footer
+	 * starts at 192. And here rather than anywhere else because this is
+	 * already the display screen -- brightness and theme are the two
+	 * things you come to it for, and someone hunting for one will find
+	 * the other without being told.
+	 *
+	 * The hint it replaces said "Tap a level" above five stops that are
+	 * 56 x 116 and already painted to show which one is current. It was
+	 * the most disposable thing on the screen.
+	 *
+	 * 200 x 28 is under the 72 x 48 floor in height and nearly three
+	 * times over it in width. That is the same trade the home strip in
+	 * ui_pages.c makes, for the same reason -- the misses that matter on
+	 * this panel are horizontal -- and this is a control you touch once.
+	 */
+	theme_btn = lv_btn_create(bright_ov);
+	lv_obj_set_size(theme_btn, 200, 28);
+	lv_obj_align(theme_btn, LV_ALIGN_TOP_MID, 0, 206);
+	lv_obj_set_style_bg_color(theme_btn, COL_PANEL, 0);
+	lv_obj_set_style_bg_opa(theme_btn, LV_OPA_COVER, 0);
+	lv_obj_set_style_border_color(theme_btn, COL_TRACK, 0);
+	lv_obj_set_style_border_width(theme_btn, 1, 0);
+	lv_obj_set_style_radius(theme_btn, 8, 0);
+	lv_obj_set_style_shadow_width(theme_btn, 0, 0);
+	lv_obj_clear_flag(theme_btn, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_clear_flag(theme_btn, LV_OBJ_FLAG_GESTURE_BUBBLE);
+	lv_obj_add_event_cb(theme_btn, theme_cb, LV_EVENT_CLICKED, NULL);
 
-	lv_label_set_text(hint, "Tap a level");
-	lv_obj_set_style_text_color(hint, COL_DIM, 0);
-	lv_obj_align(hint, LV_ALIGN_TOP_MID, 0, 210);
+	theme_lbl = lv_label_create(theme_btn);
+	lv_obj_set_style_text_color(theme_lbl, COL_TEXT, 0);
+	lv_obj_center(theme_lbl);
+	theme_refresh();
 
 	bright_refresh();	/* paints the stops and the readout */
 }
@@ -1771,6 +1841,16 @@ static void do_page(int delta, void (*pump)(void))
 {
 	ARG_UNUSED(pump);
 
+	/*
+	 * Straight at usage_view: this is the PROVIDER step and nothing else.
+	 *
+	 * It used to go through ui_pages_step(), which walked the providers
+	 * first and then continued into a one-line stack of widget pages. The
+	 * stack is a cross now (ui_pages.h) and the widget pages are reached
+	 * sideways, so the only thing left on this path is the thing it was
+	 * originally for. Everything below about the mute still applies -- a
+	 * page change is still an animation that blocks nothing.
+	 */
 	usage_view_page_step(delta);
 
 	/*
@@ -1856,6 +1936,8 @@ void ui_settings_drop_pending(void)
 	want_open = false;
 	want_close = false;
 	want_page = 0;
+	want_move = 0;
+	want_face = false;
 	closing = false;
 }
 
@@ -1875,7 +1957,8 @@ void ui_settings_drop_pending(void)
  */
 bool ui_settings_busy(void)
 {
-	return panel != NULL || want_open || want_close || want_page != 0;
+	return panel != NULL || want_open || want_close || want_page != 0 ||
+	       want_move != 0 || want_face;
 }
 
 void ui_settings_service(void (*pump)(void))
@@ -1901,10 +1984,32 @@ void ui_settings_service(void (*pump)(void))
 		if (usage_view_can_page(step)) {
 			do_page(step, pump);
 		}
+	} else if (want_move != 0 && panel == NULL) {
+		enum ui_dir d = (enum ui_dir)(want_move - 1);
+
+		want_move = 0;
+		/*
+		 * Re-asked here, not trusted from the gesture. The flag was
+		 * raised when the stroke landed and the mode loop runs later;
+		 * ui_pages_home() can have happened in between (the doze path
+		 * calls it), which would turn a "back to centre" into a move
+		 * out to a page the user never asked for.
+		 */
+		if (ui_pages_would(d) == UI_MOVE_DONE) {
+			(void)ui_pages_go(d);
+		}
+	} else if (want_face && panel == NULL) {
+		want_face = false;
+		/* The face owns the screen until a touch, so it is run last
+		 * and only with nothing else pending. */
+		ui_sleep_show_face();
+		ui_pages_home();
 	}
 	want_open = false;
 	want_close = false;
 	want_page = 0;
+	want_move = 0;
+	want_face = false;
 }
 
 static void close_panel(void)
@@ -2191,7 +2296,7 @@ static void build_panel(lv_obj_t *parent_scr)
 		char ssid_a[CFG_SSID_MAX];
 
 		fmt_ascii(ssid, ssid_a, sizeof(ssid_a));
-		snprintf(line, sizeof(line), "Blink %s  |  %.20s",
+		snprintf(line, sizeof(line), "Overwatch %s  |  %.20s",
 			 BLINK_FW_VERSION, ssid_a);
 	} else
 	{
@@ -2204,10 +2309,10 @@ static void build_panel(lv_obj_t *parent_scr)
 		 * `else` only exists in a WiFi build, and an `else if` here
 		 * left the USB build with an else and no if. */
 		if (proto_host_version()[0]) {
-			snprintf(line, sizeof(line), "Blink %s  |  App %s",
+			snprintf(line, sizeof(line), "Overwatch %s  |  App %s",
 				 BLINK_FW_VERSION, proto_host_version());
 		} else {
-			snprintf(line, sizeof(line), "Blink %s",
+			snprintf(line, sizeof(line), "Overwatch %s",
 				 BLINK_FW_VERSION);
 		}
 	}
@@ -2298,7 +2403,7 @@ BUILD_ASSERT(FOOT_Y2 + 16 <= 240,
 	char sub[56];
 
 	snprintf(sub, sizeof(sub), "%d%%", backlight_get());
-	mk_row(panel, ROW_TOP, ROW_H, "Brightness", sub, false, show_bright, NULL,
+	mk_row(panel, ROW_TOP, ROW_H, "Display", sub, false, show_bright, NULL,
 	       &pct_lbl);
 
 	/*
@@ -2333,10 +2438,10 @@ BUILD_ASSERT(FOOT_Y2 + 16 <= 240,
 	lv_obj_t *ver = lv_label_create(panel);
 
 	if (proto_host_version()[0]) {
-		snprintf(sub, sizeof(sub), "Blink %s  |  App %s",
+		snprintf(sub, sizeof(sub), "Overwatch %s  |  App %s",
 			 BLINK_FW_VERSION, proto_host_version());
 	} else {
-		snprintf(sub, sizeof(sub), "Blink %s", BLINK_FW_VERSION);
+		snprintf(sub, sizeof(sub), "Overwatch %s", BLINK_FW_VERSION);
 	}
 	lv_label_set_text(ver, sub);
 	lv_obj_set_style_text_color(ver, COL_DIM, 0);
@@ -2451,7 +2556,36 @@ static void swipe_cb(enum ui_swipe_dir dir)
 	if (ui_anim_gesture_muted()) {
 		return;	/* the swipe that just closed the clip, replayed */
 	}
-	if (dir == UI_SWIPE_LEFT) {
+	/*
+	 * The cross. ui_pages_would() decides what a direction MEANS from
+	 * wherever we are -- including "nothing", which is three of the four
+	 * once you are off the centre.
+	 *
+	 * Asked before anything is flagged, for the reason the vertical
+	 * branch it replaces gave: arming a transition that cannot move is
+	 * 650 ms of frozen panel for nothing.
+	 */
+	enum ui_dir d;
+
+	switch (dir) {
+	case UI_SWIPE_LEFT:
+		d = UI_DIR_LEFT;
+		break;
+	case UI_SWIPE_RIGHT:
+		d = UI_DIR_RIGHT;
+		break;
+	case UI_SWIPE_UP:
+		d = UI_DIR_UP;
+		break;
+	case UI_SWIPE_DOWN:
+		d = UI_DIR_DOWN;
+		break;
+	default:
+		return;
+	}
+
+	switch (ui_pages_would(d)) {
+	case UI_MOVE_SETTINGS:
 		/* Not off the CONNECTING screen. A swipe is the ACCIDENTAL
 		 * route -- see the edge zones below, which stay open on
 		 * purpose. */
@@ -2459,58 +2593,15 @@ static void swipe_cb(enum ui_swipe_dir dir)
 			return;
 		}
 		want_open = true;	/* run from the mode loop; see do_open */
-	} else if (dir == UI_SWIPE_RIGHT) {
-		/* The left chevron's promise: the boot clip on loop. Only
-		 * flagged here -- the mode loop runs the player from thread
-		 * context, never from inside an LVGL event. */
-		ui_anim_request();
-	} else if (dir == UI_SWIPE_UP || dir == UI_SWIPE_DOWN) {
-		/*
-		 * The provider stack. Content follows the finger, the way a
-		 * list does: swiping UP pulls the next page in from below.
-		 *
-		 * Flagged for the mode loop like the two above, and for the
-		 * same reason: this became a wipe transition when the cut was
-		 * judged not to read as a swipe, and ui_slide_run() owns
-		 * lv_refr_now() and cannot be re-entered from inside
-		 * lv_timer_handler(). It used to run right here, back when a
-		 * page change was one repaint.
-		 *
-		 * Asked BEFORE flagging, not after: arming a transition that
-		 * cannot move is 650 ms of frozen panel for nothing, and with
-		 * one provider reporting -- or during the CONNECTING takeover,
-		 * where there is no data and so only one page -- that is every
-		 * vertical swipe there is.
-		 */
-		int step = (dir == UI_SWIPE_UP) ? 1 : -1;
-
-		/*
-		 * At the end of the stack, a vertical swipe goes the only way
-		 * it can.
-		 *
-		 * Up is "next" because content follows the finger, and that is
-		 * a defensible model right up until someone uses it. Across
-		 * three builds on 2026-08-27 every vertical stroke the user
-		 * made went DOWN -- including after the cue was corrected to
-		 * point up -- and on page 0 down asks for a page that does not
-		 * exist, so nothing happened, six times.
-		 *
-		 * The device has TWO pages. "Which direction is forwards" is a
-		 * question a two-item stack does not really have, and the ask
-		 * was "a swipe down/up will switch the mode", not "a swipe up
-		 * advances an ordered list". So when the requested direction
-		 * has nowhere to go and the other one does, take the other one.
-		 *
-		 * This is not a wrap. In the middle of a longer stack both
-		 * directions are available and each still does its own thing;
-		 * only an end, where one of them is dead, hands over.
-		 */
-		if (!usage_view_can_page(step) && usage_view_can_page(-step)) {
-			step = -step;
-		}
-		if (usage_view_can_page(step)) {
-			want_page = step;
-		}
+		break;
+	case UI_MOVE_FACE:
+		want_face = true;
+		break;
+	case UI_MOVE_DONE:
+		want_move = (int)d + 1;
+		break;
+	default:
+		break;		/* nothing that way; the panel does not twitch */
 	}
 }
 
@@ -2592,100 +2683,63 @@ static bool zone_was_a_tap(void)
 	       !ui_swipe_dragging();
 }
 
-static void zone_settings_cb(lv_event_t *e)
-{
-	ARG_UNUSED(e);
-	if (zone_was_a_tap()) {
-		want_open = true;
-	}
-}
-
-static void zone_anim_cb(lv_event_t *e)
-{
-	ARG_UNUSED(e);
-	if (zone_was_a_tap()) {
-		ui_anim_request();
-	}
-}
-
 /*
- * Tapping the rail changes page, which is what makes up/down as reliable as
- * left/right finally are.
- *
- * The two horizontal gestures have had a tap path since the beginning: a
- * chevron drawn at each edge with an invisible 44x150 zone behind it. That is
- * the ONLY reason they feel dependable -- measured on 2026-08-28 they miss at
- * about the same rate as the vertical one (a 32 px horizontal stroke was
- * refused in the same session that refused 17, 19 and 22 px vertical ones).
- * The difference is that a missed horizontal swipe leaves a chevron to press,
- * and a missed vertical one left nothing at all, so every miss was a dead end.
- *
- * A resistive panel is good at presses and bad at slides, and that is not
- * something thresholds can fix: every reliability problem in this file's
- * history traced to contact pressure breaking under a MOVING finger. The swipe
- * stays, because it works for a committed stroke and it is the faster way once
- * you know it. It is just no longer the only way.
- *
- * No new furniture. The zone sits over the band the rail and the provider name
- * already occupy, so what you press is what was already telling you there was
- * somewhere to go -- exactly the arrangement the edge chevrons have, where the
- * drawn thing is the affordance and the hit area is invisible and much larger
- * than it.
- *
- * 200 x 44 is 35.6 x 7.8 mm. Wider than it looks like it needs to be because
- * the thing being aimed at is 6 px tall, and the cost of overshooting is
- * nothing: below the countdowns there is only this.
+ * One callback per direction, each asking ui_pages_would() the same question
+ * the swipe asks. That is the point: a tap and a stroke in the same direction
+ * cannot disagree about where they go, because neither of them decides.
  */
-#define PAGE_ZONE_W	200
-#define PAGE_ZONE_H	44
-
-static void zone_page_cb(lv_event_t *e)
+static void zone_dir_cb(lv_event_t *e)
 {
-	ARG_UNUSED(e);
+	enum ui_dir d = (enum ui_dir)(intptr_t)lv_event_get_user_data(e);
 
 	if (!zone_was_a_tap()) {
 		return;
 	}
-	/*
-	 * Same end-of-stack rule as the swipe, so the two controls cannot
-	 * disagree about where a tap goes: try forwards, and take backwards if
-	 * forwards has nowhere to go. With two pages that is simply "the other
-	 * one".
-	 */
-	if (usage_view_can_page(1)) {
-		want_page = 1;
-	} else if (usage_view_can_page(-1)) {
-		want_page = -1;
+	switch (ui_pages_would(d)) {
+	case UI_MOVE_SETTINGS:
+		want_open = true;
+		break;
+	case UI_MOVE_FACE:
+		want_face = true;
+		break;
+	case UI_MOVE_DONE:
+		want_move = (int)d + 1;
+		break;
+	default:
+		break;
 	}
 }
 
-static void mk_page_zone(lv_obj_t *scr)
+/*
+ * The provider step used to live here, as a 200x44 tap strip along the bottom
+ * plus the vertical swipe. Both are gone: the cross needs down for the face
+ * (see mk_edge_zone's callers) and up for settings, and the strip's band went
+ * with them.
+ *
+ * IT HAS NO CONTROL AT ALL RIGHT NOW. The plan was a row in the settings
+ * list; there is no room for one (two rows end at 176, the version footer
+ * starts at 192) and the display screen's spare band went to the theme
+ * toggle. do_page() and want_page survive below, wired to nothing.
+ *
+ * What that costs: on a machine reporting ONE provider it costs nothing, and
+ * usage_view_can_page() already returned false there. On a machine running
+ * Claude and Codex both, the second provider is now unreachable from the
+ * panel. Whoever picks this up should either make the settings list scroll,
+ * or hang the step off a long-press on the centre page -- the gesture the
+ * peek card already uses and the only spare one left.
+ */
+static void mk_edge_zone(lv_obj_t *scr, lv_align_t align, enum ui_dir d,
+			 int w, int h)
 {
 	lv_obj_t *z = lv_btn_create(scr);
 
-	lv_obj_set_size(z, PAGE_ZONE_W, PAGE_ZONE_H);
-	lv_obj_set_style_bg_opa(z, LV_OPA_TRANSP, 0);
-	lv_obj_set_style_shadow_width(z, 0, 0);
-	lv_obj_align(z, LV_ALIGN_BOTTOM_MID, 0, 0);
-	/* A swipe that starts here must still reach the screen, or putting a
-	 * target under the rail would kill the gesture it is meant to back up. */
-	lv_obj_add_flag(z, LV_OBJ_FLAG_GESTURE_BUBBLE);
-	lv_obj_add_event_cb(z, zone_page_cb, LV_EVENT_CLICKED, NULL);
-	/* Behind everything: it is a hit area, not a surface, and the rail and
-	 * the name have to keep drawing over it. */
-	lv_obj_move_background(z);
-}
-
-static void mk_edge_zone(lv_obj_t *scr, lv_align_t align, lv_event_cb_t cb)
-{
-	lv_obj_t *z = lv_btn_create(scr);
-
-	lv_obj_set_size(z, 44, 150);
+	lv_obj_set_size(z, w, h);
 	lv_obj_set_style_bg_opa(z, LV_OPA_TRANSP, 0);
 	lv_obj_set_style_shadow_width(z, 0, 0);
 	lv_obj_align(z, align, 0, 0);
 	lv_obj_add_flag(z, LV_OBJ_FLAG_GESTURE_BUBBLE);
-	lv_obj_add_event_cb(z, cb, LV_EVENT_CLICKED, NULL);
+	lv_obj_add_event_cb(z, zone_dir_cb, LV_EVENT_CLICKED,
+			    (void *)(intptr_t)d);
 }
 
 /*
@@ -2741,9 +2795,31 @@ void ui_settings_attach(lv_obj_t *scr)
 	 * back together.
 	 */
 	ui_swipe_init(swipe_cb, swipe_progress_cb);
-	mk_edge_zone(scr, LV_ALIGN_RIGHT_MID, zone_settings_cb);
-	mk_edge_zone(scr, LV_ALIGN_LEFT_MID, zone_anim_cb);
-	mk_page_zone(scr);
+	/*
+	 * Four edges, one per direction. The side strips keep the 44x150 that
+	 * was measured to work; the top one is 150x40 -- wide rather than tall
+	 * for the same reason the home strip is, and 40 rather than 44 because
+	 * the gauge labels start below that and a taller strip would swallow
+	 * taps meant for them.
+	 *
+	 * The BOTTOM band belonged to mk_page_zone, which stepped between the
+	 * Claude and Codex providers. It is the face's now, and the provider
+	 * step moves to a row in settings.
+	 *
+	 * That trade is worth naming, because the provider zone was not
+	 * decoration: it existed because a missed vertical swipe used to be a
+	 * dead end. Nothing about that reasoning was wrong -- it just cannot
+	 * have this band any more, and stacking two hit areas over one strip
+	 * gives a tap that does whichever the z-order happened to pick. Of the
+	 * two, the face is one of the five pages the device is FOR, and the
+	 * provider step matters only to somebody running Claude and Codex
+	 * both. The rarer one goes where the rest of the once-in-a-while
+	 * lives.
+	 */
+	mk_edge_zone(scr, LV_ALIGN_LEFT_MID, UI_DIR_LEFT, 44, 150);
+	mk_edge_zone(scr, LV_ALIGN_RIGHT_MID, UI_DIR_RIGHT, 44, 150);
+	mk_edge_zone(scr, LV_ALIGN_TOP_MID, UI_DIR_UP, 150, 40);
+	mk_edge_zone(scr, LV_ALIGN_BOTTOM_MID, UI_DIR_DOWN, 200, 40);
 
 	/* The OTA watcher runs from here on, not from the panel build: the boot
 	 * prompt, the download bar and the outcome popup are all screen-level

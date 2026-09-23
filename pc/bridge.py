@@ -257,7 +257,15 @@ class Bridge:
             self._write(protocol.ota_none())
             return
         if not m or not ota_mod.is_newer(m.get("version", ""), cur):
-            have = m.get("version", "?") if m else "unreachable"
+            # "unreachable" is a fault; "no feed" is a setting. Saying the
+            # first when it is the second sends whoever reads this log
+            # looking for a network problem that is not there.
+            if m:
+                have = m.get("version", "?")
+            elif not ota_mod.feed_configured():
+                have = "no feed configured"
+            else:
+                have = "unreachable"
             # Costs one signed fetch, and buys the board the answer to a
             # question it was otherwise left to guess at. This is the state a
             # working desk sits in, so it is the one that decides whether the
