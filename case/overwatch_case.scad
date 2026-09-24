@@ -129,8 +129,18 @@ function usb_h() = usb_plug_h + usb_fit;   //  7.10
 //   s=5 -> plug reaches 38.08   FOULS
 //   s=6 -> plug reaches 37.08   clears
 esp_stand  = 6.0;    // board's component face to the back wall
-esp_gap    = 0.6;    // per side, around the board's width
-rail_t     = 3.0;
+// The slot is cut to the BOARD, not to a round number. It used to leave
+// 0.50 a side on the width and 0.30 on the thickness -- the board sat in
+// it loose enough to rattle.
+//
+// FDM takes some of this back: a slot prints 0.1-0.2 narrow. So 0.15 a
+// side lands near zero slack in the plastic, which is what snug means.
+// It is THE number to open up if the board will not go in. Do not force
+// it -- forcing a fit is how the first display's flex went.
+esp_fit    = 0.15;   // per side, on the width     -> slot 28.24 / 27.94
+esp_fit_t  = 0.15;   // total, on the thickness    -> slot  1.75 /  1.60
+
+rail_back  = 1.5;    // material behind the slot
 rail_grip  = 1.0;    // how far the rails reach over the board's edges
 
 // ---- the vent -------------------------------------------------------
@@ -371,8 +381,12 @@ module back_tray() {
 				x = i * pitch + (row == 0 ? 0 : pitch / 2);
 				y = vent_top() - hex_r - row * pitch * 0.866;
 				if (abs(x) + hex_r < (face_w - 16) / 2)
-					translate([x, y,
-						   rim_d + tray_d + back_t - 1])
+					// Start INSIDE the cavity, not 1 mm
+					// down from the outer face. The wall
+					// spans 38..40; this used to start at
+					// 39 and left a 1 mm skin across every
+					// cell -- the same fault as the port.
+					translate([x, y, rim_d + tray_d - 1])
 						linear_extrude(back_t + 2)
 						circle(r = hex_r, $fn = 6);
 			}
@@ -403,37 +417,41 @@ module back_tray() {
 	z_comp = z_wall - esp_stand;      // the board's component face
 	z_sold = z_comp - esp_t;          // and its solder face
 
+	y_grip = esp_w / 2 - rail_grip;   // the lip's inner edge, over the board
+	y_slot = esp_w / 2 + esp_fit;     // where the board's edge stops
+	y_out  = y_slot + rail_back;      // the rail's outer face
+
 	// ...clipped to the cavity, so the rails and the stop can be sized
 	// for the BOARD without either of them reaching the slanted floor.
 	intersection() {
 		union() {
 			for (y = [-1, 1])
-				translate([(x_wall + x_in) / 2,
-					   y * (esp_w / 2 - rail_grip
-						+ rail_t / 2), 0])
-					difference() {
-						translate([0, 0,
-							   (z_sold - 1.2
-							    + z_wall) / 2])
-							cube([esp_l, rail_t,
-							      z_wall - z_sold
-							      + 1.2],
-							     center = true);
-						// the groove the board's
-						// edge sits in
-						translate([0, -y * rail_t / 2,
-							   (z_sold + z_comp)
-							   / 2])
-							cube([esp_l + 2,
-							      rail_t,
-							      esp_t + 0.3],
-							     center = true);
-					}
+				difference() {
+					// the rail
+					translate([(x_wall + x_in) / 2,
+						   y * (y_grip + y_out) / 2,
+						   (z_sold - 1.2 + z_wall)
+						   / 2])
+						cube([esp_l, y_out - y_grip,
+						      z_wall - z_sold + 1.2],
+						     center = true);
+					// The slot the board's edge slides
+					// into. Cut from the centreline
+					// outward, so it stays open inboard
+					// -- a slot closed on both sides is
+					// one the board cannot enter.
+					translate([(x_wall + x_in) / 2,
+						   y * y_slot / 2,
+						   (z_sold + z_comp) / 2])
+						cube([esp_l + 2, y_slot,
+						      esp_t + esp_fit_t],
+						     center = true);
+				}
 
 			// the stop at the inboard end
 			translate([x_in - 1.5, 0, (z_sold + z_wall) / 2])
-				cube([3, esp_w + 2 * esp_gap + 2 * rail_t,
-				      z_wall - z_sold], center = true);
+				cube([3, 2 * y_out, z_wall - z_sold],
+				     center = true);
 		}
 		tray_inside();
 	}

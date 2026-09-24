@@ -114,6 +114,26 @@ the wall, so the USB-C lines up with the slot by construction.
 The rails' inner faces sit *inside* the board's width, which only works because
 it slides in sideways — they could not capture an edge they did not overlap.
 
+### The slot is cut to the board
+
+| | board | slot | slack |
+|---|---|---|---|
+| width | 27.94 | **28.24** | 0.15 a side |
+| thickness | 1.60 | **1.75** | 0.15 total |
+
+It used to leave 0.50 a side and 0.30 on the thickness, which is a rattle, not
+a fit. FDM takes most of the new figure back — a slot prints 0.1–0.2 narrow —
+so 0.15 lands near zero slack in the plastic.
+
+`esp_fit` is the number to open up if the board will not go in. **Do not force
+it.** Forcing a fit is how the first display's flex went.
+
+The three faces are now named rather than derived by arithmetic on the rail's
+centreline: `y_grip` (the lip's inner edge, over the board), `y_slot` (where
+the board's edge stops) and `y_out` (the rail's outer face). The slot is cut
+from the centreline outward so it stays open inboard — a slot closed on both
+sides is one the board cannot enter.
+
 ### Everything inside is clipped to the cavity
 
 The perch is sized for the **board**, then intersected with `tray_inside()`,
@@ -163,6 +183,18 @@ rows, which sets `hex_r` at 2.6.
 The board is centred on y=0, spanning −13.97 to 13.97: clear of the floor by
 1.59 and topping out just under the vents at 13.6.
 
+### They were sealed too, and by the same arithmetic
+
+The cell was extruded from `rim_d + tray_d + back_t - 1` = 39, through
+`back_t + 2` = 4, so it cut 39→43. The back wall spans **38→40**. Every cell
+kept a 1 mm skin on its inside face — the identical fault to the port, one
+wall over. It now starts at `rim_d + tray_d - 1` = 37.
+
+**Genus is the check.** A closed box with *n* holes through its walls is genus
+*n*. The tray should read **22** — one port and 21 cells. It read 0 while both
+were skinned, and 1 once only the port was open. If that number is not 22, a
+hole somewhere is not a hole.
+
 ### The port
 
 A **stadium, not a rectangle** — 12.95 × 7.10, fully round-ended, centred at
@@ -191,6 +223,17 @@ give up 1.6 mm a side. Both faults close together.
 
 A useful tell: a hollow box with a hole through one wall is **genus 1**. While
 the skin was there OpenSCAD reported genus 0.
+
+#### Which side is it on?
+
+**The same side as the wider bezel.** That is the way to check it that needs no
+coordinate system: the aperture sits 3 mm off centre, so the borders are 11 and
+17, and the port is on the 17 side. Measured off the STLs, the bezel's lip is
+12.35 one side and 18.35 the other, and the port is on the 18.35 side.
+
+Facing the screen that is the **right**, which is where it was asked for. Seen
+from behind — a tray alone on a build plate, say — it is on the left, because
+that is what looking at the back of something does.
 
 #### Could the opening be socket-sized?
 
