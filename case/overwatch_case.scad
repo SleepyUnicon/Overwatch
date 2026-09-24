@@ -1,40 +1,42 @@
 // =====================================================================
 // Overwatch - the case
 //
-// A front BEZEL that covers the red board and nothing else, and a back
-// TRAY that carries the ESP32 and wears the stand legs. They snap
-// together. No screws.
+// A bezel that shows the PICTURE and nothing else, and an EMPTY tray that
+// plugs into the back of it. Two printed parts, no screws, no posts, and
+// nothing inside the body at all.
 //
-// WHAT THE BEZEL ACTUALLY IS, measured 2026-09-23
+// WHAT CHANGED, AND WHY
 //
-//   red PCB      86.0 x 50.0
-//   glass        69.0 x 50.0   <- the FULL height of the board
-//   red showing   8.0 left, 9.0 right, and NOTHING top or bottom
+// The version before this had two faults that between them cost a panel.
 //
-// So the aperture follows the GLASS, not the lit area. Earlier versions
-// sized it to the active display and had to leave 14 mm of lip each side
-// to reach it -- which is the fat border that kept coming back however
-// the numbers were nudged. Sized to the glass, the frame only has to lap
-// the two red strips, and top and bottom it is pure wall:
+//   1. The aperture was sized to the GLASS and the glass was a press fit
+//      in it -- 0.3 mm nominal, which an FDM hole can easily print
+//      UNDERSIZE. The only way the panel went in was by being pressed,
+//      and pressing a glass module into a too-small hole cracks the flex
+//      between the glass and its board. The module then lights up white
+//      and never draws, with nothing in any log to say why.
 //
-//   top, bottom   2.4 mm   (wall + clearance, and that is the whole lot)
-//   left         10.4 mm   (2.4 of wall over 8.0 of red board)
-//   right        11.4 mm   (2.4 of wall over 9.0 of red board)
+//   2. Four snap pegs sat at x=+/-40, y=+/-12 -- INSIDE the panel's
+//      +/-43 x +/-25 footprint. To reach their sockets they travelled
+//      through the space the board occupies, so assembling it would
+//      press four posts into the back of the panel. They were moved out
+//      of the corners to save border and never checked against the board.
 //
-// The glass sits FLUSH in the aperture. There is no lip over it: the
-// active area reaches within about 0.5 mm of the glass edge top and
-// bottom, so any lip at all would cover picture. The module is held by
-// the two ledges under the red strips instead, which is what they are
-// for.
+// Both are gone. The lip now overlaps the glass, so the glass does not
+// pass through the aperture AT ALL -- it goes in from behind and rests
+// against the lip. There is no press fit left to be tight. And there are
+// no pegs, because there is nothing inside.
 //
-// NO SCREWS, and that is a bezel decision rather than a taste one. Corner
-// posts for M3 have to clear the PCB corner, which puts the frame at
-// 98 x 62 against this one's 90.8 x 54.8 -- 3.6 mm more border on every
-// side, on the one dimension being minimised. The tray snaps in instead.
+// THE HALVES JOIN AT THE RIM. The bezel carries a 1.4 mm rim reaching
+// back past the board; the tray's spigot plugs into it. Friction, and the
+// join is at the perimeter where there is room for it -- not through the
+// middle where the panel is.
 //
 // PRINT ORIENTATION
-//   front  face DOWN. The bezel is what people look at; it gets the bed.
-//   back   open side UP, legs down.
+//   bezel  face DOWN. The chamfer round the window then prints as an
+//          overhang off the bed's first layer, which is where it is
+//          cleanest, and the face people look at gets the bed finish.
+//   tray   open side UP.
 // =====================================================================
 
 $fn = 48;
@@ -43,159 +45,140 @@ $fn = 48;
 pcb_w      = 86.0;
 pcb_h      = 50.0;
 pcb_t      = 1.6;
-
 glass_w    = 69.0;
 glass_h    = 50.0;   // the full height of the board
-glass_left =  8.0;   // red showing on the left
-glass_pro  =  3.4;   // glass stands this proud of the PCB (5.0 - 1.6)
+glass_left =  8.0;   // red showing on the left; 9 on the right
+glass_pro  =  3.4;   // glass stands this proud of its board
 
-// Depth of the module front-to-back, glass face to the back of the
-// dupont shells on its header.
-panel_d    = 10.8;
+// The whole module, front to back: 8.0 measured. Glass 3.4 + PCB 1.6
+// leaves 3.0 of ribbon and driver reaching BACK into the tray, which is
+// the figure the tray's depth has to start from. The perch was sized
+// against an assumed 5.8, so it was conservative rather than wrong.
+disp_d     =  8.0;
+panel_back = disp_d - glass_pro - pcb_t;   // 3.0, into the tray
+
+// The LIT area, and where it sits on the BOARD.
+//
+// Measured on the board itself, 2026-09-24: the picture starts 11 mm in
+// from one end of the 86 mm board and 17 mm in from the other, so it is
+// 58.0 wide and its centre is 3.0 mm off the board's.
+//
+// Two independent measurements agree on this. Reading off the printed
+// case gave 13 and 20 from the CASE edge; with the board inset 2.4 each
+// side that is 10.6 and 17.6 from the board edge, against 11 and 17 here
+// -- within 0.6 mm. The board reading is the one used, because it does
+// not depend on the case having printed to size.
+//
+// 58.0 also lands 0.4 mm off the nominal 57.6 for a 2.8" 4:3 panel, which
+// is the kind of agreement that means both numbers are probably right.
+//
+// The picture is centred vertically: 3 mm from the board edge at the top
+// and 3 at the bottom, measured.
+act_w      = 58.0;
+// MEASURED too, now. The glass is the board's full 50 mm height and the
+// picture starts 3 mm in from the board edge top and bottom, so it is 44
+// tall. That was derived as 43.5 (4:3 from the measured 58.0 width); the
+// measurement is 0.5 more. 58.0 x 44.0 is 1.318:1 against a nominal
+// 1.333, which is either a slightly wide panel or a rounded reading --
+// and well inside the 1 mm the window carries either way.
+act_h      = 44.0;
+act_cx     = -3.0;   // measured on the board
 
 // ---- the ESP32 ------------------------------------------------------
-esp_w      = 52.0;
-esp_h      = 28.0;
-esp_d      = 25.0;   // with its cables seated
-usb_w      = 12.0;
-usb_h      =  8.0;
-// How far forward of the back wall the port's centre sits: the board's own
-// thickness plus the shelf it stands on. Generous, because the shelf is a
-// rest rather than a hole pattern.
-usb_port_z = 12.0;
+// From the board's own spec sheet, not estimated. The model previously
+// carried 52 x 28 with no allowance at all for the pins, which was wrong
+// in both directions: 3.7 mm too long, and it would have sat the board
+// flat on the floor and bent 38 header pins.
+esp_l      = 48.26;  // PCB length
+esp_w      = 27.94;  // PCB width
+esp_t      =  1.60;  // PCB thickness
+esp_pins   =  8.50;  // header pins hanging BELOW the board
+esp_shield =  3.10;  // WROOM module, above the board
 
-// ---- tolerances -----------------------------------------------------
-// Asked for explicitly, and they are not all the same number because
-// they are not all the same risk.
-clear      = 0.4;    // around the PCB in plan. It either fits or it does
-                     // not, and 0.4 covers print swell on a 86 mm span.
-glass_gap  = 0.3;    // around the glass in the aperture, per side. Tight
-                     // on purpose: this gap is VISIBLE, it runs right
-                     // around the picture, and the glass is not load
-                     // bearing.
-depth_tol  = 2.0;    // slack in the depth stack. The two depths that set
-                     // it -- 10.8 and 25.0 -- are ruler readings of
-                     // squashy things (cable shells), so this is the one
-                     // tolerance that is generous. Costs 2 mm of case
-                     // nobody sees; saves a lid that will not close.
+// USB-C, on the short end. Centred on the width (13.97 from either edge),
+// 8.94 across the metal shell, 3.16 tall from the PCB's top surface, and
+// it overhangs the board's end by 1.20.
+usb_shell_w = 8.94;
+usb_shell_h = 3.16;
+usb_over    = 1.20;
 
-// ---- the shell ------------------------------------------------------
+// The opening has to pass a PLUG, not the receptacle: a USB-C overmould
+// is a good deal bigger than the 8.94 x 3.16 socket it goes into.
+usb_w      = 13.0;
+usb_h      =  7.0;
+
+// ---- the ESP32's perch ----------------------------------------------
+// The board lies FLAT against the back wall, component side toward it,
+// just below the vents -- the arrangement in the mock-up. Its pins and
+// the dupont shells point forward into the body, which is the only place
+// with room for them.
+//
+// THE STANDOFF IS SET BY THE PLUG, NOT THE SOCKET. The connector is only
+// 3.16 tall, so 4 mm would clear it. But a USB-C plug's overmould is
+// about 7 across, centred on that socket, and at 4 mm it reaches z=39.08
+// against a back wall at 38 -- the cable fouls the case before it seats.
+//
+//   s=4 -> plug reaches 39.08   FOULS
+//   s=5 -> plug reaches 38.08   FOULS
+//   s=6 -> plug reaches 37.08   clears
+esp_stand  = 6.0;    // board's component face to the back wall
+esp_gap    = 0.6;    // per side, around the board's width
+rail_t     = 3.0;
+rail_grip  = 1.0;    // how far the rails reach over the board's edges
+
+// ---- the vent -------------------------------------------------------
+// Two rows of hexagons across the top of the back wall, with the board
+// directly underneath.
+//
+// The size is not a style choice. The slanted underside has risen to
+// y=-15.56 by the time it reaches the back wall, so the usable height
+// there is 42.96 -- and the board takes 27.94 of it. That leaves about
+// 12 mm for two rows, which sets the cell.
+hex_r      = 2.6;
+hex_gap    = 1.3;
+
+// ---- clearances -----------------------------------------------------
+// 1.0 everywhere the panel touches, not 0.4. The old 0.4 is what made it
+// a press fit, and a press fit is what broke the flex.
+clear      = 1.0;
+
+// The window is drawn 1 mm LARGER than the lit area all round. Too large
+// shows a sliver of the glass's black border, which nobody minds. Too
+// small covers picture, which cannot be fixed without reprinting.
+act_margin = 1.0;
+
+// ---- the bezel ------------------------------------------------------
 wall       = 2.0;
-
-// Back to the board's own size. There is no joint land because there is
-// no overlapping joint: four screws hold the halves together, and a screw
-// needs a post, not a rim.
-face_w     = pcb_w + 2 * (wall + clear);   // 90.8
-face_h     = pcb_h + 2 * (wall + clear);   // 54.8
+face_w     = pcb_w + 2 * clear + 2 * 1.4;   // 90.8
+face_h     = pcb_h + 2 * clear + 2 * 1.4;   // 54.8
 corner_r   = 4.0;
 
-frame_t    = glass_pro + pcb_t;            // 5.0: glass flush, PCB behind
-ledge      = 2.5;                          // how far the frame laps the
-                                           // red strip, under the glass
+lip_t      = 1.2;    // plastic in front of the glass
+ap_r       = 0.4;    // window corner radius: half a nozzle, i.e. square
+
+// How far the window opens out toward the face, on the LEFT and RIGHT
+// only. The taper is what lets a fingertip reach the corners of the
+// picture. Chamfering the top and bottom too cost 3 mm of border where
+// there is only 5.4, leaving a 1.4 mm knife edge -- so those stay square.
+chamf      = 3.0;
+
+// The rim the tray plugs into. 1.4 is what is left between the PCB pocket
+// and the outer face, and it is enough: it locates, it does not carry
+// load.
+rim_d      = 5.0;
+rim_fit    = 0.2;    // per side. THE number to tune if the tray is loose.
+
+bezel_d    = lip_t + glass_pro + pcb_t + rim_d;
+
+// ---- the tray -------------------------------------------------------
+// Sized so the TRAY comes out 40.0 deep on its own -- rim_d + tray_d +
+// back_t. The assembled case is 6.2 more than that, because the bezel
+// stands in front of the tray: 46.2.
+tray_d     = 33.0;
 back_t     = 2.0;
 
-// The inside, from the back of the PCB to the inner face of the back
-// wall: what is left of the module, then the ESP32, then the slack.
-cavity_d   = (panel_d - frame_t) + esp_d + depth_tol;
-body_d     = frame_t + cavity_d + back_t;
-
-// ---- the snap -------------------------------------------------------
-// Four printed snap pegs on the tray, clicking into BLIND sockets in the
-// bezel. Nothing shows on the front face.
-//
-// The version before this used through-holes with a countersink, and it
-// worked -- but a countersunk through-hole is indistinguishable from a
-// screw hole, and four of them on the front is the one place they must
-// not be. "Everything snap on" has to mean invisible, or it has bought
-// nothing over screws.
-//
-// WHERE THE ROOM IS. The bezel is 5.0 thick and its cross-section changes
-// partway down:
-//
-//     z 0.0 .. 3.4   the frame -- 10.6 mm bands left and right
-//     z 3.4 .. 5.0   the PCB pocket opens; only 2.0 mm of rim left
-//
-// So the two halves meet rim to rim, 2 x 2, with no overlap to snap into
-// -- which is why the skirt failed and why the pegs cannot grip the edge.
-// But those 10.6 mm bands are solid for the first 3.4 mm, and a socket
-// entered from BEHIND can live in them without ever breaking through.
-//
-// The socket, in tray coordinates (0 at the tray's face, the bezel
-// running -5.0 .. 0):
-//
-//     bore  -2.6 ..  0.0   at 3.4, what the barb squeezes through
-//     ring  -3.8 .. -2.6   at 4.2, what it springs out into
-//     solid -5.0 .. -3.8   1.2 mm of front skin. Nothing shows.
-//
-// The peg is SPLIT so the two prongs can close to clear the bore; a solid
-// one would have to stretch the bezel, and PLA does not stretch.
-peg_od     = 5.0;    // the post standing in the cavity
-shaft_d    = 3.0;    // clears the 3.4 bore
-barb_d     = 4.2;    // springs into the ring
-barb_tip   = 2.8;    // lead-in, so it starts itself
-split_w    = 1.2;    // the slot that lets the prongs close
-scr_x      = 40.0;   // centred in the 10.6 mm side bands
-scr_y      = 12.0;   // clear of the slanted floor -- see the assert
-sock_bore  = 3.4;
-sock_ring  = 4.2;
-skin_t     = 1.2;    // solid front face left over the socket
-ring_t     = 1.2;    // how tall the detent ring is
-
-// ---- the loom -------------------------------------------------------
-// 13 dupont jumpers between the panel's header and the ESP32.
-//
-// THE RULE IS: the loom goes SIDEWAYS, never backwards. Depth is the one
-// dimension being fought for -- every mm of it shows in the case's
-// thickness -- while the cavity is 86.8 wide and the ESP32 is only 52, so
-// there are 34.8 mm of width sitting unused. That column is free depth.
-//
-// 13 wires of 26 AWG at about 1.3 mm over the insulation bundle to
-// roughly sqrt(13) * 1.3 = 4.7 mm, call it 7 loosely gathered. The
-// channel is 9 so the bundle is guided, not squeezed: a loom squashed
-// into its channel pulls on the crimps every time the case is closed,
-// and the crimp is where dupont wires fail, not the wire.
-loom_d     = 9.0;    // channel width for the bundle
-loom_r     = 5.0;    // smallest radius the loom is asked to turn
-esp_side   = 1;      // +1 puts the ESP32 on the USB side, loom opposite
-tie_w      = 4.0;    // zip-tie slot, for strain relief at the port
-
 // ---- the slant ------------------------------------------------------
-// The WHOLE bottom is the foot: one flat plane, cut at `lean` to the
-// screen, that the case sits on. Two fins did the same job and looked
-// like an afterthought.
-//
-// It costs something and it is worth naming. The desk plane rises
-// tan(lean) per mm of depth -- 10.7 mm over this case's 39.8 -- and the
-// cavity floor is only 2 mm above the case bottom, so a slanted bottom
-// eats into the cavity from 7.5 mm back. Keeping a full-height cavity all
-// the way to the rear would mean growing the case 10.7 mm taller, which
-// is a 13.1 mm bottom bezel instead of 2.4. Not worth it.
-//
-// The way out is that the full height is only needed for the PANEL, in
-// the first 5.8 mm. Behind that only the ESP32 has to fit, and it can
-// ride high. So the cavity floor follows the slant, one `wall` above it,
-// and the ESP32 sits on that rising floor.
-lean       = 15;
-
-// Checked at render time, because the last version shipped a bezel whose
-// rim the board pocket sawed clean off and nothing said so.
-//
-// A post has to land in the SOLID band beside the aperture. If the
-// aperture ever grows, or the screws move in, they end up over the hole
-// and the bezel has four notches instead of four bosses.
-_ap_cx   = -pcb_w / 2 + glass_left + glass_w / 2;
-_ap_half = (glass_w + 2 * glass_gap) / 2;
-
-assert(scr_x - peg_od / 2 > _ap_cx + _ap_half ||
-       scr_x + peg_od / 2 < -(_ap_cx - _ap_half),
-       "screw posts overlap the glass aperture");
-assert(scr_x + peg_od / 2 < face_w / 2,
-       "screw posts hang off the edge of the bezel");
-
-// The cavity floor is slanted, so the tightest point is the BACK wall.
-_floor_back = -face_h / 2 + wall + cavity_d * tan(lean);
-assert(-scr_y - peg_od / 2 > _floor_back,
-       "lower screw posts punch through the slanted bottom");
+lean       = 15;     // the underside, so it sits back on a desk
 
 // =====================================================================
 // helpers
@@ -210,12 +193,8 @@ module rbox(w, h, d, r) {
 	linear_extrude(d) rrect(w, h, r);
 }
 
-// Everything below the desk plane: the plane through the bezel's bottom
-// front edge, rising at `lean` as it goes back.
-//
-// rotate([-lean,0,0]) and not +: about X a point (y,z) goes to
-// (y*cos - z*sin, y*sin + z*cos), so the top face's y only RISES with z
-// when sin(a) is negative.
+// Everything below the desk plane: through the bezel's bottom front
+// edge, rising at `lean` as it goes back.
 module desk_cut(drop = 0) {
 	translate([0, -face_h / 2 + drop, 0])
 		rotate([-lean, 0, 0])
@@ -227,219 +206,225 @@ module desk_cut(drop = 0) {
 // front_bezel
 // =====================================================================
 module front_bezel() {
-	// Where the glass sits within the face. The glass is not centred on
-	// the board -- 8 mm of red on the left against 9 on the right -- so
-	// the hole is not centred either. Centring it would put the picture
-	// 0.5 mm off and show a different amount of red down each side.
-	ap_cx = -pcb_w / 2 + glass_left + glass_w / 2;
+	// The window sits where the PICTURE is, measured -- see act_cx. It
+	// used to be derived from the glass's position on the board, which
+	// assumed the lit area was centred on the glass. It is not.
+	cx = act_cx;
+
+	ap_w = act_w + 2 * act_margin;
+	ap_h = act_h + 2 * act_margin;
 
 	difference() {
-		rbox(face_w, face_h, frame_t, corner_r);
+		union() {
+			rbox(face_w, face_h, lip_t + glass_pro + pcb_t,
+			     corner_r);
+			// the rim, reaching back past the board for the tray
+			translate([0, 0, lip_t + glass_pro + pcb_t])
+				difference() {
+					rbox(face_w, face_h, rim_d, corner_r);
+					translate([0, 0, -1])
+						rbox(pcb_w + 2 * clear,
+						     pcb_h + 2 * clear,
+						     rim_d + 2,
+						     corner_r - 1.4);
+				}
+		}
 
-		// the glass aperture, straight through
-		translate([ap_cx, 0, -1])
-			linear_extrude(frame_t + 2)
-			rrect(glass_w + 2 * glass_gap,
-			      glass_h + 2 * glass_gap, 1.5);
+		// The window, chamfered: narrow at the glass, opening out
+		// toward the face. The taper keeps the corners from catching
+		// a fingertip on the way to the edge of the picture, and it
+		// makes the border look thinner than it is.
+		translate([cx, 0, 0])
+			hull() {
+				// SQUARE corners. The display's own corners are
+				// sharp, so a rounded window leaves four
+				// crescents of black glass showing at the
+				// corners and nothing else. ap_r is half a
+				// nozzle: as square as an FDM part gets.
+				// Chamfered on the LEFT and RIGHT only -- the
+				// height is the same at both ends of the
+				// hull, so the top and bottom walls stay
+				// square.
+				//
+				// Chamfering all four edges cost 3.0 mm of
+				// border top and bottom, where there is only
+				// 5.4 to begin with: it left a 1.4 mm knife
+				// edge against sides of 9.4 and 15.4. The
+				// sides can afford the taper and the top and
+				// bottom cannot, so only the sides get it.
+				translate([0, 0, -0.01])
+					linear_extrude(0.01)
+					rrect(ap_w + 2 * chamf, ap_h, ap_r);
+				translate([0, 0, lip_t])
+					linear_extrude(0.01)
+					rrect(ap_w, ap_h, ap_r);
+			}
+		// and straight on through the rest of the lip
+		translate([cx, 0, lip_t - 0.01])
+			linear_extrude(glass_pro + pcb_t + 2)
+			rrect(ap_w, ap_h, ap_r);
 
-		// the pocket the board drops into from behind, leaving the
-		// two side ledges to hold it
-		translate([0, 0, glass_pro])
-			linear_extrude(frame_t)
+		// the glass recess -- the glass rests against the lip here
+		translate([cx, 0, lip_t])
+			linear_extrude(glass_pro + pcb_t + 2)
+			rrect(glass_w + 2 * clear, glass_h + 2 * clear, 1.5);
+
+		// the board's own pocket, behind the glass
+		translate([0, 0, lip_t + glass_pro])
+			linear_extrude(pcb_t + rim_d + 2)
 			rrect(pcb_w + 2 * clear, pcb_h + 2 * clear, 1.5);
 
-		// Four BLIND sockets for the tray's pegs, entered from behind
-		// and stopping skin_t short of the front face.
-		for (x = [-1, 1], y = [-1, 1])
-			translate([x * scr_x, y * scr_y, 0]) {
-				// the bore
-				translate([0, 0, skin_t + ring_t])
-					cylinder(d = sock_bore,
-						 h = frame_t - skin_t - ring_t
-						     + 1);
-				// the detent ring the barb springs into
-				translate([0, 0, skin_t])
-					cylinder(d = sock_ring, h = ring_t);
-			}
-
-		// the grille, in the 5.4 mm the module leaves below the glass
-		for (i = [-2 : 2])
-			translate([i * 3.2, -face_h / 2 + 4.2, -0.01])
-				linear_extrude(1.4) rrect(1.5, 3.4, 0.7);
-	}
-}
-
-// The bezel, with its share of the slant taken off. Only 5 mm of depth,
-// so only 1.3 mm of it -- but leaving it square would put a 1.3 mm step
-// in the one line that is supposed to run unbroken from the front edge to
-// the back foot.
-module front_bezel_cut() {
-	difference() {
-		front_bezel();
 		desk_cut();
 	}
 }
 
-module catch() {
-	// a ramp going in, a flat holding it
-	rotate([0, 0, 90]) rotate([0, 90, 0])
-		linear_extrude(catch_w, center = true)
-		polygon([[0, 0], [0, catch_h], [2.5, 0]]);
+// The tray's empty volume. One shape, used twice: to hollow the box, and
+// to clip whatever stands inside it. Nothing in here may be taken on
+// trust to fit -- the underside slants, so the cavity is NARROWER at the
+// back than at the front. By the back wall its floor has climbed to
+// y = -15.56, and the ESP32's stop reaches -17.57, so unclipped it drove
+// a 3 mm tab clean through the bottom of the case.
+module tray_inside() {
+	difference() {
+		translate([0, 0, -1])
+			rbox(pcb_w + 2 * clear - 2 * rim_fit - 2 * wall,
+			     pcb_h + 2 * clear - 2 * rim_fit - 2 * wall,
+			     rim_d + tray_d + 1,
+			     corner_r - 1.4 - wall);
+		desk_cut((lip_t + glass_pro + pcb_t) * tan(lean)
+			 + wall / cos(lean));
+	}
 }
 
 // =====================================================================
-// back_tray
+// back_tray  -- an empty box
 // =====================================================================
 module back_tray() {
-	d = cavity_d + back_t;
+	sp_w = pcb_w + 2 * clear - 2 * rim_fit;   // plugs into the bezel's rim
+	sp_h = pcb_h + 2 * clear - 2 * rim_fit;
 
 	difference() {
-		// the outer box, with the whole underside cut to the desk
-		difference() {
-			rbox(face_w, face_h, d, corner_r);
-			desk_cut();
+		union() {
+			// the spigot, entering the bezel
+			rbox(sp_w, sp_h, rim_d, corner_r - 1.4);
+			// the body
+			translate([0, 0, rim_d])
+				rbox(face_w, face_h, tray_d + back_t,
+				     corner_r);
 		}
 
-		// The cavity, its floor cut by the SAME plane one wall higher.
-		// That is what keeps the wall an even 2 mm the whole way along
-		// the slant instead of tapering to a knife edge at the back.
-		difference() {
-			translate([0, 0, -1])
-				rbox(face_w - 2 * wall, face_h - 2 * wall,
-				     cavity_d + 1, corner_r - wall);
-			desk_cut(wall);
-		}
-
-		// The USB slot, in the RIGHT SIDE WALL.
+		// Hollow it, leaving the back wall. One cut through both, so
+		// the inside is a single empty volume with no step in it.
 		//
-		// It was in the back wall, with a comment explaining that the
-		// back is the one wall with nothing in front of it. That was
-		// reasoning about a board that does not exist: a DevKitC
-		// carries its connector on a SHORT END, in the plane of the
-		// board. Laid flat -- the only way 52 x 28 fits a 34.8 mm
-		// cavity -- that port points at a SIDE wall. To face the back
-		// the board would have to stand on edge and need 52 mm of
-		// depth against the 34.8 there is.
+		// The cavity's FLOOR has to follow the slant, not sit flat.
+		// As a plain box its floor was at y=-23.80 while the slanted
+		// underside climbs past that at z=7.24 and reaches -15.56 by
+		// the back wall -- so from 7 mm back the slant cut the bottom
+		// wall clean away and kept going into the cavity. The case
+		// had no bottom for most of its length.
 		//
-		// The board sits with its port end against this wall
-		// (x -8.6 .. 43.4) and centred about y = +4, which keeps its
-		// lower edge clear of the slanted floor. The slot is cut
-		// oversize because the shelf it rests on is deliberately a
-		// shelf and not a hole pattern -- see esp_side.
-		translate([face_w / 2 - wall - 1,
-			   4 - (usb_w + 2) / 2,
-			   cavity_d - usb_port_z - (usb_h + 2) / 2])
-			cube([wall + 2, usb_w + 2, usb_h + 2]);
+		// Offset vertically by wall/cos(lean), which is what gives a
+		// true `wall` measured PERPENDICULAR to a sloping face.
+		tray_inside();
 
-		// vents over the board
-		for (i = [-3 : 3])
-			translate([i * 7, face_h / 2 - 10, cavity_d - 1])
-				linear_extrude(back_t + 2) rrect(2.6, 11, 1.2);
+		// The USB port, in the RIGHT SIDE wall, positioned from the
+		// board rather than guessed. The board's port end butts the
+		// wall, the port is centred on the board's width, and it sits
+		// usb_shell_h/2 above the PCB's top face.
+		translate([face_w / 2 - wall / 2, 0, usb_z()])
+			cube([wall + 2, usb_w, usb_h], center = true);
 
-		// A zip-tie slot beside the port. The tie goes round the USB
-		// lead inside the case, so a tug on the cable pulls on the
-		// case and not on the board's socket -- which is the joint
-		// that tears off a DevKitC.
-		for (dy = [-1, 1])
-			translate([face_w / 2 - 24 - 5, -face_h / 2 + 16 + 4
-				   + dy * 7, cavity_d - 1])
-				cube([tie_w, 2.2, back_t + 2], center = true);
+		// the vents: two rows of hexagons across the top
+		for (row = [0, 1])
+			for (i = [-5 : 5]) {
+				pitch = 2 * hex_r + hex_gap;
+				x = i * pitch + (row == 0 ? 0 : pitch / 2);
+				y = vent_top() - hex_r - row * pitch * 0.866;
+				if (abs(x) + hex_r < (face_w - 16) / 2)
+					translate([x, y,
+						   rim_d + tray_d + back_t - 1])
+						linear_extrude(back_t + 2)
+						circle(r = hex_r, $fn = 6);
+			}
+
+		// The SAME slant as the bezel's, continued.
+		//
+		// The tray sits (lip_t + glass_pro + pcb_t) behind the bezel
+		// in the assembly, so for one unbroken underside its cut has
+		// to start that much further up the slope. It used to be
+		// translate([0,0,rim_d]) desk_cut(wall), which works out 1.00
+		// mm off and leaves a step in the line at the joint.
+		desk_cut((lip_t + glass_pro + pcb_t) * tan(lean));
 	}
 
-	// The screw posts, rising off the back wall to meet the bezel.
+	// --- the ESP32's perch -------------------------------------
 	//
-	// They stand in the cavity rather than in the corners, which is only
-	// possible because the BOARD is not in the cavity -- it sits in the
-	// bezel's pocket, in front of z=0 here. All that is back here is the
-	// panel's rear components, and they do not reach the side bands.
-	for (x = [-1, 1], y = [-1, 1])
-		translate([x * scr_x, y * scr_y, 0])
-			difference() {
-				union() {
-					// The post. +1 INTO the back wall:
-					// ending flush leaves coincident
-					// faces, which OpenSCAD does not
-					// merge -- they came out as loose
-					// cylinders rattling in a tray.
-					cylinder(d = peg_od, h = cavity_d + 1);
-					// the shaft, through the bore
-					translate([0, 0, -(frame_t - skin_t
-							   - ring_t)])
-						cylinder(d = shaft_d,
-							 h = frame_t - skin_t
-							     - ring_t);
-					// The barb, into the ring. +0.6 so it
-					// OVERLAPS the shaft -- meeting it
-					// exactly is the same coincident-face
-					// trap, and it came out as eight
-					// loose prongs.
-					translate([0, 0, -(frame_t - skin_t)])
-						cylinder(d1 = barb_tip,
-							 d2 = barb_d,
-							 h = ring_t + 0.6);
-				}
-				// The split, the whole sprung length and a
-				// little into the post, so the prongs hinge
-				// from solid material.
-				translate([-split_w / 2, -(barb_d + 2) / 2,
-					   -frame_t - 1])
-					cube([split_w, barb_d + 2,
-					      frame_t + 9]);
-			}
-
-	// --- the loom's side of the cavity ---------------------------
+	// Two rails standing off the back wall, each with a groove the
+	// board's long edges slide into. The board goes in from the RIGHT
+	// until its port end meets the wall, so the USB-C lines up with the
+	// slot by construction.
 	//
-	// Two pillars with a gap the bundle drops behind. Not a closed
-	// channel: a closed one has to be threaded, and threading 13 stiff
-	// jumpers through a 9 mm hole during assembly is how they get
-	// pulled out of their shells. This is a slot you press them into.
-	lx = -esp_side * (face_w / 2 - wall - loom_d / 2 - 3);
+	// The rails' inner faces sit INSIDE the board's width, which is only
+	// possible because it slides in sideways -- they could not capture
+	// an edge they did not overlap.
+	x_wall = face_w / 2 - wall;       // the board's port end
+	x_in   = x_wall - esp_l;          // its inboard end
+	z_wall = rim_d + tray_d;          // back wall, inside
+	z_comp = z_wall - esp_stand;      // the board's component face
+	z_sold = z_comp - esp_t;          // and its solder face
 
-	// At y = -4 and +14, both clear of the rising floor. The floor at the
-	// back wall is up at about -14.7, so a pillar centred at -12 would
-	// have had its lower half buried in it.
-	for (ly = [-4, 14])
-		translate([lx, ly, cavity_d - 9])
-			difference() {
-				// h = 10, not 9: the extra millimetre buries
-				// the clip in the back wall. Ending flush
-				// leaves coincident faces that do not merge,
-				// and the clip prints as a loose ring.
-				cylinder(d = loom_d + 2 * 2.5, h = 10);
-				translate([0, 0, -1])
-					cylinder(d = loom_d, h = 12);
-				// The mouth, facing the middle of the case.
-				// Starts at the CENTRE and runs outward: the
-				// first version started a whole loom_d out,
-				// which is past the pillar's 7 mm outer
-				// radius, so it removed nothing and left a
-				// closed ring you would have to thread.
-				scale([esp_side, 1, 1])
-					translate([0, -(loom_d - 2) / 2, -1])
-					cube([loom_d, loom_d - 2, 11]);
-			}
+	// ...clipped to the cavity, so the rails and the stop can be sized
+	// for the BOARD without either of them reaching the slanted floor.
+	intersection() {
+		union() {
+			for (y = [-1, 1])
+				translate([(x_wall + x_in) / 2,
+					   y * (esp_w / 2 - rail_grip
+						+ rail_t / 2), 0])
+					difference() {
+						translate([0, 0,
+							   (z_sold - 1.2
+							    + z_wall) / 2])
+							cube([esp_l, rail_t,
+							      z_wall - z_sold
+							      + 1.2],
+							     center = true);
+						// the groove the board's
+						// edge sits in
+						translate([0, -y * rail_t / 2,
+							   (z_sold + z_comp)
+							   / 2])
+							cube([esp_l + 2,
+							      rail_t,
+							      esp_t + 0.3],
+							     center = true);
+					}
 
-	// The ESP32's shelf, pushed to the port side so the whole of the
-	// other side is the loom's.
-	for (dy = [-1, 1])
-		translate([esp_side * 18, dy * 9, cavity_d - 5])
-			cylinder(d = 5, h = 6);   // +1 into the back wall
+			// the stop at the inboard end
+			translate([x_in - 1.5, 0, (z_sold + z_wall) / 2])
+				cube([3, esp_w + 2 * esp_gap + 2 * rail_t,
+				      z_wall - z_sold], center = true);
+		}
+		tray_inside();
+	}
 }
+
+// Where the vent field starts, just under the wall's top edge.
+function vent_top() = face_h / 2 - 3;
+
+// The USB opening's centre. The connector sits on the board's component
+// face, which is esp_stand in from the back wall, and extends back toward
+// the wall -- so the shell's middle is half its height further back.
+function usb_z() = rim_d + tray_d - esp_stand + usb_shell_h / 2;
 
 // =====================================================================
 //   openscad -D 'PART="front"' -o front_bezel.stl overwatch_case.scad
 // =====================================================================
 PART = "all";
 
-if (PART == "front")     front_bezel_cut();
+if (PART == "front")     front_bezel();
 else if (PART == "back") back_tray();
 else {
-	// Stood up as it sits on a desk, which is the only orientation that
-	// shows whether the legs work. The parts are MODELLED face-down, so
-	// in a raw render the device's "down" is horizontal and a leg
-	// pointing at the floor looks like a spike out of the back.
-	rotate([90 + lean, 0, 0]) {
-		front_bezel_cut();
-		translate([0, 0, frame_t]) back_tray();
-	}
+	front_bezel();
+	translate([0, 0, lip_t + glass_pro + pcb_t]) back_tray();
 }

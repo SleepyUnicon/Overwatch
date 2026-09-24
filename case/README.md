@@ -1,209 +1,172 @@
 # The Overwatch case
 
-A front **bezel** that covers the red board and nothing else, and a back
-**tray** that carries the ESP32 and wears the stand legs. They snap together.
-No screws.
+A bezel that shows the **picture and nothing else**, and an **empty** tray that
+plugs into the back of it. Two printed parts, no screws, no posts, nothing
+inside the body at all.
 
-| part | what it is | print it |
+| part | | print it |
 |---|---|---|
-| `front_bezel.stl` | the frame. Glass sits flush in it. | face **down** |
-| `back_tray.stl` | the box. ESP32 mounts here, USB out of the **right side**. | back wall **down**, no supports |
+| `front_bezel.stl` | 90.8 × 54.8 × 11.2 | face **down** |
+
+Assembled the case is **46.2 mm** front to back — the bezel stands 6.2 in front of the tray, so the tray's own 40.0 is not the whole depth.
+| `back_tray.stl` | 90.8 × 53.1 × 40.0 | open side **up** |
 
 ```sh
 openscad -D 'PART="front"' -o front_bezel.stl overwatch_case.scad
 ```
 
-## The bezel
+## What changed, and why
 
-Measured 2026-09-23:
+The version before this had two faults that between them cost a panel.
+
+**The aperture was sized to the glass, and the glass was a press fit in it** —
+0.3 mm nominal, which an FDM hole can easily print *undersize*. The only way
+the panel went in was by being pressed, and pressing a glass module into a
+too-small hole cracks the flex between the glass and its board. It then lights
+up white and never draws, with nothing in any log to say why.
+
+**Four snap pegs sat inside the panel's footprint** — x=±40, y=±12 against a
+board of ±43 × ±25. To reach their sockets they travelled through the space the
+board occupies, so assembling it would have pressed four posts into the back of
+the panel. They had been moved out of the corners to save border and never
+checked against the board.
+
+Both are gone. **The lip now overlaps the glass**, so the glass does not pass
+through the aperture at all — it goes in from behind and rests against the lip.
+There is no press fit left to be tight. And there are no pegs, because there is
+nothing inside.
+
+## The window
+
+Sized to the **lit area**, not the glass. The glass carries 5.7 mm of dead
+black each side and 3.4 top and bottom; that dead black was the border you
+could see. It is under plastic now.
 
 | | |
 |---|---|
-| red PCB | 86.0 x 50.0 |
-| glass | 69.0 x 50.0 — **the full height of the board** |
-| red showing | 8.0 left, 9.0 right, **nothing top or bottom** |
+| at the glass | 59.6 × 45.2 |
+| at the face | 63.6 × 49.2 — chamfered out 2.0 per side |
+| visible border | 13.6 sides, 2.8 top and bottom |
 
-So the aperture follows the **glass**, not the lit area. Earlier versions
-sized it to the active display and needed 14 mm of lip each side to reach it
-— that is the fat border that kept coming back however the numbers were
-nudged. Sized to the glass, the frame only laps the two red strips:
+The **chamfer is on the left and right only** — 3 mm per side. It keeps the
+corners from catching a fingertip reaching for the edge of the picture.
 
-| edge | border |
-|---|---|
-| top, bottom | **2.4 mm** — wall and clearance, and that is the whole lot |
-| left | 10.4 mm — 2.4 of wall over 8.0 of red board |
-| right | 11.4 mm — 2.4 of wall over 9.0 of red board |
+Chamfering all four edges cost 3 mm of border top and bottom, where there is
+only 5.4 to begin with: it left a **1.4 mm knife edge** against sides of 9.4
+and 15.4. The sides can afford the taper and the top and bottom cannot, so the
+top and bottom walls stay square and the border there is 4.4.
 
-The glass sits **flush** in the aperture. There is no lip over it: the active
-area reaches within about 0.5 mm of the glass edge top and bottom, so any lip
-at all would cover picture. The module is held by the two ledges under the red
-strips instead, which is what those strips are for.
+The window sits on the **glass's** centre, not the board's — 8 mm of red on
+the left against 9 on the right, so centring it on the board would put the
+picture half a millimetre out.
 
-The aperture is **not centred**, because the glass is not: 8 mm of red on the
-left against 9 on the right. Centring the hole would put the picture 0.5 mm
-off and show a different amount of red down each side.
+### Where the picture actually is
 
-### It is a 2.8" module
+**Measured on the board, 2026-09-24**: the picture starts 11 mm in from one end
+of the 86 mm board and 17 mm in from the other — so it is **58.0 wide** and its
+centre is **3.0 mm off the board's**.
 
-The silkscreen says so: `2.8 TFT SPI 240*320`, `KJ4RTM28028-SPI`. An earlier
-version of this file called it 3.2", inferred from "active display 10 mm from
-the left, 10.8 from the right" — 86 - 10 - 10.8 = 65.2 wide, which really is a
-3.2" diagonal. Those two readings were almost certainly to the edge of the
-dark **glass**, not the lit pixels; a 2.8" active area is 57.6 x 43.2.
+Two independent measurements agree. Reading off the printed case gave 13 and 20
+from the *case* edge; with the board inset 2.4 each side that is 10.6 and 17.6
+from the board edge, against 11 and 17 here — within 0.6 mm. The board reading
+is the one used, because it does not depend on the case having printed to size.
 
-**It does not change the case.** The aperture follows the glass (69 x 50),
-measured directly. The active area only decides whether the picture looks
-centred in the hole.
+58.0 also lands 0.4 mm off the nominal 57.6 for a 2.8" 4:3 panel. That kind of
+agreement usually means both numbers are right.
 
-## Four hidden snaps — nothing on the front face
+The window is drawn 1 mm larger all round, so it sits **1.0 mm outside the
+picture on every side** — a sliver of black glass shows and nothing is covered,
+which is the direction to err.
 
-Printed **snap pegs on the tray**, clicking into **blind sockets** in the
-bezel. No screws, and nothing visible from the front.
+**The vertical inset has not been measured.** The picture is assumed centred on
+the board's 50 mm, which the glass being full height makes likely — but it is
+an assumption, not a measurement. If it turns out to be off, `act_h` and a
+vertical offset are the two numbers to add.
 
-An earlier version used through-holes with a countersink. It worked, and it
-was wrong: a countersunk through-hole is indistinguishable from a screw hole,
-and four of them on the front is the one place they must not be. "Snap on" has
-to mean invisible or it has bought nothing over screws.
+### Square corners
 
-**Where the room is.** The bezel's cross-section changes partway down:
+`ap_r` is 0.4 — half a nozzle, i.e. as square as an FDM part gets. The
+display's own corners are sharp, so a rounded window would leave four crescents
+of black glass showing at the corners and nothing else.
 
-```
-z 0.0 .. 3.4   the frame -- 10.6 mm bands left and right
-z 3.4 .. 5.0   the PCB pocket opens; only 2.0 mm of rim left
-```
+## Clearances
 
-So the halves meet rim to rim, 2 × 2, with no overlap to snap into — which is
-why the skirt failed and why a peg cannot grip the edge. But those **10.6 mm
-bands are solid for the first 3.4 mm**, and a socket entered from behind can
-live in them without ever breaking through.
+**1.0 mm everywhere the panel touches**, against 0.4 before. The old 0.4 is
+what made it a press fit, and the press fit is what broke the flex.
 
-The socket, in tray coordinates (0 at the tray's face, bezel running −5.0 … 0):
+## How the halves join
 
-```
-bore  -2.6 ..  0.0   at 3.4, what the barb squeezes through
-ring  -3.8 .. -2.6   at 4.2, what it springs out into
-solid -5.0 .. -3.8   1.2 mm of front skin. Nothing shows.
-```
+At the **rim**. The bezel carries a 1.4 mm rim reaching back past the board;
+the tray's spigot plugs into it. Friction — and the join is at the perimeter
+where there is room for it, not through the middle where the panel is.
 
-The peg is **split** so the two prongs can close to clear the bore. A solid one
-would have to stretch the bezel, and PLA does not stretch, it cracks.
+`rim_fit` (0.2 per side) is the number to tune. Loose, lower it; will not
+seat, raise it. Only the tray needs reprinting.
 
-They cost no border: the pegs sit in the side bands, where the panel's own dead
-red strip already forces 10 mm of bezel. A 5 mm peg fits with room over, so the
-border stays **2.4 mm**.
+## The ESP32's perch
 
-## Depth, and the tolerances
+The board lies **flat against the back wall**, component side toward it, with
+its pins and dupont shells pointing forward into the body — the only place with
+room for them. Two rails stand off the wall, each with a groove the board's
+long edges slide into. It goes in **from the right** until its port end meets
+the wall, so the USB-C lines up with the slot by construction.
 
-39.8 mm total: 5.0 of frame, 32.8 of cavity, 2.0 of back wall.
+The rails' inner faces sit *inside* the board's width, which only works because
+it slides in sideways — they could not capture an edge they did not overlap.
 
-Three tolerances, and they are different numbers because they are different
-risks:
+### Everything inside is clipped to the cavity
 
-| | | why |
+The perch is sized for the **board**, then intersected with `tray_inside()`,
+the same shape that hollows the box. Without that clip the end stop — board
+width plus the gap plus both rails, 35.14 across — drove a 3 mm tab straight
+through the bottom of the case, and the rails broke through by 0.41 over their
+last few millimetres.
+
+The cavity is not a box. The underside slants at 15°, so it is **narrower at
+the back**: its floor is at −17.43 where the board's groove sits (z 30.4–32.0)
+but has climbed to −15.56 by the back wall. A part that clears the floor at
+the front can still be outside the case at the back. Clipping makes that
+impossible to get wrong again, whatever the perch is later resized to.
+
+### The numbers are the board's own
+
+| | spec | the model used to say |
 |---|---|---|
-| `clear` | 0.4 | around the PCB in plan. It either fits or it does not, and 0.4 covers print swell over an 86 mm span. |
-| `glass_gap` | 0.3 | around the glass, per side. Tight on purpose — this gap is **visible**, it runs right around the picture, and the glass carries no load. |
-| `depth_tol` | 2.0 | slack in the depth stack. The two numbers that set it (10.8 module with cables, 25.0 ESP32 with cables) are ruler readings of squashy things, so this one is generous. Costs 2 mm nobody sees; saves a lid that will not close. |
+| length | **48.26** | 52.0 — 3.7 too long |
+| width | **27.94** | 28.0 |
+| pins below the board | **8.50** | *nothing at all* |
 
-## The slanted bottom
+### The standoff is set by the PLUG, not the socket
 
-The **whole underside** is the foot: one flat plane, cut at 15 degrees to the
-screen, that the case sits on. Two fins did the same job and looked like an
-afterthought.
+`esp_stand` = 6.0 mm. The connector is only 3.16 tall, so 4 would clear it —
+but a USB-C plug's overmould is about 7 across, centred on that socket:
 
-It costs something, and the cost is worth knowing if you change `lean`. The
-desk plane rises `tan(lean)` per mm of depth — 10.7 mm over this case's 39.8 —
-while the cavity floor sits only 2 mm above the case bottom. So a slanted
-bottom starts eating into the cavity **7.5 mm back from the front**. Keeping a
-full-height cavity all the way to the rear would mean growing the case 10.7 mm
-taller, which is a **13.1 mm bottom bezel instead of 2.4**. Not worth it.
+| standoff | plug reaches | back wall at 38 |
+|---|---|---|
+| 4 | 39.08 | **fouls** |
+| 5 | 38.08 | **fouls** |
+| **6** | **37.08** | clears by 0.92 |
 
-The way out is that full height is only needed for the **panel**, in the first
-5.8 mm. Behind that only the ESP32 has to fit, and it can ride high. So the
-cavity floor is cut by the *same* plane one `wall` higher — which keeps the
-wall an even 2 mm the whole way along the slant instead of tapering to a knife
-edge — and the ESP32 sits on that rising floor.
+At 4 mm the cable hits the case before it seats — and the socket would have
+looked perfectly fine in a render.
 
-Raise `lean` much past 15 and the ESP32 bay runs out of headroom. The check is
-in the README's arithmetic, not in the model: nothing stops you.
+## The vents
 
-## Printing, and what the slant fixed
+**Two rows of hexagons across the top of the back wall**, with the board
+directly underneath.
 
-**Both parts print flat with no supports.**
+The cell size is not a style choice. The slanted underside has risen to
+y = −15.56 by the time it reaches the back wall, so the usable height there is
+**42.96 mm** — and the board takes 27.94 of it. That leaves about 12 mm for two
+rows, which sets `hex_r` at 2.6.
 
-That is new. With legs on the back, the tray had two bad choices and no good
-one — back wall down put the legs *through the bed*, and front opening down
-meant bridging the open 86.8 x 50.8 cavity. Slanting the whole bottom removed
-the problem: the tray now prints back wall down with the opening up, and the
-slanted underside is simply an angled side wall at 15 degrees from vertical,
-well inside the 45 rule.
+The board is centred on y=0, spanning −13.97 to 13.97: clear of the floor by
+1.59 and topping out just under the vents at 13.6.
 
-## How the panel goes in
+### The port
 
-**From behind.** The board drops into the pocket from the back of the bezel
-and is caught by two **8.6 mm ledges** under the red strips. It cannot fall
-through the front because it is 86 mm wide against a 69.6 mm hole.
-
-Top and bottom have **no ledge at all** — 0.1 mm, which is nothing. That is
-not an oversight: the glass is the full 50 mm height of the board, so there is
-no red up there to grip. The board is held on two sides and pressed forward
-against those ledges by the tray. The glass then stands 3.4 mm proud through
-the aperture and finishes flush with the bezel's face.
-
-## The loom
-
-13 dupont jumpers between the panel's header and the ESP32.
-
-**The rule is: the loom goes sideways, never backwards.** Depth is the one
-dimension being fought for — every millimetre of it shows in how thick the
-case looks — while the cavity is 86.8 wide and the ESP32 is only 52. Those
-**34.8 mm of spare width** are free depth, so the board is pushed to the port
-side and the whole of the other side is the loom's.
-
-13 wires of 26 AWG at about 1.3 mm over the insulation bundle to roughly
-`sqrt(13) x 1.3 = 4.7 mm`; call it 7 loosely gathered. The channel is **9 mm**,
-so the bundle is guided rather than squeezed. A loom crushed into its channel
-pulls on the crimps every time the case is closed, and **the crimp is where
-dupont wires fail, not the wire.**
-
-Two C-clips hold it, mouths facing the middle of the case — you press the
-bundle in from the side. Deliberately not closed rings: a closed channel has
-to be *threaded*, and threading 13 stiff jumpers through a 9 mm hole during
-assembly is exactly how they get pulled out of their shells.
-
-There is also a **zip-tie slot beside the USB port**. Tie the lead inside the
-case and a tug on the cable pulls on the case rather than the socket, which is
-the joint that tears off a DevKitC.
-
-### The number to check
-
-`panel_d = 10.8` is your measurement of the module **with its cables**. If
-the header's dupont shells stand straight off the back of the board they are
-about 14 mm on their own, and 14 + 25 for the ESP32 is 39 against a 32.8 mm
-cavity — it would not close. Measure the module front-to-back with a jumper
-seated, square to the board. If it is over about 12, raise `panel_d` and
-`cavity_d` follows, or fit right-angle headers.
-
-## Two checks worth keeping
-
-`overwatch_case.scad` asserts at render time, because the failures above were
-silent:
-
-- screw posts must land in the solid band beside the aperture, not over it;
-- the lower posts must clear the **slanted** cavity floor. That floor rises
-  0.268 mm per mm of depth, so the tight point is the back wall — at
-  `scr_y = 18` the posts went 3.9 mm out through the bottom of the case. 12
-  keeps them 2.1 mm clear.
-
-When checking an STL for loose parts, count **shells minus internal voids**.
-A blind screw hole is its own closed surface, so the tray reads as 5 shells
-and is a single solid with four blind holes — a raw shell count calls that
-broken when it is correct.
-
-## A note on judging renders
-
-The parts are **modelled face-down** — face in XY, depth along Z. In a raw
-render the device's "down" is horizontal, so a leg pointing at the floor looks
-like a spike sticking sideways out of the back, and a wrong one looks fine.
-The `all` view rotates the assembly upright for exactly this reason. Judge the
-stance there and nowhere else.
+Positioned **from the board**, not guessed. The USB-C is centred on the 27.94
+width and sits on the board's front face, so the opening's centre is
+`esp_rib + esp_t + shell_h/2` in from the back wall — z=15.8. The connector
+shell spans 14.2–17.4 and the 7 mm slot spans 12.3–19.3, so a plug's overmould
+has room either side of the receptacle.

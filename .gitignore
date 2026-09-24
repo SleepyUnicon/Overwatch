@@ -58,3 +58,6 @@ bridge.pid
 reveal/*.mp4
 reveal/poster_*.png
 reveal/frames/
+
+# A zip of case/ for opening in the slicer -- regenerable, not source.
+case.zip

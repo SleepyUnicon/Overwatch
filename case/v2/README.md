@@ -89,6 +89,75 @@ The board is held by the two **ledges under the red strips**, as in V1, and
 for the same reason: the glass is the full height of the board, so there is no
 red top or bottom to grip.
 
+## Two things the first print got wrong
+
+**The base would not seat — it fouled the front.** The shell's front wall
+leans, so the cavity's front boundary moves *back* as it rises:
+`Y = z·tan(lean) + wall/cos(lean)`. The lip was drawn as a straight-sided
+rectangle, so it cleared at the bottom and jammed harder the further in it
+went:
+
+| height | cavity starts at | lip front | |
+|---|---|---|---|
+| 0.0 | 2.13 | 2.25 | clears |
+| 2.5 | 3.04 | 2.25 | **1.79 mm clash** |
+| 5.0 | 3.95 | 2.25 | **1.70 mm clash** |
+
+The lip's front is now set back to clear at its *tallest* point, which is the
+only place that matters: `lip_h·tan(lean) + wall/cos(lean) + lip_fit` = 4.20.
+
+**The ESP32 had nowhere to sit.** The first version was two bare pegs. They
+held the board off the floor at roughly the right height and did nothing else
+— nothing located it sideways, nothing stopped it sliding, nothing held it
+down. Pushing a USB-C cable in would simply shove the board off them.
+
+It is a cradle now: pads to set the height so the port centres on the hole,
+side rails with a lip that the board slides under **from the back**, and a
+stop at the front. The board slides back until its port end meets the shell's
+back wall, so the connector lines up by construction rather than by careful
+placement. Plug and unplug without the board moving.
+
+## It only goes in one way
+
+A rib on **one side rail** of the base's lip, 20 mm from the front, and a slot
+for it in the shell's matching side wall.
+
+It was on the *back* rail first, meant to be blocked by the leaning front wall
+when reversed — but only by **0.52 mm**, because the lip's front is already set
+back 1.95 mm to clear that lean, and a reversed base simply eats the slack. The
+setback fights the keying.
+
+Off-centre along the **length** cannot be symmetric. The rib spans Y 8–32;
+reversed it lands at Y 38–62, where the shell's wall is solid. The two ranges
+do not overlap at all, so it cannot even half-seat, and it is blocked by the
+rib's full 1.25 mm with nothing to absorb it.
+
+**24 × 4 mm, standing 1.5 proud.** It was 10 × 3 first, which keyed correctly
+and could not be *found* — at that size it reads as a print artefact rather
+than a feature, and a tab that small snaps off the first time the base is
+prised out. Length is free here, since the blocking depth is what does the
+keying, so it buys visibility and strength for nothing.
+
+Telling front from back by eye, if you need to: the **finger notch** is on the
+front edge, the **cradle rails** are at the back, and the lip sits 4.2 mm in at
+the front against 2.25 at the back.
+
+## Room for the flex
+
+The glass is 69 wide on an 86 board, so its flex has to reach the PCB at one of
+the two **short** edges — the 8 mm and 9 mm red strips. The pocket gave those
+edges **0.4 mm**, which is nothing: a flex that wraps the edge, or merely
+stands proud of it, is gripped by the pocket wall. A panel went white after
+being fitted, and this is the likeliest reason.
+
+Both short edges are now relieved by `flex_gap` (1.5 mm), over the middle of
+the edge only. Relieving the whole edge would leave the board unlocated in X
+and the picture would wander in the window; `flex_land` (9 mm) keeps a land at
+each corner to place it.
+
+Both edges, because which one the flex exits is not something a photo settles,
+and relieving the unused side costs nothing.
+
 ## The number to tune
 
 `lip_fit` (0.25 per side) is how tightly the base sits in the shell.

@@ -65,7 +65,11 @@ usb_z      =  4.0;   // port centre above the base's inner face
 wall       = 2.0;
 clear      = 0.4;
 bezel      = 1.2;
-glass_gap  = 0.3;
+glass_gap  = 0.5;    // per side. 0.3 was too tight: an FDM hole comes
+                     // out 0.2-0.4 undersize, so it can print smaller
+                     // than the glass and then the panel only goes in by
+                     // being pressed -- which cracks the flex between the
+                     // glass and its board. Costs 0.4 mm of visible gap.
 
 // The front face has to be THICKER than the wall, or the panel has
 // nowhere to sit. Glass stands 3.4 proud of its board, so 3.4 of face in
@@ -74,6 +78,20 @@ glass_gap  = 0.3;
 // proud and the pocket cutting clean through the face -- which is what
 // the first render showed, a front you could see straight through.
 front_t    = glass_pro + pcb_t;   // 5.0
+
+// ---- room for the flex ----------------------------------------------
+// The glass is 69 wide on an 86 board, so its flex has to get down to the
+// PCB at one of the two SHORT edges -- the 8 mm and 9 mm red strips. The
+// pocket gave those edges 0.4 mm, which is nothing: a flex that wraps the
+// edge, or merely stands proud of it, is gripped by the pocket wall. A
+// panel went white after being fitted, and this is the likeliest reason.
+//
+// Relieved over the MIDDLE of each short edge only. Relieving the whole
+// edge would leave the board unlocated in X and the picture would wander
+// in the window; leaving a land top and bottom keeps it placed while the
+// flex gets its room.
+flex_gap   = 1.5;    // extra clearance at each short edge
+flex_land  = 9.0;    // pocket wall kept at each corner, to locate the board
 
 // ---- the wedge ------------------------------------------------------
 // 20 degrees, and the reasoning is in BRIEF.md: at a desk your sight line
@@ -96,7 +114,46 @@ corner_r   = 4.0;
 base_t     = 2.5;
 lip_h      = 5.0;    // how far the base's lip reaches up inside the shell
 lip_fit    = 0.25;   // per side. THE number to tune if the base is loose.
-bump_d     = 1.0;    // the detent that holds it in
+
+// ---- the ESP32's cradle ---------------------------------------------
+// The board slides in from the BACK until its port end meets the shell's
+// back wall, so the USB-C lines up with the hole by construction rather
+// than by being placed carefully.
+//
+// The first version was two bare 5 mm pegs. They held the board off the
+// floor at roughly the right height and did nothing else: nothing located
+// it sideways, nothing stopped it sliding, and nothing held it down --
+// so plugging a cable in would simply push the board off them.
+esp_lift   = 3.0;    // standoff, so the port centres on the hole
+rail_t     = 3.0;    // the side rails
+rail_h     = 5.6;    // tall enough to get a lip over the board
+rail_gap   = 0.8;    // per side, around the board's 28 mm width
+clip_over  = 1.0;    // how far the rails' lip reaches over the board
+
+// ---- keying ---------------------------------------------------------
+// A rib on ONE SIDE rail of the lip, well forward of centre, and a slot
+// for it in the shell's matching side wall.
+//
+// It was on the BACK rail first, blocked by the leaning front wall when
+// reversed -- but only by 0.52 mm, because the lip's front is already set
+// back 1.95 mm to clear that lean and a reversed base simply eats the
+// slack. The setback fights the keying.
+//
+// Off-centre along the LENGTH cannot be symmetric: reversed, the rib
+// lands at depth - key_y, where the shell's wall is solid, and is blocked
+// by its full depth with nothing to absorb it.
+key_y      = 20.0;   // forward of the middle, so reversing moves it 30 mm
+key_w      = 24.0;   // along the length.
+                     //
+                     // Was 10, which worked and could not be FOUND: at
+                     // 10 x 3 it reads as a print artefact rather than a
+                     // feature, and a tab that small snaps off the first
+                     // time the base is prised out. Length is free here
+                     // -- the blocking depth is what does the keying, and
+                     // that is unchanged -- so it buys visibility and
+                     // strength for nothing.
+key_t      = 1.5;    // how far the rib stands out sideways
+key_h      = 4.0;
 
 // ---- the vent -------------------------------------------------------
 hex_r      = 3.4;    // across the flats
@@ -222,6 +279,19 @@ module v2_shell() {
 			linear_extrude(pcb_t + clear + 2)
 			rrect(pcb_w + 2 * clear, pcb_h + 2 * clear, 1.5);
 
+		// Relief for the flex, at both short edges. Both, because
+		// which one it exits is not something a photo settles, and
+		// relieving the unused side costs nothing.
+		on_front()
+			for (x = [-1, 1])
+				translate([x * (pcb_w / 2 + clear + flex_gap / 2),
+					   ap_cy, -front_t - 2])
+					linear_extrude(pcb_t + clear + 2)
+					square([flex_gap + 1,
+						pcb_h + 2 * clear
+						- 2 * flex_land],
+					       center = true);
+
 		// the USB port, in the vertical back wall
 		translate([0, depth - wall / 2, base_t + usb_z])
 			cube([usb_w, wall + 2, usb_h], center = true);
@@ -229,6 +299,11 @@ module v2_shell() {
 		// the honeycomb, above the port
 		translate([0, depth - wall / 2, height * 0.60])
 			hex_field(face_w - 24, height * 0.44, wall + 4);
+
+		// the keyway the base's rib drops into, in the LEFT wall
+		translate([-(face_w / 2 - wall), key_y, key_h / 2 + 0.6])
+			cube([key_t * 2 + 1, key_w + 0.6, key_h + 0.6],
+			     center = true);
 	}
 }
 
@@ -239,6 +314,24 @@ module v2_base() {
 	bw = face_w - 2 * wall - 2 * lip_fit;
 	bd = depth - 2 * wall - 2 * lip_fit;
 
+	// WHERE THE LIP'S FRONT EDGE GOES, and why it is not simply
+	// (depth - bd)/2.
+	//
+	// The shell's front wall LEANS, so the cavity's front boundary moves
+	// BACK as it rises: Y = z*tan(lean) + wall/cos(lean). A straight
+	// sided lip clears at the bottom and fouls harder the further in it
+	// goes -- at lip_h it was 1.7 mm inside the wall, which is why the
+	// base would not seat and why it felt like it was hitting the screen.
+	//
+	// Set back to clear at the lip's TALLEST point, which is the only
+	// place that matters.
+	lip_y0 = lip_h * tan(lean) + wall / cos(lean) + lip_fit;
+	lip_y1 = depth - wall - lip_fit;
+
+	// The board, sliding back until its port end meets the back wall.
+	esp_y1 = depth - wall;
+	esp_y0 = esp_y1 - esp_l;
+
 	difference() {
 		union() {
 			// the plate, the shell's own footprint so it closes
@@ -248,21 +341,72 @@ module v2_base() {
 				rrect(face_w, depth, corner_r);
 
 			// the lip that locates it inside the shell
-			translate([0, depth / 2, 0])
+			translate([0, (lip_y0 + lip_y1) / 2, 0])
 				linear_extrude(lip_h)
 				difference() {
-					rrect(bw, bd, max(0.5, corner_r - wall));
-					rrect(bw - 2 * wall, bd - 2 * wall,
+					rrect(bw, lip_y1 - lip_y0,
+					      max(0.5, corner_r - wall));
+					rrect(bw - 2 * wall,
+					      lip_y1 - lip_y0 - 2 * wall,
 					      max(0.5, corner_r - 2 * wall));
 				}
 
-			// The ESP32's perch, set back so the port lands on the
-			// hole in the back wall. Two posts, not four: every
-			// DevKitC has a different hole pattern, so this is a
-			// rest to zip-tie to rather than a pattern to match.
+			// --- the cradle ------------------------------------
+			// pads, to lift the board so its port centres on the
+			// hole in the back wall
+			for (x = [-1, 1], y = [esp_y0 + 3, esp_y1 - 3])
+				translate([x * esp_w / 3, y, 0])
+					cylinder(d = 5, h = esp_lift);
+
+			// side rails, with a lip over the board's edges. The
+			// board slides in from the back, under the lip.
 			for (x = [-1, 1])
-				translate([x * esp_w / 3, depth - wall - 16, 0])
-					cylinder(d = 5, h = 3);
+				translate([x * (esp_w / 2 + rail_gap
+						+ rail_t / 2),
+					   (esp_y0 + esp_y1) / 2, 0]) {
+					// Lifted by rail_h/2, because
+					// center=true centres on ALL THREE
+					// axes -- the rails were half buried
+					// under the plate, topping out at 2.8
+					// while their own lips sat at 4.6, so
+					// the two never touched.
+					translate([0, 0, rail_h / 2])
+						cube([rail_t, esp_l, rail_h],
+						     center = true);
+					// the lip, reaching inward over the
+					// board at just above its top face
+					// OVERLAPS the rail by 0.4 rather than
+					// butting against it. Butting leaves
+					// coincident faces, which OpenSCAD
+					// does not merge -- the two lips came
+					// out as loose slivers. This is the
+					// FOURTH time this trap has bitten in
+					// this project: posts, loom clips,
+					// snap barbs, now these. Anything
+					// added to anything else gets an
+					// overlap, not a shared face.
+					translate([-x * (rail_t / 2
+							 + clip_over / 2 - 0.2),
+						   0,
+						   esp_lift + 1.6
+						   + clip_over / 2])
+						cube([clip_over + 0.4,
+						      esp_l - 6, clip_over],
+						     center = true);
+				}
+
+			// the key: a rib on the LEFT rail of the lip
+			translate([-(bw / 2 + key_t / 2), key_y,
+				   key_h / 2 + 0.6])
+				cube([key_t, key_w, key_h], center = true);
+
+			// a stop at the front, so pushing a cable in cannot
+			// drive the board forward off its pads
+			// Centred in X and standing ON the plate, not through
+			// it -- the same center= trap as the rails.
+			translate([0, esp_y0 - 1.5, rail_h / 2])
+				cube([esp_w + 2 * rail_gap + 2 * rail_t,
+				      3, rail_h], center = true);
 		}
 
 		// a finger notch, so the base can be prised back out
