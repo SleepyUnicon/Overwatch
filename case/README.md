@@ -157,6 +157,28 @@ play — the shoulder would still be the hard stop, so the joint stays flush.
 The corners clear comfortably: the spigot's corner-most point is 0.054 from the
 rim opening's arc centre against a 1.0 radius.
 
+## The connector edge
+
+The display's connectors sit on the **back** of the panel and start right at
+the edge on the case's right-hand side — negative x, the same edge the USB
+comes out of. The spigot's nose overlaps the board by 1.2 all the way round,
+so on that edge it landed straight on them.
+
+Nothing *inboard* of the spigot's inner face needed any help: that is open
+cavity, 33 deep. Only the 1.2 band where the nose overhangs the board was in
+the way, so that band is cut back over `panel_conn` = 3.4 (the 3.0 measured
+behind the board, plus 0.4).
+
+```
+spigot's -x wall at z=1.0 (in the relief) : -43.80 .. -43.00   0.8 thick
+spigot's -x wall at z=4.5 (past it)       : -43.80 .. -41.80   2.0 thick
+```
+
+The spigot keeps its full **outer** face there, so it still locates in the
+rim — it just stops touching the board on that one edge. The panel bears on
+the other three, which is plenty given the glass is also carried by the lip
+all the way round.
+
 ## The ESP32's perch
 
 The board lies **flat against the back wall**, component side toward it, with

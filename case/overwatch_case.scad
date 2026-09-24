@@ -146,6 +146,18 @@ function usb_h() = usb_plug_h + usb_fit;   //  7.10
 //   s=4 -> plug reaches 39.08   FOULS
 //   s=5 -> plug reaches 38.08   FOULS
 //   s=6 -> plug reaches 37.08   clears
+// The display's own connectors sit on the BACK of the panel and start
+// right at the edge on the case's right-hand side -- negative x, the same
+// edge the USB comes out of. The spigot's nose overlaps the board by 1.2
+// all the way round, so on that edge it would land straight on them.
+//
+// Nothing inboard of the spigot's inner face needs any help: that is open
+// cavity, 33 deep. Only the 1.2 band where the nose overhangs the board
+// is in the way, so that band is cut back over the connectors' height.
+// The spigot keeps its full OUTER face there, so it still locates in the
+// rim -- it just stops touching the board on that one edge.
+panel_conn = 3.4;    // connector height off the board, 3.0 measured + 0.4
+
 esp_stand  = 6.0;    // board's component face to the back wall
 // The slot is cut to the BOARD, not to a round number. It used to leave
 // 0.50 a side on the width and 0.30 on the thickness -- the board sat in
@@ -228,6 +240,15 @@ module rbox(w, h, d, r) {
 	linear_extrude(d) rrect(w, h, r);
 }
 
+// Everything below the desk plane: through the bezel's bottom front
+// edge, rising at `lean` as it goes back.
+module desk_cut(drop = 0) {
+	translate([0, -face_h / 2 + drop, 0])
+		rotate([-lean, 0, 0])
+		translate([-200, -400, -200])
+		cube([400, 400, 400]);
+}
+
 // The seats for the panel take their corner radius from the CLEARANCE,
 // and that is not a style choice.
 //
@@ -253,6 +274,10 @@ module rbox(w, h, d, r) {
 // centre against a 1.5 radius and fouled by 0.056 before the printer
 // added its own. At clear = 1.0 it clears by the full millimetre.
 seat_r = clear;
+
+// =====================================================================
+// front_bezel
+// =====================================================================
 
 module front_bezel() {
 	// The window sits where the PICTURE is, measured -- see act_cx. It
@@ -370,6 +395,10 @@ module back_tray() {
 	sp_w = pcb_w + 2 * clear - 2 * rim_fit;   // plugs into the bezel's rim
 	sp_h = pcb_h + 2 * clear - 2 * rim_fit;
 
+	// where the nose overhangs the board, on the connector edge
+	conn_out = -(pcb_w / 2);            // the board's edge, -43.0
+	conn_in  = -(sp_w / 2 - wall) + 1;  // 1 past the spigot's inner face
+
 	difference() {
 		union() {
 			// the spigot, entering the bezel
@@ -393,6 +422,11 @@ module back_tray() {
 		// Offset vertically by wall/cos(lean), which is what gives a
 		// true `wall` measured PERPENDICULAR to a sloping face.
 		tray_inside();
+
+		// the connector relief -- see panel_conn
+		translate([(conn_out + conn_in) / 2, 0, panel_conn / 2 - 1])
+			cube([conn_in - conn_out, sp_h + 2, panel_conn + 2],
+			     center = true);
 
 		// The USB port, in the RIGHT SIDE wall, positioned from the
 		// board rather than guessed. The board's port end butts the
