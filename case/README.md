@@ -103,6 +103,60 @@ where there is room for it, not through the middle where the panel is.
 `rim_fit` (0.2 per side) is the number to tune. Loose, lower it; will not
 seat, raise it. Only the tray needs reprinting.
 
+## The panel's seats, and why they are not dead square
+
+The panel has sharp corners, so the seats are cut as square as the geometry
+allows — but "as square as allows" is a real limit here, not a shrug.
+
+**The corner radius comes from the clearance.** A sharp corner in a pocket
+rounded by *r* clears by `r − √2·|clear − r|` while *r* > clear, and by the
+full `clear` once *r* ≤ clear. So `seat_r = clear` is the point where the
+corner clears exactly as much as the flats do, and sharper buys **nothing**.
+
+**It cannot go sharper anyway.** The seat's corner is at (44, 26); the outer
+profile's corner arc is centred at (41.4, 23.4) with r=4. Dead square leaves
+**0.323 mm** of wall there — under one extrusion, so it prints as a hole.
+
+| seat r | wall at the corner | corner clearance |
+|---|---|---|
+| 1.5 | 0.944 | 0.793 ← what V1 had |
+| **1.0** | **0.737** | **1.000** ← here |
+| 0.0 | 0.323 | 1.000 — unprintable |
+
+Corner *relief* — a small circle centred on the corner — is out for the same
+reason: it would have to be under 0.323 to stay inside the wall. Tried it; it
+punched straight through the outside face at all four corners.
+
+### What actually held the first V1 off was the clearance
+
+Not the rounding. At `clear` = 0.4 the board's corner fell **1.556** from the
+arc centre against a **1.5** radius: fouling by 0.056 before the printer added
+its own corner fillet. At `clear` = 1.0 it clears by the full millimetre. The
+rounding only mattered because the clearance was too small to absorb it.
+
+## The bezel-to-tray joint
+
+Measured off the two STLs, on the mating flats:
+
+```
+bezel rim opening   ±44.00   outer ±45.40   (a 1.40 ring)
+tray spigot         ±43.80   inner ±41.80   (a 2.00 wall)
+                 -> 0.20 a side
+```
+
+Two surfaces land **at the same moment**: the tray's shoulder on the rim's back
+face at z=11.2, and the spigot's nose on the board's back face at z=6.2. The
+spigot is 5.0 long and the rim cavity is 5.0 deep, so the joint closes flush
+with no step — and the panel is held with **zero nominal slack**.
+
+That is the one number to watch. It is right if the panel really is 3.4 of
+glass on a 1.6 board; if it measures 5.2 rather than 5.0, the difference goes
+into the glass. Standing the spigot off 0.3 would trade that risk for 0.3 of
+play — the shoulder would still be the hard stop, so the joint stays flush.
+
+The corners clear comfortably: the spigot's corner-most point is 0.054 from the
+rim opening's arc centre against a 1.0 radius.
+
 ## The ESP32's perch
 
 The board lies **flat against the back wall**, component side toward it, with

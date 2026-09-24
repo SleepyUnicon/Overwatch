@@ -228,18 +228,32 @@ module rbox(w, h, d, r) {
 	linear_extrude(d) rrect(w, h, r);
 }
 
-// Everything below the desk plane: through the bezel's bottom front
-// edge, rising at `lean` as it goes back.
-module desk_cut(drop = 0) {
-	translate([0, -face_h / 2 + drop, 0])
-		rotate([-lean, 0, 0])
-		translate([-200, -400, -200])
-		cube([400, 400, 400]);
-}
+// The seats for the panel take their corner radius from the CLEARANCE,
+// and that is not a style choice.
+//
+// A sharp corner in a pocket rounded by r clears by r - sqrt(2)*|clear-r|
+// while r > clear, and by the full `clear` once r <= clear. So r = clear
+// is the point where the corner clears exactly as much as the flats do,
+// and going sharper than that buys nothing at all.
+//
+// It cannot go sharper anyway. The seat's corner is at (44, 26) and the
+// outer profile's corner arc is centred at (41.4, 23.4) with r=4, which
+// leaves 0.323 mm of wall at a dead-square corner -- under one extrusion,
+// so it would print as a hole. Corner relief is out for the same reason:
+// a circle centred on the corner has to be smaller than 0.323 to stay
+// inside the wall.
+//
+//    seat r    wall at the corner    corner clearance
+//      1.5          0.944                 0.793      (what V1 had)
+//      1.0          0.737                 1.000      <- here
+//      0.0          0.323                 1.000      unprintable
+//
+// What actually stopped the first V1 sitting down was the CLEARANCE, not
+// the rounding: at clear = 0.4 the board's corner fell 1.556 from the arc
+// centre against a 1.5 radius and fouled by 0.056 before the printer
+// added its own. At clear = 1.0 it clears by the full millimetre.
+seat_r = clear;
 
-// =====================================================================
-// front_bezel
-// =====================================================================
 module front_bezel() {
 	// The window sits where the PICTURE is, measured -- see act_cx. It
 	// used to be derived from the glass's position on the board, which
@@ -299,15 +313,18 @@ module front_bezel() {
 			linear_extrude(glass_pro + pcb_t + 2)
 			rrect(ap_w, ap_h, ap_r);
 
-		// the glass recess -- the glass rests against the lip here
+		// the glass recess -- the glass rests against the lip here.
+		// SQUARE, with corner relief: the glass has sharp corners.
 		translate([cx, 0, lip_t])
 			linear_extrude(glass_pro + pcb_t + 2)
-			rrect(glass_w + 2 * clear, glass_h + 2 * clear, 1.5);
+			rrect(glass_w + 2 * clear, glass_h + 2 * clear, seat_r);
 
-		// the board's own pocket, behind the glass
+		// the board's own pocket, behind the glass. Square too -- and
+		// this is the one that mattered: it is the seat that held the
+		// first V1 off.
 		translate([0, 0, lip_t + glass_pro])
 			linear_extrude(pcb_t + rim_d + 2)
-			rrect(pcb_w + 2 * clear, pcb_h + 2 * clear, 1.5);
+			rrect(pcb_w + 2 * clear, pcb_h + 2 * clear, seat_r);
 
 		desk_cut();
 	}
