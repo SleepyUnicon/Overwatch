@@ -190,10 +190,16 @@ The cell was extruded from `rim_d + tray_d + back_t - 1` = 39, through
 kept a 1 mm skin on its inside face — the identical fault to the port, one
 wall over. It now starts at `rim_d + tray_d - 1` = 37.
 
-**Genus is the check.** A closed box with *n* holes through its walls is genus
-*n*. The tray should read **22** — one port and 21 cells. It read 0 while both
-were skinned, and 1 once only the port was open. If that number is not 22, a
-hole somewhere is not a hole.
+**Genus was how both were caught.** A closed box with *n* holes through its
+walls is genus *n*: it read 0 while both were skinned, and 1 once only the port
+was open.
+
+It is not the check to keep, though — genus counts *every* handle, including
+three small channels where the lower rail merges into the sloping floor. Shrink
+the rails (`-D esp_l=5`) and the tray reads exactly 22, one port and 21 cells.
+
+Cast a ray through each cell instead. That answers the question actually being
+asked — **is this hole a hole** — and it does not care what else the part does.
 
 ### The port
 
@@ -226,14 +232,30 @@ the skin was there OpenSCAD reported genus 0.
 
 #### Which side is it on?
 
-**The same side as the wider bezel.** That is the way to check it that needs no
-coordinate system: the aperture sits 3 mm off centre, so the borders are 11 and
-17, and the port is on the 17 side. Measured off the STLs, the bezel's lip is
-12.35 one side and 18.35 the other, and the port is on the 18.35 side.
+The viewer's **right**, which is **negative x**. That sign is the whole trap
+and I had it backwards.
 
-Facing the screen that is the **right**, which is where it was asked for. Seen
-from behind — a tray alone on a build plate, say — it is on the left, because
-that is what looking at the back of something does.
+The screen's face is at z=0 and the body runs back to +z, so the viewer looks
+**along +z** with +y up. For a right-handed frame, a viewer whose forward is
++z and whose up is +y has their right hand pointing at **−x**. Write "the USB
+is on the right" as +x and the case comes out mirrored — port on the far side,
+and the wide border mirrored with it.
+
+Nothing catches this. The box is symmetric enough that no render looks wrong,
+and the relational check — *is the port on the same side as the wide border?* —
+passes happily while **both** are on the wrong side. It took putting the part
+on a build plate, with the slant on the bottom where it belongs, to see it.
+
+So `act_cx` is no longer a signed guess. It is derived from the border the
+viewer actually sees on their right:
+
+```
+bez_right = 17.0;                                  // measured
+act_cx    = -pcb_w/2 + bez_right + act_w/2;        // = +3.0
+```
+
+and the board's port end butts `-(face_w/2 - wall)`. Both now read 18.35 on
+the viewer's right and 12.35 on their left, against the measured 17 and 11.
 
 #### Could the opening be socket-sized?
 

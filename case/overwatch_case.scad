@@ -47,7 +47,9 @@ pcb_h      = 50.0;
 pcb_t      = 1.6;
 glass_w    = 69.0;
 glass_h    = 50.0;   // the full height of the board
-glass_left =  8.0;   // red showing on the left; 9 on the right
+glass_left =  8.0;   // UNUSED, kept as the raw measurement. Careful:
+                     // "left" here is off the photograph, not the
+                     // model's +x. See WHICH WAY IS RIGHT.
 glass_pro  =  3.4;   // glass stands this proud of its board
 
 // The whole module, front to back: 8.0 measured. Glass 3.4 + PCB 1.6
@@ -82,7 +84,23 @@ act_w      = 58.0;
 // 1.333, which is either a slightly wide panel or a rounded reading --
 // and well inside the 1 mm the window carries either way.
 act_h      = 44.0;
-act_cx     = -3.0;   // measured on the board
+
+// WHICH WAY IS RIGHT
+//
+// The screen's face is at z=0 and the body runs back to +z, so the
+// viewer looks along +z with +y up. In a right-handed frame that puts
+// the viewer's RIGHT at NEGATIVE x. Not positive. This is the whole
+// trap: every left and right in the notes -- the 11/17 borders, "USB on
+// the right" -- is from in front of the screen, and writing them against
+// +x mirrors the case. The port lands on the far side and the wide
+// border goes with it, and a box this symmetric will not look wrong in
+// any render.
+//
+// So don't write act_cx as a signed guess. Derive it from the border
+// the viewer sees on their right, and it cannot come out mirrored.
+bez_right  = 17.0;   // border on the viewer's RIGHT, measured
+bez_left   = 11.0;   // and on their left -- 11 + 58 + 17 = 86 = pcb_w
+act_cx     = -pcb_w / 2 + bez_right + act_w / 2;   // = +3.0
 
 // ---- the ESP32 ------------------------------------------------------
 // From the board's own spec sheet, not estimated. The model previously
@@ -367,7 +385,7 @@ module back_tray() {
 		// A stadium, not a rectangle -- the plug is round-ended, so a
 		// square hole only ever reads as a square hole with a plug
 		// rattling in it.
-		translate([face_w / 2 - wall / 2, 0, usb_z()])
+		translate([-(face_w / 2 - wall / 2), 0, usb_z()])
 			rotate([0, 90, 0])
 			linear_extrude(wall + 2, center = true)
 			hull() for (s = [-1, 1])
@@ -411,8 +429,11 @@ module back_tray() {
 	// The rails' inner faces sit INSIDE the board's width, which is only
 	// possible because it slides in sideways -- they could not capture
 	// an edge they did not overlap.
-	x_wall = face_w / 2 - wall;       // the board's port end
-	x_in   = x_wall - esp_l;          // its inboard end
+	// Negative x is the viewer's right -- see "WHICH WAY IS RIGHT". The
+	// board's port end butts THAT wall, so the USB comes out on the
+	// right of the screen, which is where it was asked for.
+	x_wall = -(face_w / 2 - wall);    // the board's port end
+	x_in   = x_wall + esp_l;          // its inboard end
 	z_wall = rim_d + tray_d;          // back wall, inside
 	z_comp = z_wall - esp_stand;      // the board's component face
 	z_sold = z_comp - esp_t;          // and its solder face
@@ -449,7 +470,7 @@ module back_tray() {
 				}
 
 			// the stop at the inboard end
-			translate([x_in - 1.5, 0, (z_sold + z_wall) / 2])
+			translate([x_in + 1.5, 0, (z_sold + z_wall) / 2])
 				cube([3, 2 * y_out, z_wall - z_sold],
 				     center = true);
 		}
