@@ -165,8 +165,41 @@ The board is centred on y=0, spanning −13.97 to 13.97: clear of the floor by
 
 ### The port
 
-Positioned **from the board**, not guessed. The USB-C is centred on the 27.94
-width and sits on the board's front face, so the opening's centre is
-`esp_rib + esp_t + shell_h/2` in from the back wall — z=15.8. The connector
-shell spans 14.2–17.4 and the 7 mm slot spans 12.3–19.3, so a plug's overmould
-has room either side of the receptacle.
+A **stadium, not a rectangle** — 12.95 × 7.10, fully round-ended, centred at
+z = 33.58. Its position is derived, not chosen: `rim_d + tray_d - esp_stand +
+usb_shell_h/2`, which puts it on the socket's centreline by construction.
+
+The size is the **plug's**, not the receptacle's. The spec's maximum cable
+overmould is 12.35 × 6.50; `usb_fit` adds 0.60 for slop and for FDM printing
+holes 0.2–0.4 under. Sizing this opening 8.94 × 3.16 to match the socket would
+look right and pass no cable at all.
+
+#### It was sealed shut, and the cavity was why
+
+The opening is cut `wall + 2` long, from x 42.4 to 46.4 — correct for a 2.0
+wall whose inner face is at 43.4. But `tray_inside()` carried the **spigot's**
+width all the way to the back, putting the real inner face at 41.8 and making
+the sides 3.6 thick. The cut stopped 0.6 short and left a skin across the port.
+
+The same mistake cost the board its slot. `x_wall` is `face_w/2 - wall` =
+43.4, so the stop sits 48.26 from there — but with the cavity ending at 41.8
+the gap was only 46.66, and the ESP32 is 48.26. **It would not have gone in.**
+
+The cavity now steps: the spigot's width through the spigot, where it has a
+rim to enter, and the body's width through the body, where it has no reason to
+give up 1.6 mm a side. Both faults close together.
+
+A useful tell: a hollow box with a hole through one wall is **genus 1**. While
+the skin was there OpenSCAD reported genus 0.
+
+#### Could the opening be socket-sized?
+
+Only if the socket's mouth is flush with the outside. It sits `usb_over` = 1.20
+proud of the board's end, and the board butts the inner face at 43.4, so the
+mouth lands at 44.6 — 0.8 behind the outer face at 45.4. Whatever passes
+through that last 0.8 mm has to be plug-shaped.
+
+To get a 9.5 × 3.8 opening instead, pocket the wall 0.8 deep where the board's
+end lands, bringing the socket flush; the overmould then stops against the
+outside of the case and 1.2 mm of wall remains around the pocket. It hangs
+entirely on `usb_over` being right — measure it before committing to it.

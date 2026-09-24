@@ -103,9 +103,16 @@ usb_shell_h = 3.16;
 usb_over    = 1.20;
 
 // The opening has to pass a PLUG, not the receptacle: a USB-C overmould
-// is a good deal bigger than the 8.94 x 3.16 socket it goes into.
-usb_w      = 13.0;
-usb_h      =  7.0;
+// is a good deal bigger than the 8.94 x 3.16 socket it goes into. These
+// are the spec's maximum cable-plug overmould, so any compliant cable
+// fits; usb_fit is the whole allowance, print shrink included (FDM holes
+// come out 0.2-0.4 under).
+usb_plug_w = 12.35;
+usb_plug_h =  6.50;
+usb_fit    =  0.60;
+
+function usb_w() = usb_plug_w + usb_fit;   // 12.95
+function usb_h() = usb_plug_h + usb_fit;   //  7.10
 
 // ---- the ESP32's perch ----------------------------------------------
 // The board lies FLAT against the back wall, component side toward it,
@@ -286,11 +293,26 @@ module front_bezel() {
 // a 3 mm tab clean through the bottom of the case.
 module tray_inside() {
 	difference() {
-		translate([0, 0, -1])
-			rbox(pcb_w + 2 * clear - 2 * rim_fit - 2 * wall,
-			     pcb_h + 2 * clear - 2 * rim_fit - 2 * wall,
-			     rim_d + tray_d + 1,
-			     corner_r - 1.4 - wall);
+		union() {
+			// Through the SPIGOT it is the spigot's width, less a
+			// wall each side -- that part has to stay slim enough
+			// to enter the bezel's rim.
+			translate([0, 0, -1])
+				rbox(pcb_w + 2 * clear - 2 * rim_fit
+				     - 2 * wall,
+				     pcb_h + 2 * clear - 2 * rim_fit
+				     - 2 * wall,
+				     rim_d + 1,
+				     corner_r - 1.4 - wall);
+			// Through the BODY it is the body's width, less a
+			// wall each side. It used to carry the spigot's
+			// width all the way back, which made the sides 3.6
+			// thick instead of 2.0 and cost 1.6 mm a side of
+			// room that the body had no reason to give up.
+			translate([0, 0, rim_d - 0.01])
+				rbox(face_w - 2 * wall, face_h - 2 * wall,
+				     tray_d + 0.01, corner_r - wall);
+		}
 		desk_cut((lip_t + glass_pro + pcb_t) * tan(lean)
 			 + wall / cos(lean));
 	}
@@ -331,8 +353,16 @@ module back_tray() {
 		// board rather than guessed. The board's port end butts the
 		// wall, the port is centred on the board's width, and it sits
 		// usb_shell_h/2 above the PCB's top face.
+		//
+		// A stadium, not a rectangle -- the plug is round-ended, so a
+		// square hole only ever reads as a square hole with a plug
+		// rattling in it.
 		translate([face_w / 2 - wall / 2, 0, usb_z()])
-			cube([wall + 2, usb_w, usb_h], center = true);
+			rotate([0, 90, 0])
+			linear_extrude(wall + 2, center = true)
+			hull() for (s = [-1, 1])
+				translate([0, s * (usb_w() - usb_h()) / 2])
+					circle(r = usb_h() / 2, $fn = 48);
 
 		// the vents: two rows of hexagons across the top
 		for (row = [0, 1])
