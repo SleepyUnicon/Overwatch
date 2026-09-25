@@ -22,5 +22,5 @@ working and says so on the settings screen.
 tests/ci/check_versions.sh pins both against firmware/src/version.h.
 """
 
-RELEASE_VERSION = "2.0.6"
+RELEASE_VERSION = "2.0.7"
 PROTO_VERSION = 2
