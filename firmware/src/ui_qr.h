@@ -29,4 +29,20 @@
  */
 lv_obj_t *ui_qr_panel(lv_obj_t *parent, const char *url, int size);
 
+/*
+ * The setup URL to show right now: bare, or carrying the daemon's pairing
+ * token when there is one.
+ *
+ * A scan of the paired form opens the page already connected to this
+ * computer -- which is the rule the whole design wants, because it means
+ * only somebody who can SEE the board can drive it.
+ *
+ * The token rides in the fragment. Browsers never send a fragment to a
+ * server, so the secret reaches the page without ever crossing the network,
+ * and GitHub never sees it.
+ *
+ * Returns a pointer to static storage, rebuilt on each call.
+ */
+const char *ui_qr_setup_url(void);
+
 #endif /* UI_QR_H */

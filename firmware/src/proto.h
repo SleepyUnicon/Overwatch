@@ -26,6 +26,15 @@ bool proto_host_lost(void);
  * OVERWATCH_FW_VERSION on a fully updated machine. */
 const char *proto_host_version(void);
 
+/*
+ * The daemon's pairing token, or "" if it has not sent one.
+ *
+ * Empty is the normal state for a board that has never met a daemon -- which
+ * is exactly when the setup QR matters most -- so callers must treat it as
+ * ordinary rather than as an error, and fall back to the bare setup URL.
+ */
+const char *proto_pair_token(void);
+
 /* True when that version is older than this firmware -- i.e. the app on the
  * computer is the half that is behind. Advisory only. */
 bool proto_host_outdated(void);

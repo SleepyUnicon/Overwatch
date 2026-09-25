@@ -1,7 +1,10 @@
 /* See ui_qr.h for why a board has to show an address at all. */
 #include "ui_qr.h"
 
+#include <stdio.h>
 #include <string.h>
+
+#include "proto.h"
 
 /*
  * Dark on light, always, whatever the theme is doing.
@@ -51,17 +54,49 @@ lv_obj_t *ui_qr_panel(lv_obj_t *parent, const char *url, int size)
 
 	lv_obj_t *txt = lv_label_create(box);
 
-	/* Without the scheme. It is 8 characters of "https://" that nobody
-	 * needs to type and that push the rest below a readable size on a
-	 * 320 px panel -- every browser adds it back. */
-	const char *shown = url;
+	/*
+	 * What is PRINTED is the address a person could type: no scheme, and
+	 * no pairing fragment.
+	 *
+	 * The scheme is 8 characters nobody needs and every browser adds
+	 * back. The fragment is worse -- it is 35 more, which turns a line
+	 * that fits a 320 px panel into one that does not, to spell out a
+	 * 32-character secret nobody is going to transcribe correctly. The
+	 * QR carries it; anyone typing instead lands unpaired and has the
+	 * bridge on 127.0.0.1 to finish the job.
+	 */
+	char shown[64];
+	const char *from = url;
+	size_t n;
 
-	if (strncmp(shown, "https://", 8) == 0) {
-		shown += 8;
+	if (strncmp(from, "https://", 8) == 0) {
+		from += 8;
 	}
+	n = strcspn(from, "#");
+	if (n >= sizeof(shown)) {
+		n = sizeof(shown) - 1;
+	}
+	memcpy(shown, from, n);
+	shown[n] = '\0';
 	lv_label_set_text(txt, shown);
 	lv_obj_set_style_text_color(txt, lv_color_hex(QR_DARK), 0);
 	lv_obj_set_style_text_font(txt, &lv_font_montserrat_14, 0);
 
 	return box;
+}
+
+const char *ui_qr_setup_url(void)
+{
+	/* 8 more than the longest it can be, so a token that somehow grew
+	 * truncates here into a code that fails to pair rather than
+	 * overflowing. snprintf bounds it either way; the slack is so the
+	 * normal case never comes close. */
+	static char buf[sizeof(UI_QR_SETUP_URL) + 40];
+	const char *tok = proto_pair_token();
+
+	if (!tok || !tok[0]) {
+		return UI_QR_SETUP_URL;
+	}
+	snprintf(buf, sizeof(buf), "%s#t=%s", UI_QR_SETUP_URL, tok);
+	return buf;
 }

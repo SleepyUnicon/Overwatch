@@ -150,8 +150,22 @@ class LineReader:
         return out
 
 
-def welcome(app: str, app_ver: str) -> dict:
-    return {"t": "welcome", "v": VERSION, "app": app, "app_ver": app_ver}
+def welcome(app: str, app_ver: str, pair: str = "") -> dict:
+    """The daemon introducing itself, and handing over its pairing token.
+
+    The token rides along so the PANEL can show a QR that pairs the setup
+    page in one scan. Sending it down a USB cable is not a leak: reaching
+    that cable means standing at the desk, which is the same thing the QR
+    already assumes -- and it is exactly the rule we want for a device whose
+    web page can start programs.
+
+    Omitted rather than empty when there is none, so an older daemon and
+    this one produce the same bytes for the same state.
+    """
+    m = {"t": "welcome", "v": VERSION, "app": app, "app_ver": app_ver}
+    if pair:
+        m["pair"] = pair
+    return m
 
 
 def bye() -> dict:

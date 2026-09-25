@@ -665,7 +665,7 @@ static void qr_ov_open(lv_event_t *e)
 	lv_obj_set_style_text_color(t, lv_color_hex(0x101418), 0);
 	lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 14);
 
-	lv_obj_t *panel = ui_qr_panel(qr_ov, UI_QR_SETUP_URL, 118);
+	lv_obj_t *panel = ui_qr_panel(qr_ov, ui_qr_setup_url(), 118);
 
 	lv_obj_align(panel, LV_ALIGN_CENTER, 0, 16);
 }

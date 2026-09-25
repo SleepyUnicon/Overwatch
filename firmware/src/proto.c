@@ -81,6 +81,17 @@ static bool host_seen;
 static bool host_bye;		/* the app said it is going, on purpose */
 static bool host_lost;		/* silence past the timeout, without a bye */
 static char host_ver[16];	/* the daemon's release version, from welcome */
+/*
+ * The daemon's pairing token, from welcome, for the setup QR.
+ *
+ * 33 because the token is 32 hex characters. Sized exactly rather than
+ * generously: a longer one is a daemon this firmware does not understand,
+ * and truncating it into a QR would produce a code that scans perfectly and
+ * pairs with nothing -- which is worse than no QR at all. msg_get_str
+ * refuses rather than truncates, so an oversized token leaves this empty and
+ * the board falls back to the plain setup URL.
+ */
+static char pair_tok[33];
 static int host_proto;		/* ...and the protocol it speaks */
 
 /*
@@ -637,6 +648,11 @@ static void dispatch(const char *json)
 		if (!msg_get_str(json, "app_ver", host_ver, sizeof(host_ver))) {
 			host_ver[0] = '\0';
 		}
+		/* Absent on an older daemon, and absent is fine: see
+		 * proto_pair_token(). */
+		if (!msg_get_str(json, "pair", pair_tok, sizeof(pair_tok))) {
+			pair_tok[0] = '\0';
+		}
 		host_proto = msg_get_double(json, "v", &hv) ? (int)hv : 0;
 		printk("[proto] host connected: app %s, protocol %d\n",
 		       host_ver[0] ? host_ver : "?", host_proto);
@@ -835,6 +851,12 @@ void proto_init(void)
 const char *proto_host_version(void)
 {
 	return host_ver;
+}
+
+
+const char *proto_pair_token(void)
+{
+	return pair_tok;
 }
 
 bool proto_host_outdated(void)

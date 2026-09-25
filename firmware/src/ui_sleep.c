@@ -180,7 +180,7 @@ void ui_sleep_run(bool (*awake)(void), const char *peek_note)
 		lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
 		lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 16);
 
-		lv_obj_t *qr = ui_qr_panel(scr, UI_QR_SETUP_URL, 120);
+		lv_obj_t *qr = ui_qr_panel(scr, ui_qr_setup_url(), 120);
 
 		lv_obj_align(qr, LV_ALIGN_CENTER, 0, 18);
 	} else {

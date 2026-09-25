@@ -27,6 +27,22 @@ def _local_wall():
     return int(now.timestamp()), int(now.utcoffset().total_seconds() // 60)
 
 
+def _pair_token() -> str:
+    """This install's pairing token, or "" if it cannot be had.
+
+    Imported HERE rather than at module scope: webconfig pulls in cli, which
+    pulls in most of the package, and bridge is constructed by tests that
+    have no business paying for that. A failure is not worth reporting -- a
+    board that shows a QR without a token still sends somebody to the right
+    page, which is all the QR did before this existed.
+    """
+    try:
+        from pc import webconfig
+        return webconfig.pair_token()
+    except Exception:
+        return ""
+
+
 class Bridge:
     def __init__(self, write_msg, fetch_usage, now=time.monotonic,
                  set_preferred=None,
@@ -88,7 +104,8 @@ class Bridge:
         panel after every service restart. Measured doing exactly that before
         this existed.
         """
-        self._write(protocol.welcome("overwatch-bridge", self._app_ver))
+        self._write(protocol.welcome("overwatch-bridge", self._app_ver,
+                                     _pair_token()))
         if self._report_failure:
             self._write(protocol.ota_error(self._report_failure))
             self._report_failure = None
