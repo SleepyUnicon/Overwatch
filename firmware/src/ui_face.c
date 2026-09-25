@@ -14,8 +14,28 @@
 #define SCR_W 320
 #define SCR_H 240
 #define EYE_OFF 42		/* each eye's centre, from the middle */
-#define EYE_CY 98
-#define MOUTH_CY 158
+#define EYE_TO_MOUTH 60		/* eye centre to mouth centre */
+
+/*
+ * Centred on the panel by the face's own BOUNDING BOX, not by the eyes.
+ *
+ * Putting the eyes on the middle line is the obvious thing and it hangs the
+ * face low, because the mouth is 60 px below them and nothing balances it
+ * above. The eyes have to sit as far above centre as half the whole face's
+ * height, which is what this computes -- so the face stays centred if the
+ * neutral eye, the mouth or the gap between them is ever retuned, instead of
+ * needing another hand-measured nudge.
+ *
+ * Measured off the NEUTRAL row: it is the resting shape and the one the face
+ * spends most of its time at. Moods that open the eyes wider (ATTENTION) or
+ * squeeze them shut (BLINK) move a few pixels either side of it, which is
+ * the face being expressive rather than the layout being wrong.
+ */
+#define NEUTRAL_EYE_H 58
+#define NEUTRAL_MOUTH_H 10
+#define FACE_H (NEUTRAL_EYE_H / 2 + EYE_TO_MOUTH + NEUTRAL_MOUTH_H / 2)
+#define EYE_CY ((SCR_H - FACE_H) / 2 + NEUTRAL_EYE_H / 2)
+#define MOUTH_CY (EYE_CY + EYE_TO_MOUTH)
 
 /* Ink on the unlit ground; the ground itself is in the header, because
  * ui_sleep paints the screen with it before the face is built. */
@@ -43,7 +63,8 @@ struct look {
  * separate objects instead of a rotated eye.
  */
 static const struct look LOOKS[FACE__COUNT] = {
-	[FACE_NEUTRAL]   = { 46, 58, 18,   0,   0,   0,    0,  58, 10, 5,  0, 3 },
+	[FACE_NEUTRAL]   = { 46, NEUTRAL_EYE_H, 18, 0, 0, 0, 0,
+			     58, NEUTRAL_MOUTH_H, 5,  0, 3 },
 	/* Eyes squeezed to happy arcs, sitting high, over a wider mouth. */
 	[FACE_HAPPY]     = { 46, 30, 15,   0,  -6,   0,    0,  74, 14, 7,  2, 4 },
 	/* Wide open over a small round mouth: the "look at me" face. */
