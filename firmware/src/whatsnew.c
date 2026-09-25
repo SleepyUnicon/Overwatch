@@ -30,6 +30,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.0.8", "A failed update can be tried again" },
 	{ "2.0.7", "Setup screen steps aside once set up" },
 	{ "2.0.6", "Scan the code to pair a computer" },
 	{ "2.0.5", "A QR to set up on any computer\nPick launcher apps from a web page" },
