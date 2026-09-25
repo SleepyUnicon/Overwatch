@@ -1560,6 +1560,32 @@ static void run_usb(void)
 			 * so both rules below judge the same instant. */
 			bool ota_busy = ota_blocks_sleep();
 
+			/*
+			 * Nobody has touched it for a minute.
+			 *
+			 * Checked BEFORE the other two because it is the
+			 * common case on a desk in use: the host is fine and
+			 * the readings are fresh, and the only thing that
+			 * has stopped is the person. Those rules answer
+			 * "has something gone quiet?"; this one answers "is
+			 * anyone touching it?", and the difference is why it
+			 * wakes on a TAP rather than on data.
+			 *
+			 * LVGL keeps the timer. Counting touches here would
+			 * mean a second idea of what input is, and the one
+			 * in lv_display already sees every event the panel
+			 * produces.
+			 */
+			if (ui_pages_current() != UI_PAGE_MUSIC && !ota_busy &&
+			    lv_display_get_inactive_time(NULL)
+				    >= SLEEP_UNTOUCHED_AFTER_MS) {
+				printk("[usage] untouched for %d s; showing "
+				       "the face\n",
+				       SLEEP_UNTOUCHED_AFTER_MS / 1000);
+				ui_sleep_show_face();
+				continue;
+			}
+
 			if (sleep_should_start(proto_host_lost(),
 					       usage_view_have_data(),
 					       ota_busy)) {
