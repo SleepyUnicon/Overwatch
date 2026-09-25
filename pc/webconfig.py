@@ -19,6 +19,7 @@ import html
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import threading
@@ -35,6 +36,38 @@ if __package__ in (None, ""):
 from pc import cli, widgets
 
 HOST, PORT = "127.0.0.1", 8730
+
+# The page on GitHub Pages is allowed to talk to this daemon. Nothing else
+# off-machine is: the list is exact, not a pattern, because a wildcard here
+# hands the launcher to whoever registers a lookalike host.
+ALLOWED_ORIGINS = ("https://sleepyunicon.github.io",)
+
+TOKEN_HEADER = "X-Overwatch-Token"
+
+
+def _origin_ok(origin):
+    """Is this origin allowed to be ANSWERED? Not the same as allowed to act.
+
+    The published page, plus anything already served from this machine.
+    Loopback is here because a page on 127.0.0.1 is being served by
+    something that is already running locally -- reaching it needed code on
+    the machine, which is a bigger win than anything this endpoint offers.
+
+    It is not the security boundary either way. The token is: every one of
+    these origins still has to present it, so widening this list widens who
+    may ASK, never who may act.
+    """
+    if not origin:
+        return False
+    if origin in ALLOWED_ORIGINS:
+        return True
+    return (origin.startswith("http://127.0.0.1:")
+            or origin.startswith("http://localhost:"))
+
+# The real interface. This daemon serves an API and a one-click way into it;
+# the page itself lives on Pages, where it can be fixed without reflashing
+# anybody's install.
+APP_URL = "https://sleepyunicon.github.io/Overwatch/"
 
 # Set by serve_background(), which only the daemon calls. When this page is
 # served from inside the daemon the question "is the daemon running?" has a
@@ -78,6 +111,49 @@ def installed_apps():
                     except OSError:
                         pass
     return sorted(found, key=str.lower)
+
+
+def _token_path():
+    return os.path.join(cli.overwatch_home(), "pair.json")
+
+
+def pair_token():
+    """This install's pairing secret, made once and kept.
+
+    WHY THERE IS ONE AT ALL, and it is not really about GitHub Pages.
+    /api/apps took a POST with no origin check and no secret, on a port every
+    program on the machine can reach -- including a browser. A page on any
+    website could POST to 127.0.0.1:8730 with Content-Type: text/plain, which
+    is a CORS "simple request" and needs no preflight: the browser refuses to
+    let the attacker READ the reply, and the write lands anyway. That is a
+    stranger choosing which programs a tap on the desk starts.
+
+    Loopback was never the protection it looked like. A token is.
+
+    Stable across restarts because a QR printed on the panel names it -- one
+    minted per boot would turn every restart into a re-pairing.
+    """
+    p = _token_path()
+    try:
+        with open(p, encoding="utf-8") as f:
+            t = json.load(f).get("token")
+        if isinstance(t, str) and len(t) >= 32:
+            return t
+    except (OSError, ValueError, AttributeError):
+        pass
+    t = secrets.token_hex(16)
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        fd = os.open(p + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump({"token": t}, f)
+        os.replace(p + ".tmp", p)
+    except OSError as e:
+        # A token we cannot store still protects this run; it just means the
+        # next restart needs re-pairing. Better than refusing to serve.
+        print("[widgets] could not store the pairing token: %s" % e,
+              file=sys.stderr)
+    return t
 
 
 def daemon_state():
@@ -165,130 +241,107 @@ def start_daemon():
 
 
 PAGE = """<!doctype html><meta charset=utf-8>
-<title>Overwatch launcher</title>
+<title>Overwatch</title>
 <style>
- body{font:15px/1.6 -apple-system,system-ui,sans-serif;background:#14171c;
-      color:#e8ecf2;margin:0;padding:32px;display:flex;justify-content:center}
- main{width:min(560px,100%)}
- h1{font-size:19px;font-weight:600;margin:0 0 4px}
- p.sub{color:#8a94a4;margin:0 0 24px;font-size:13px}
- .slot{display:flex;align-items:center;gap:12px;margin-bottom:10px}
- .n{width:22px;color:#6e7889;font-variant-numeric:tabular-nums;font-size:13px}
- select{flex:1;padding:9px 10px;border-radius:8px;border:1px solid #2b313b;
-        background:#1b1f26;color:#e8ecf2;font-size:14px}
- .ico{width:74px;font-size:11px;color:#6e7889;text-align:right}
- .ico.has{color:#3fb96b}
- button{margin-top:18px;padding:10px 18px;border-radius:8px;border:0;
-        background:#d9694a;color:#14171c;font-size:14px;font-weight:600;
-        cursor:pointer}
- #msg{margin-top:14px;font-size:13px;color:#3fb96b;min-height:20px}
- .bar{display:flex;align-items:center;gap:12px;padding:11px 14px;
-      border-radius:10px;border:1px solid #2b313b;background:#1b1f26;
-      margin-bottom:22px;font-size:13px}
- .dot{width:8px;height:8px;border-radius:50%;background:#6e7889;flex:none}
- .dot.up{background:#3fb96b} .dot.down{background:#d9694a}
- #dtext{flex:1;color:#8a94a4}
- #dbtn{margin:0;padding:7px 13px;font-size:13px}
- #dbtn[disabled]{opacity:.55;cursor:default}
+ body{font:16px/1.6 -apple-system,system-ui,sans-serif;background:#14171c;
+      color:#e8ecf2;margin:0;height:100vh;display:grid;place-items:center;
+      text-align:center;padding:24px}
+ main{max-width:420px}
+ h1{font-size:20px;font-weight:600;margin:0 0 8px}
+ p{color:#8a94a4;margin:0 0 22px;font-size:15px}
+ a.go{display:inline-block;background:#d9694a;color:#14171c;font-weight:600;
+      text-decoration:none;padding:12px 22px;border-radius:9px;font-size:15px}
+ small{display:block;margin-top:20px;color:#6e7889;font-size:12.5px}
 </style>
 <main>
-<h1>Launcher</h1>
-<div class=bar>
-  <span class=dot id=ddot></span>
-  <span id=dtext>Checking the daemon...</span>
-  <button id=dbtn hidden onclick=startDaemon()>Start it</button>
-</div>
-<p class=sub>Six slots, top-left to bottom-right, matching the grid on the panel.
-Slots left empty are drawn dim and do nothing.</p>
-<div id=slots></div>
-<button onclick=save()>Save</button>
-<div id=msg></div>
+  <h1>Overwatch is running</h1>
+  <p>Everything else happens on the setup page. This link pairs it with
+     this computer \u2014 it only works from here.</p>
+  <a class=go id=go href="#">Open the setup page</a>
+  <small id=note>pairing\u2026</small>
 </main>
 <script>
-let S={};
-fetch('/api/state').then(r=>r.json()).then(d=>{S=d;draw()});
-poll();
-
-function poll(){
-  fetch('/api/daemon').then(r=>r.json()).then(d=>{
-    document.getElementById('dtext').textContent = d.detail;
-    document.getElementById('ddot').className = 'dot '+(d.running?'up':'down');
-    const b=document.getElementById('dbtn');
-    // Hidden, not just disabled, when this page IS the daemon: a button that
-    // can never do anything is worse than no button.
-    b.hidden = d.running || d.here;
-    b.disabled = false;
-    b.textContent = 'Start it';
-  }).catch(()=>{
-    document.getElementById('dtext').textContent = 'Cannot reach this page.';
-    document.getElementById('ddot').className = 'dot down';
-  });
-}
-
-function startDaemon(){
-  const b=document.getElementById('dbtn');
-  b.disabled=true; b.textContent='Starting...';
-  document.getElementById('dtext').textContent =
-    'Starting it - this takes a few seconds.';
-  fetch('/api/daemon/start',{method:'POST'})
-    .then(r=>r.json()).then(d=>{
-      if(!d.ok){
-        document.getElementById('dtext').textContent = 'Failed: '+d.detail;
-        document.getElementById('ddot').className='dot down';
-        b.disabled=false; b.textContent='Try again';
-        return;
-      }
-      poll();
-    }).catch(e=>{
-      document.getElementById('dtext').textContent = 'Failed: '+e;
-      b.disabled=false; b.textContent='Try again';
-    });
-}
-function draw(){
-  document.getElementById('slots').innerHTML = S.apps.map((cur,i)=>{
-    const opts = ['<option value="">— empty —</option>'].concat(
-      S.installed.map(a=>`<option${a===cur?' selected':''}>${a}</option>`)).join('');
-    return `<div class=slot><span class=n>${i+1}</span>
-            <select id=s${i} onchange=mark(${i})>${opts}</select>
-            <span class="ico" id=i${i}></span></div>`;
-  }).join('');
-  S.apps.forEach((_,i)=>mark(i));
-}
-function mark(i){
-  const v=document.getElementById('s'+i).value;
-  const k=S.icons.find(k=>v.toLowerCase().includes(k));
-  const e=document.getElementById('i'+i);
-  e.textContent = v ? (k?'icon: '+k:'name only') : '';
-  e.className = 'ico'+(k?' has':'');
-}
-function save(){
-  const apps=S.apps.map((_,i)=>document.getElementById('s'+i).value);
-  fetch('/api/apps',{method:'POST',body:JSON.stringify(apps)})
-    .then(r=>r.json()).then(d=>{
-      document.getElementById('msg').textContent =
-        d.ok ? 'Saved. The panel updates within a few seconds.' : 'Failed: '+d.error;
-    });
-}
+fetch('/api/pair').then(r=>r.json()).then(d=>{
+  document.getElementById('go').href = d.link;
+  document.getElementById('note').textContent =
+    'It will remember this computer. Keep the link to yourself.';
+}).catch(e=>{
+  document.getElementById('note').textContent = 'Could not pair: ' + e;
+});
 </script>"""
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _cors(self):
+        """Answer an allowed origin, and only by name.
+
+        Vary: Origin because the answer differs per request and a cache that
+        forgot would hand one origin's permission to another.
+        """
+        origin = self.headers.get("Origin")
+        if _origin_ok(origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Headers",
+                             "content-type, " + TOKEN_HEADER.lower())
+            self.send_header("Access-Control-Allow-Methods", "GET, POST")
+            # Chrome is tightening requests from public origins to local
+            # addresses. Without this the preflight starts failing on its
+            # own schedule, and the page breaks for reasons nothing here
+            # will explain.
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+
+    def _authed(self):
+        """Is this request allowed to act?
+
+        Same-origin requests carry no Origin header and come from the page
+        this daemon serves itself; anything with an Origin is off-machine
+        and needs the token. Checked with compare_digest so a wrong guess
+        cannot be narrowed down by timing it.
+        """
+        if not self.headers.get("Origin"):
+            return True
+        got = self.headers.get(TOKEN_HEADER, "")
+        return secrets.compare_digest(got, pair_token())
+
     def _send(self, code, body, ctype="application/json"):
         raw = body if isinstance(body, bytes) else body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(raw)))
+        self._cors()
         self.end_headers()
         self.wfile.write(raw)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self):
         if self.path == "/":
             return self._send(200, PAGE, "text/html; charset=utf-8")
         if self.path == "/api/state":
+            if not self._authed():
+                return self._send(403, json.dumps({"error": "not paired"}))
             return self._send(200, json.dumps({
                 "apps": widgets.load_apps(),
                 "installed": installed_apps(),
                 "icons": list(widgets.ICON_KEYS),
+            }))
+        if self.path == "/api/pair":
+            # SAME-ORIGIN ONLY, and that is the whole point: this hands out
+            # the secret, so it answers the page this daemon serves itself
+            # and nothing that arrives with an Origin. A cross-origin caller
+            # asking for the token is either the page that already has it or
+            # an attacker who does not.
+            if self.headers.get("Origin"):
+                return self._send(403, json.dumps({"error": "same-origin only"}))
+            return self._send(200, json.dumps({
+                "token": pair_token(),
+                "app": APP_URL,
+                "link": "%s#t=%s" % (APP_URL, pair_token()),
             }))
         if self.path == "/api/daemon":
             return self._send(200, json.dumps(daemon_state()))
@@ -303,6 +356,9 @@ class Handler(BaseHTTPRequestHandler):
                               json.dumps({"ok": ok, "detail": detail}))
         if self.path != "/api/apps":
             return self._send(404, json.dumps({"error": "not found"}))
+        if not self._authed():
+            return self._send(403, json.dumps({"ok": False,
+                                               "error": "not paired"}))
         try:
             n = int(self.headers.get("Content-Length", 0))
             apps = json.loads(self.rfile.read(n).decode("utf-8"))

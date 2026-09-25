@@ -3,157 +3,179 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Overwatch — Setup</title>
-<meta name="description" content="Getting your Overwatch desk gauge running: download, install, plug in.">
+<meta name="description" content="Set up your Overwatch desk gauge: install it, plug it in, choose your launcher tiles.">
 <style>
   :root{
-    --bg:#14171c; --card:#1b1f26; --line:#2b313b;
+    --bg:#14171c; --card:#1b1f26; --card2:#20252e; --line:#2b313b;
     --fg:#e8ecf2; --dim:#8a94a4; --faint:#6e7889;
-    --accent:#d9694a; --ok:#3fb96b;
+    --accent:#d9694a; --ok:#3fb96b; --ink:#101418; --cream:#fdfaf1;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
-  @media (prefers-color-scheme: light){
-    :root:not([data-theme="dark"]){
-      --bg:#f6f7f9; --card:#fff; --line:#e2e6ec;
-      --fg:#14171c; --dim:#5a6472; --faint:#8a94a4;
-    }
-  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);
        font:16px/1.65 -apple-system,system-ui,"Segoe UI",sans-serif;
        -webkit-font-smoothing:antialiased}
-  .wrap{max-width:720px;margin:0 auto;padding:56px 16px 80px}
-  header{margin-bottom:44px}
+
+  /* ---- the opening: the mark builds, then it looks at you ---- */
+  #intro{position:fixed;inset:0;background:var(--cream);z-index:50;
+         display:grid;place-items:center;transition:opacity .5s ease}
+  #intro.done{opacity:0;pointer-events:none}
+  #mark{width:190px;height:190px}
+  #mark .p{opacity:0;transform-box:fill-box;transform-origin:center;
+           transform:translateY(6px) scale(.96)}
+  #mark .p.on{opacity:1;transform:none;transition:opacity .34s ease,transform .34s cubic-bezier(.2,.9,.3,1)}
+  #face{position:absolute;display:flex;gap:26px;align-items:center;opacity:0;
+        transition:opacity .35s ease}
+  #face.on{opacity:1}
+  #face i{display:block;width:26px;height:34px;border-radius:11px;
+          background:var(--ink);transition:height .1s ease,border-radius .1s ease}
+  #face.blink i{height:5px;border-radius:3px}
+  @media (prefers-reduced-motion:reduce){
+    #mark .p{opacity:1;transform:none} #intro{display:none}
+  }
+
+  .wrap{max-width:760px;margin:0 auto;padding:54px 16px 90px}
+  header{margin-bottom:34px}
   h1{font-size:30px;font-weight:600;margin:0 0 6px;letter-spacing:-.02em}
-  .tag{color:var(--dim);margin:0;font-size:17px}
-  h2{font-size:15px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
-  .step{display:flex;gap:16px;padding:20px 0;border-top:1px solid var(--line)}
-  .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--card);
-     border:1px solid var(--line);color:var(--dim);font-size:13px;
-     display:grid;place-items:center;margin-top:2px}
-  .body{flex:1;min-width:0}
-  p{margin:6px 0 0;color:var(--dim)}
-  p.plain{color:var(--fg)}
-  pre{background:var(--card);border:1px solid var(--line);border-radius:8px;
-      padding:12px 14px;overflow-x:auto;margin:12px 0 0;
-      font:13px/1.6 var(--mono);color:var(--fg)}
-  code{font:13px/1.5 var(--mono);background:var(--card);border:1px solid var(--line);
+  .sub{color:var(--dim);margin:0;font-size:17px}
+
+  .tiles{display:grid;gap:14px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:20px 22px}
+  .tile h2{font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em;
+           display:flex;align-items:center;gap:10px}
+  .num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--card2);
+       border:1px solid var(--line);color:var(--dim);font-size:12px;
+       display:grid;place-items:center;font-weight:500}
+  .tile p{margin:10px 0 0;color:var(--dim);font-size:15px}
+  .tile p.tight{margin-top:6px}
+  pre{background:var(--ink);border:1px solid var(--line);border-radius:9px;
+      padding:13px 15px;overflow-x:auto;margin:13px 0 0;
+      font:13px/1.65 var(--mono);color:var(--fg);position:relative}
+  code{font:13px/1.5 var(--mono);background:var(--card2);border:1px solid var(--line);
        border-radius:4px;padding:1px 5px}
   pre code{background:none;border:0;padding:0}
-  .os{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
-  .os a{display:inline-block;padding:8px 14px;border-radius:8px;
-        background:var(--card);border:1px solid var(--line);color:var(--fg);
-        text-decoration:none;font-size:14px}
-  .os a:hover{border-color:var(--accent)}
-  details{margin-top:10px;border-top:1px solid var(--line);padding-top:14px}
-  summary{cursor:pointer;font-size:14px;font-weight:500}
-  details p{font-size:15px}
-  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
-         color:var(--faint);font-size:13px}
+  .copy{position:absolute;top:8px;right:8px;background:var(--card2);
+        border:1px solid var(--line);color:var(--dim);border-radius:6px;
+        font-size:11.5px;padding:4px 9px;cursor:pointer}
+  .copy:hover{color:var(--fg);border-color:var(--accent)}
+  .warn{background:var(--card2);border-left:2px solid var(--accent);
+        border-radius:7px;padding:12px 14px;margin:14px 0 0;font-size:14px;
+        color:var(--dim)}
+  .warn strong{color:var(--fg);font-weight:600}
+  .os{display:flex;gap:6px;margin:14px 0 0;flex-wrap:wrap}
+  .os button{background:var(--card2);border:1px solid var(--line);color:var(--dim);
+             border-radius:7px;padding:6px 13px;font-size:13.5px;cursor:pointer}
+  .os button[aria-selected=true]{color:var(--fg);border-color:var(--accent)}
   a{color:var(--accent)}
-  .note{background:var(--card);border:1px solid var(--line);border-left:2px solid var(--accent);
-        border-radius:6px;padding:12px 14px;margin:16px 0 0;font-size:14px;color:var(--dim)}
+
+  /* ---- live status ---- */
+  .status{display:flex;align-items:center;gap:10px;margin:14px 0 0;
+          font-size:14px;color:var(--dim)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+  .dot.up{background:var(--ok)} .dot.down{background:var(--accent)}
+
+  /* ---- the launcher, as the panel draws it ---- */
+  #picker[hidden]{display:none}
+  .panel{background:var(--ink);border:1px solid var(--line);border-radius:12px;
+         padding:14px;margin:16px 0 0;aspect-ratio:320/240;max-width:420px;
+         display:flex;flex-direction:column}
+  .panel .cap{color:#8a94a4;font-size:12px;text-align:center;margin-bottom:10px;
+              letter-spacing:.04em}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1}
+  .slot{background:#1a1f27;border:1px solid #2b313b;border-radius:10px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        gap:6px;cursor:pointer;padding:6px;min-height:0}
+  .slot:hover{border-color:var(--accent)}
+  .slot .ic{width:26px;height:26px;border-radius:7px;background:#2b313b;
+            display:grid;place-items:center;font-size:12px;color:#8a94a4;
+            font-weight:600}
+  .slot .nm{font-size:11px;color:#c8d0da;text-align:center;line-height:1.25;
+            overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;
+            -webkit-box-orient:vertical;word-break:break-word}
+  .slot.empty .nm{color:#59616e}
+  dialog{background:var(--card);color:var(--fg);border:1px solid var(--line);
+         border-radius:14px;padding:0;max-width:420px;width:calc(100% - 32px)}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  .dlg{padding:20px}
+  .dlg h3{margin:0 0 4px;font-size:16px;font-weight:600}
+  .dlg p{margin:0 0 14px;color:var(--dim);font-size:14px}
+  select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);
+         background:var(--card2);color:var(--fg);font-size:14px}
+  .row{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+  .row button{border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer;
+              border:1px solid var(--line);background:var(--card2);color:var(--fg)}
+  .row button.go{background:var(--accent);color:var(--ink);border-color:var(--accent);
+                 font-weight:600}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
+         color:var(--faint);font-size:13px}
 </style>
+
+<div id="intro" aria-hidden="true">
+  <svg id="mark" viewBox="0 0 386 686" role="img" aria-label="Overwatch">
+    <!-- Revealed bottom-up, the same order the board builds it in. -->
+    <path class="p" data-i="0" fill="#de6a47" d="M96 685 L142 285 L244 285 L290 685 Z"/>
+    <rect class="p" data-i="1" fill="#de6a47" x="57" y="229" width="272" height="40" rx="20"/>
+    <path class="p" data-i="2" fill="none" stroke="#de6a47" stroke-width="34" stroke-linecap="round" d="M68 200 A125 125 0 0 1 318 200"/>
+    <path class="p" data-i="3" fill="none" stroke="#de6a47" stroke-width="34" stroke-linecap="round" d="M0 122 A193 193 0 0 1 386 122"/>
+  </svg>
+  <div id="face" aria-hidden="true"><i></i><i></i></div>
+</div>
 
 <div class="wrap">
 <header>
   <h1>Overwatch</h1>
-  <p class="tag">Your Claude Code and Codex usage, as two live dials on your desk.</p>
+  <p class="sub">Your Claude Code and Codex usage, as two live dials on your desk.</p>
 </header>
 
-<div class="note">
-  <strong>The board does nothing on its own.</strong> It is a screen on a USB
-  cable — a small program on your computer reads the figures Claude Code and
-  Codex already write to disk, and sends them down. Three steps, once.
-</div>
+<div class="tiles">
 
-<div class="step">
-  <div class="n">1</div>
-  <div class="body">
-    <h2>Install it</h2>
-    <p>One line. Paste it into Terminal (macOS, Linux) or PowerShell
-       (Windows) and press return.</p>
-<pre><code># macOS, Apple silicon
-curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</code></pre>
-<pre><code># macOS, Intel
-curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch
-
-# Linux
-curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-linux-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</code></pre>
-<pre><code>:: Windows
-curl.exe -fsSL -o overwatch.zip https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-windows-x86_64.zip &amp;&amp; tar -xf overwatch.zip &amp;&amp; .\overwatch\overwatch.exe</code></pre>
-    <p>It lists everything it is about to change before changing anything.
-       The only file it edits is <code>~/.claude/settings.json</code>, and
+  <div class="tile">
+    <h2><span class="num">1</span> Install it on this computer</h2>
+    <p>The board is a screen on a cable. A small program on your computer reads
+       the figures Claude Code and Codex have already written to disk and sends
+       them down. Nothing to sign in to.</p>
+    <div class="os" role="tablist">
+      <button aria-selected="true" data-os="mac">macOS</button>
+      <button aria-selected="false" data-os="macintel">macOS (Intel)</button>
+      <button aria-selected="false" data-os="win">Windows</button>
+      <button aria-selected="false" data-os="linux">Linux</button>
+    </div>
+<pre><button class="copy">copy</button><code id="cmd"></code></pre>
+    <p class="tight">Paste that into <strong id="term">Terminal</strong> and press
+       return. It lists everything it will change before changing anything, and
        <code>overwatch uninstall</code> puts it all back.</p>
-
-    <div class="note" style="margin-top:18px">
-      <strong>Use the command, not your browser.</strong> macOS quarantines
-      anything a browser downloads, and Gatekeeper then refuses to run it —
-      <em>"cannot be opened because the developer cannot be verified"</em>.
-      These builds are ad-hoc signed rather than notarised, so that refusal
-      is expected. <code>curl</code> sets no quarantine flag and the command
-      above just works. If you did download it in a browser, clear the flag
-      with <code>xattr -d com.apple.quarantine overwatch/overwatch</code>.
+    <div class="warn" id="gk">
+      <strong>Use the command, not a download link.</strong> macOS quarantines
+      anything a browser downloads and then refuses to run it —
+      <em>“cannot be opened because the developer cannot be verified”.</em>
+      <code>curl</code> sets no quarantine flag, so the line above just works.
     </div>
   </div>
-</div>
 
-<div class="step">
-  <div class="n">2</div>
-  <div class="body">
-    <h2>Open the setup page</h2>
-    <p>The installer prints a link to it when it finishes, and it stays up
-       for as long as Overwatch is running:</p>
-<pre><code>http://127.0.0.1:8730</code></pre>
-    <p>That page sets the launcher's six tiles and tells you whether the
-       board is being seen. It runs on your own machine and is reachable
-       only from it.</p>
+  <div class="tile">
+    <h2><span class="num">2</span> Plug the board in</h2>
+    <p>Any USB port, any cable that carries data — a charge-only cable powers
+       the screen and is never seen by the computer, which is the single most
+       common reason a board looks dead.</p>
+    <p class="tight">The dials fill within a few seconds of your next Claude Code
+       or Codex session.</p>
+    <div class="status"><span class="dot" id="d1"></span><span id="s1">Looking for Overwatch on this computer…</span></div>
   </div>
-</div>
 
-<div class="step">
-  <div class="n">3</div>
-  <div class="body">
-    <h2>Plug the board in</h2>
-    <p>Any USB port. The dials fill within a few seconds of the first Claude
-       Code or Codex session.</p>
-    <p>On Windows the board needs a driver Windows does not ship. The installer
-       puts it in for you — it is the step that asks for a permission prompt.</p>
+  <div class="tile" id="picker" hidden>
+    <h2><span class="num">3</span> Choose your launcher tiles</h2>
+    <p>This is the launcher page as the panel draws it. Tap a tile here, pick a
+       program, and the same tile on your desk starts it.</p>
+    <div class="panel">
+      <div class="cap">LAUNCHPAD</div>
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="status"><span class="dot" id="d2"></span><span id="s2"></span></div>
   </div>
+
 </div>
-
-<div class="step">
-  <div class="n">✓</div>
-  <div class="body">
-    <h2>Using it</h2>
-    <p><strong>Swipe between five pages.</strong> Usage in the middle, music to
-       the left, the launcher to the right, settings above, the face below.
-       The launcher's six tiles are set from a page the app serves at
-       <code>http://127.0.0.1:8730</code>.</p>
-  </div>
-</div>
-
-<details>
-  <summary>The screen says "Waiting for the app on your computer"</summary>
-  <p>That is the board telling you step 2 has not happened yet, or the program
-     is not running. Run <code>overwatch status</code> — it says in one line
-     whether the service is up, whether Claude Code and Codex are being read,
-     and how old the figures are.</p>
-</details>
-
-<details>
-  <summary>The board never appears</summary>
-  <p>Unplug it and plug it back in first; the app finds it again by itself. If
-     that does not do it, try a different cable — a charge-only cable carries
-     power but no data, so the board lights up and is never seen. On Windows,
-     run <code>%USERPROFILE%\.overwatch\bin\overwatch.exe driver</code>.</p>
-</details>
-
-<details>
-  <summary>Nothing was sent anywhere, was it?</summary>
-  <p>No. It reads files Claude Code and Codex have already written to your own
-     disk and sends them down a cable to a screen on your desk. There is no
-     account, no network call, and nothing to sign in to.</p>
-</details>
 
 <footer>
   Source under <a href="https://github.com/SleepyUnicon/Overwatch/blob/main/LICENSE">PolyForm Noncommercial 1.0.0</a>.
@@ -161,4 +183,163 @@ curl.exe -fsSL -o overwatch.zip https://github.com/SleepyUnicon/Overwatch/releas
   A fork of <a href="https://github.com/KfirLevy258/Blink">Blink</a> by Kfir Levy.
 </footer>
 </div>
+
+<dialog id="dlg"><div class="dlg">
+  <h3 id="dlgT">Tile 1</h3>
+  <p>Pick a program on this computer. Leave it empty and the tile stays dim.</p>
+  <select id="sel"></select>
+  <div class="row">
+    <button id="cancel">Cancel</button>
+    <button class="go" id="save">Set tile</button>
+  </div>
+</div></dialog>
+
+<script>
+/* ---------- the opening ---------- */
+(function intro(){
+  const box = document.getElementById('intro');
+  if (!box || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (box) box.remove();
+    return;
+  }
+  const parts = [...document.querySelectorAll('#mark .p')];
+  const face  = document.getElementById('face');
+  parts.forEach((p,i)=> setTimeout(()=>p.classList.add('on'), 260 + i*230));
+  const built = 260 + parts.length*230 + 260;
+  // The mark becomes the face: the same two shapes, one gesture. It blinks
+  // once so the thing that greets you is alive rather than a logo.
+  setTimeout(()=>{ document.getElementById('mark').style.opacity = 0;
+                   face.classList.add('on'); }, built);
+  setTimeout(()=> face.classList.add('blink'),   built + 520);
+  setTimeout(()=> face.classList.remove('blink'),built + 640);
+  setTimeout(()=> face.classList.add('blink'),   built + 900);
+  setTimeout(()=> face.classList.remove('blink'),built + 1020);
+  setTimeout(()=>{ box.classList.add('done');
+                   setTimeout(()=>box.remove(), 600); }, built + 1500);
+})();
+
+/* ---------- install command ---------- */
+const BASE = 'https://github.com/SleepyUnicon/Overwatch/releases/latest/download/';
+const CMDS = {
+  mac:      ['Terminal', `curl -fsSL ${BASE}overwatch-macos-arm64.tar.gz | tar xz && ./overwatch/overwatch`],
+  macintel: ['Terminal', `curl -fsSL ${BASE}overwatch-macos-x86_64.tar.gz | tar xz && ./overwatch/overwatch`],
+  linux:    ['a terminal', `curl -fsSL ${BASE}overwatch-linux-x86_64.tar.gz | tar xz && ./overwatch/overwatch`],
+  win:      ['PowerShell', `curl.exe -fsSL -o overwatch.zip ${BASE}overwatch-windows-x86_64.zip && tar -xf overwatch.zip && .\\overwatch\\overwatch.exe`],
+};
+function showOS(os){
+  const [term, cmd] = CMDS[os];
+  document.getElementById('cmd').textContent = cmd;
+  document.getElementById('term').textContent = term;
+  document.getElementById('gk').style.display = os === 'win' ? 'none' : '';
+  document.querySelectorAll('.os button').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.os === os)));
+}
+document.querySelectorAll('.os button').forEach(b =>
+  b.onclick = () => showOS(b.dataset.os));
+showOS(navigator.platform && /win/i.test(navigator.platform) ? 'win' : 'mac');
+document.querySelector('.copy').onclick = e => {
+  navigator.clipboard.writeText(document.getElementById('cmd').textContent)
+    .then(()=>{ e.target.textContent = 'copied';
+                setTimeout(()=>e.target.textContent='copy', 1400); });
+};
+
+/* ---------- talking to the daemon ---------- */
+/* The token arrives in the fragment, from the link the daemon hands out on
+ * 127.0.0.1. It stays in the fragment, which browsers never send anywhere,
+ * and is kept so a reload does not need re-pairing. */
+const API = 'http://127.0.0.1:8730';
+let token = new URLSearchParams(location.hash.slice(1)).get('t');
+if (token) { try { localStorage.setItem('ow-token', token); } catch(e){} }
+else { try { token = localStorage.getItem('ow-token'); } catch(e){} }
+
+const api = (path, opts={}) => fetch(API + path, {
+  ...opts,
+  headers: {...(opts.headers||{}),
+            ...(token ? {'X-Overwatch-Token': token} : {})},
+});
+
+let state = null;
+function setDot(id, up, text){
+  const d = document.getElementById(id);
+  d.className = 'dot ' + (up === null ? '' : up ? 'up' : 'down');
+  document.getElementById(id.replace('d','s')).textContent = text;
+}
+
+async function poll(){
+  let daemon = null;
+  try { daemon = await (await api('/api/daemon')).json(); }
+  catch(e){
+    setDot('d1', false, 'Not running yet — do step 1, then come back.');
+    document.getElementById('picker').hidden = true;
+    return;
+  }
+  if (!token){
+    setDot('d1', false, 'Running, but this page is not paired. Open '
+           + '127.0.0.1:8730 on that computer and use the link there.');
+    document.getElementById('picker').hidden = true;
+    return;
+  }
+  let r;
+  try { r = await api('/api/state'); } catch(e){ return; }
+  if (r.status === 403){
+    setDot('d1', false, 'Pairing expired. Open 127.0.0.1:8730 and use the link again.');
+    document.getElementById('picker').hidden = true;
+    return;
+  }
+  state = await r.json();
+  setDot('d1', true, 'Overwatch is running on this computer.');
+  document.getElementById('picker').hidden = false;
+  draw();
+}
+
+/* ---------- the launcher, drawn as the panel draws it ---------- */
+function iconFor(name){
+  if (!name) return null;
+  const k = (state.icons||[]).find(k => name.toLowerCase().includes(k));
+  return k || null;
+}
+function draw(){
+  const g = document.getElementById('grid');
+  g.innerHTML = '';
+  (state.apps||[]).forEach((app, i) => {
+    const d = document.createElement('div');
+    d.className = 'slot' + (app ? '' : ' empty');
+    const ic = iconFor(app);
+    /* Icon when the panel has one for this program, initial when it does
+     * not -- which is exactly what the board falls back to, so what you
+     * choose here looks the same in both places. */
+    d.innerHTML = `<span class="ic">${ic ? '&#9679;' : (app ? app[0].toUpperCase() : '+')}</span>
+                   <span class="nm">${app || 'empty'}</span>`;
+    d.onclick = () => openSlot(i);
+    g.appendChild(d);
+  });
+  setDot('d2', true, (state.apps||[]).filter(Boolean).length + ' of 6 set');
+}
+
+const dlg = document.getElementById('dlg');
+let editing = 0;
+function openSlot(i){
+  editing = i;
+  document.getElementById('dlgT').textContent = 'Tile ' + (i+1);
+  const sel = document.getElementById('sel');
+  sel.innerHTML = '<option value="">— empty —</option>' +
+    (state.installed||[]).map(a =>
+      `<option${a === state.apps[i] ? ' selected' : ''}>${a}</option>`).join('');
+  dlg.showModal();
+}
+document.getElementById('cancel').onclick = () => dlg.close();
+document.getElementById('save').onclick = async () => {
+  const apps = [...state.apps];
+  apps[editing] = document.getElementById('sel').value;
+  dlg.close();
+  const r = await api('/api/apps', {method:'POST', body: JSON.stringify(apps)});
+  const d = await r.json();
+  if (d.ok){ state.apps = apps; draw();
+             setDot('d2', true, 'Saved — the panel updates within a few seconds.'); }
+  else { setDot('d2', false, 'Could not save: ' + d.error); }
+};
+
+poll();
+setInterval(poll, 5000);
+</script>
 </html>
