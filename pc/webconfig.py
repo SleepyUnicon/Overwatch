@@ -264,7 +264,9 @@ PAGE = """<!doctype html><meta charset=utf-8>
 fetch('/api/pair').then(r=>r.json()).then(d=>{
   document.getElementById('go').href = d.link;
   document.getElementById('note').textContent =
-    'It will remember this computer. Keep the link to yourself.';
+    'Bookmark the page it opens \u2014 the address carries this pairing, so a '
+    + 'bookmark comes straight back with everything connected. Keep it to '
+    + 'yourself.';
 }).catch(e=>{
   document.getElementById('note').textContent = 'Could not pair: ' + e;
 });

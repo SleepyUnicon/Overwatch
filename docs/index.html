@@ -173,6 +173,12 @@
       <div class="grid" id="grid"></div>
     </div>
     <div class="status"><span class="dot" id="d2"></span><span id="s2"></span></div>
+    <div class="warn" id="bm" hidden>
+      <strong>Bookmark this page.</strong> The address carries the pairing for
+      this computer, so a bookmark comes straight back here with everything
+      already connected. Without it you have to go through
+      <a href="http://127.0.0.1:8730">127.0.0.1:8730</a> again.
+    </div>
   </div>
 
 </div>
@@ -248,9 +254,21 @@ document.querySelector('.copy').onclick = e => {
  * 127.0.0.1. It stays in the fragment, which browsers never send anywhere,
  * and is kept so a reload does not need re-pairing. */
 const API = 'http://127.0.0.1:8730';
-let token = new URLSearchParams(location.hash.slice(1)).get('t');
-if (token) { try { localStorage.setItem('ow-token', token); } catch(e){} }
-else { try { token = localStorage.getItem('ow-token'); } catch(e){} }
+let token = null;
+function readToken(){
+  const t = new URLSearchParams(location.hash.slice(1)).get('t');
+  if (t) { token = t; try { localStorage.setItem('ow-token', t); } catch(e){} }
+  else if (!token) { try { token = localStorage.getItem('ow-token'); } catch(e){} }
+}
+readToken();
+/*
+ * A pairing link arriving at a page that is ALREADY OPEN changes only the
+ * fragment, and a fragment-only change does not reload anything -- so the
+ * token would sit in the address bar unread, with the page still saying it
+ * is not paired. Re-read and re-poll instead of waiting for a refresh
+ * nobody has been told to do.
+ */
+addEventListener('hashchange', () => { readToken(); poll(); });
 
 const api = (path, opts={}) => fetch(API + path, {
   ...opts,
@@ -259,10 +277,14 @@ const api = (path, opts={}) => fetch(API + path, {
 });
 
 let state = null;
-function setDot(id, up, text){
+function setDot(id, up, text, html){
   const d = document.getElementById(id);
   d.className = 'dot ' + (up === null ? '' : up ? 'up' : 'down');
-  document.getElementById(id.replace('d','s')).textContent = text;
+  const t = document.getElementById(id.replace('d','s'));
+  /* textContent by default: these strings carry error text from the daemon,
+   * and innerHTML on that would make any message it ever returns a place to
+   * inject markup. The link case passes html explicitly. */
+  if (html) { t.innerHTML = html; } else { t.textContent = text; }
 }
 
 async function poll(){
@@ -274,21 +296,30 @@ async function poll(){
     return;
   }
   if (!token){
-    setDot('d1', false, 'Running, but this page is not paired. Open '
-           + '127.0.0.1:8730 on that computer and use the link there.');
+    setDot('d1', false, null,
+      'Running, but this page is not paired yet. Open '
+      + '<a href="http://127.0.0.1:8730">127.0.0.1:8730</a> on the computer '
+      + 'running Overwatch and follow the link there \u2014 it pairs this page '
+      + 'and brings you back.');
     document.getElementById('picker').hidden = true;
     return;
   }
   let r;
   try { r = await api('/api/state'); } catch(e){ return; }
   if (r.status === 403){
-    setDot('d1', false, 'Pairing expired. Open 127.0.0.1:8730 and use the link again.');
+    setDot('d1', false, null,
+      'Pairing no longer valid. Open '
+      + '<a href="http://127.0.0.1:8730">127.0.0.1:8730</a> on that computer '
+      + 'and follow the link again.');
     document.getElementById('picker').hidden = true;
     return;
   }
   state = await r.json();
   setDot('d1', true, 'Overwatch is running on this computer.');
   document.getElementById('picker').hidden = false;
+  /* Only once paired: telling someone to bookmark a page that does not yet
+   * work is advice to save the wrong thing. */
+  document.getElementById('bm').hidden = !location.hash.includes('t=');
   draw();
 }
 
