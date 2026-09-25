@@ -73,11 +73,26 @@ jobs:
           # one platform that cannot run the binary was the one that agreed.
           built=dist/blink/blink
           [ -f "$built" ] || built=dist/blink/blink.exe
+          # The version inside the tag, whatever the tag is called around
+          # it. Upstream tags `v1.3.3`; this fork tags `overwatch-v1.3.3`,
+          # and `${TAG#v}` strips nothing from that -- it only removes a
+          # LEADING v. The gate then compared a binary reporting "1.3.3"
+          # against the literal string "overwatch-v0.1.0" and failed all
+          # four jobs before a single byte was uploaded.
+          #
+          # So: drop everything up to and including the last '-', then a
+          # leading 'v'. v1.3.3, overwatch-v1.3.3 and overwatch-1.3.3 all
+          # come out as 1.3.3.
+          want=${TAG##*-}
+          want=${want#v}
           got=$("$built" --version)
-          echo "$got"
+          echo "tag $TAG -> expecting $want; binary says $got"
           case "$got" in
-            *"${TAG#v}"*) ;;
-            *) echo "FATAL: built $got, but this release is ${TAG#v}" >&2
+            *"$want"*) ;;
+            *) echo "FATAL: built $got, but this release is $want" >&2
+               echo "The tag and pc/version.py have to agree. Either tag" >&2
+               echo "the release for the version in version.py, or bump" >&2
+               echo "version.py to the version in the tag." >&2
                exit 1 ;;
           esac
 
