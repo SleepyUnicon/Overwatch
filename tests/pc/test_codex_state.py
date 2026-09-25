@@ -18,7 +18,7 @@ NOW = 1_700_000_000.0
 
 
 def _slot(d, sid, event, t):
-    """One hook slot, the shape tools/blink-hook.sh writes."""
+    """One hook slot, the shape tools/overwatch-hook.sh writes."""
     (d / (sid + ".state")).write_text('{"event":"%s","t":%d}' % (event, int(t)))
 
 
@@ -40,7 +40,7 @@ def test_the_default_directory_is_not_the_claude_one():
 
     Two sessions with the same id are effectively impossible (both tools use
     UUIDs), but the ATTRIBUTION is the real risk: a Codex session read out of
-    ~/.blink/state is reported to the board as a Claude one, on a Claude pip,
+    ~/.overwatch/state is reported to the board as a Claude one, on a Claude pip,
     against a Claude account's limits.
     """
     assert codex_state.STATE_DIR != claude_state.STATE_DIR
@@ -76,7 +76,7 @@ def test_the_arguments_are_what_is_honoured_not_a_default(monkeypatch, d):
     assert seen[1] == (os.path.expanduser(codex_state.STATE_DIR), True)
     # Normalised, because STATE_DIR is a "/"-separated constant and os.sep is
     # "\" on Windows: expanduser fills in the home and leaves the rest alone,
-    # so the real value is "C:\Users\me/.blink/state-codex". Windows opens that
+    # so the real value is "C:\Users\me/.overwatch/state-codex". Windows opens that
     # perfectly well -- the mixed separator is cosmetic -- but a raw startswith
     # against os.sep called it an escape from the home directory, which is the
     # one thing this line is here to rule out.
@@ -153,7 +153,7 @@ def test_sweeping_is_the_callers_decision(tmp_path):
     on a poll and left alone on a read-only pass, and nothing else ever
     collects it. Both directions are asserted because a flag that is ignored
     is ignored in one of two ways, and each is a different bug: never
-    collecting leaks the directory, always collecting means `blink status`
+    collecting leaks the directory, always collecting means `overwatch status`
     deletes the evidence somebody ran it to see.
     """
     swept = tmp_path / "swept"
@@ -217,7 +217,7 @@ def test_a_tombstone_past_the_hour_is_no_longer_evidence(d):
 def test_collecting_tombstones_is_the_callers_decision(tmp_path):
     """Both directions, for the reason the slot sweep pins both: never
     collecting leaks one empty file per session forever, since nothing else
-    ever looks at these names again, and always collecting means `blink
+    ever looks at these names again, and always collecting means `overwatch
     status` deletes the evidence somebody ran it to see."""
     swept = tmp_path / "swept"
     swept.mkdir()

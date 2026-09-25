@@ -1,4 +1,4 @@
-"""Keeping ~/.blink/bridge.log readable, and keeping it small.
+"""Keeping ~/.overwatch/bridge.log readable, and keeping it small.
 
 The log had no timestamps, no size limit and nothing that ever removed a
 line. One customer's was 2 MB after a week; every machine that has run the
@@ -381,7 +381,7 @@ def brief(m):
     twelve short values.
 
     Nothing parses this log (checked: no test, doc or tool greps the arrow
-    lines), and `blink status --wire` prints the full frame on demand for
+    lines), and `overwatch status --wire` prints the full frame on demand for
     anyone who wants every field. So the log gets the values.
 
     Returns None for anything that is not a usage frame, so the caller falls

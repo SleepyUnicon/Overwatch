@@ -325,7 +325,7 @@ def test_name_is_carried_when_one_session_holds_the_state(tmp_path):
 
 
 def test_no_name_when_two_sessions_share_the_state(tmp_path):
-    write_session(tmp_path, "s1", "Notification", NOW, name="Blink")
+    write_session(tmp_path, "s1", "Notification", NOW, name="Overwatch")
     write_session(tmp_path, "s2", "Notification", NOW, name="Other")
     prov = ClaudeStateProvider(path=str(tmp_path))
     frame = prov.poll(NOW)[0]
@@ -560,7 +560,7 @@ def test_a_fresh_slot_with_a_dead_pid_latches_the_feature_off(state_dir, dead,
 @posix_only
 def test_once_latched_a_genuinely_dead_session_is_not_dropped_early(state_dir,
                                                                     dead):
-    """The fail-safe half. After the latch, BLINK behaves exactly as it does
+    """The fail-safe half. After the latch, OVERWATCH behaves exactly as it does
     today -- an hour, plus a log line saying why -- rather than acting on a
     number it has just proved it cannot read."""
     write_session(state_dir, "fresh", "PreToolUse", NOW - 3, pid=dead())
@@ -586,7 +586,7 @@ def test_the_latch_message_is_printed_once_not_every_poll(state_dir, dead,
 @posix_only
 def test_a_second_provider_inherits_the_latch(state_dir, dead, capsys):
     """What $PPID means is a fact about this machine's Claude Code, not about
-    a directory: `blink status` builds its own short-lived provider, and it
+    a directory: `overwatch status` builds its own short-lived provider, and it
     must not re-learn -- or re-print -- what the daemon already established."""
     write_session(state_dir, "s1", "PreToolUse", NOW - 3, pid=dead())
     provider(state_dir).poll(NOW)
@@ -908,7 +908,7 @@ def test_a_swept_session_takes_its_marker_with_it(state_dir):
 # uncounted here -- and it exists entirely for the Codex union, which cannot see
 # a session end any other way. What this directory still owes it is COLLECTION:
 # the shim writes one here as well, and if the ordinary poll does not sweep them
-# nothing ever will, and ~/.blink/state grows one empty file per session for the
+# nothing ever will, and ~/.overwatch/state grows one empty file per session for the
 # life of the install.
 
 
@@ -934,7 +934,7 @@ def test_an_ordinary_poll_collects_a_tombstone_that_has_aged_out(state_dir):
 
 
 def test_a_look_that_does_not_sweep_leaves_the_tombstone_alone(state_dir):
-    """`blink status` must be able to look without collecting, exactly as it
+    """`overwatch status` must be able to look without collecting, exactly as it
     can for the slots: a diagnostic that deletes what it is diagnosing destroys
     the evidence somebody ran it to see."""
     old = mark_ended(state_dir, "gone", NOW - ABANDONED_AFTER_S - 60)

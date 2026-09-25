@@ -21,7 +21,7 @@ set -eu
 . "$(dirname -- "$0")/lib.sh"
 ci_binary
 
-WORK="${TMPDIR:-/tmp}/blink-claude-version"
+WORK="${TMPDIR:-/tmp}/overwatch-claude-version"
 
 py() {
 	# The Windows runners ship `python`, not always `python3`.
@@ -110,7 +110,7 @@ cmd = d["statusLine"]["command"]
 # the path is quoted when it needs to be (the runner's temp dir has a ~).
 import sys as _s
 assert cmd.startswith("bash " if _s.platform == "win32" else "sh "), cmd
-assert "blink-statusline.sh" in cmd, cmd
+assert "overwatch-statusline.sh" in cmd, cmd
 EOF
 ok "settings.json is valid JSON with our key and their keys intact"
 

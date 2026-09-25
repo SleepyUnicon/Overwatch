@@ -13,7 +13,7 @@ import pathlib
 import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-FILES = [ROOT / "claude_usage_bridge.py", ROOT / "blink_main.py",
+FILES = [ROOT / "claude_usage_bridge.py", ROOT / "overwatch_main.py",
          *sorted((ROOT / "pc").rglob("*.py"))]
 
 # A call to the builtin: not urlopen(), not Path.open(), not a def.

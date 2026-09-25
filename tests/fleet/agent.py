@@ -6,7 +6,7 @@ Run on each of the three desks before a release:
         --scenarios tests/fleet/scenarios --out results.json
 
 It takes the serial port off the installed service, runs the real daemon
-against the real board once per scenario, reads the transcript BLINK_TAP left
+against the real board once per scenario, reads the transcript OVERWATCH_TAP left
 behind, and hands the verdict to tap_asserts.check(). Then it gives the port
 back -- from a finally, on every path including the ones that raise, because
 this brackets somebody's working day and the desk has to be exactly as it was
@@ -29,7 +29,7 @@ quiet host.
 Four decisions worth stating, because each of them is a bug that has already
 happened once somewhere in this repository:
 
-  - BLINK_SKIP_SERVICE goes in the CHILD's environment and nowhere else. The
+  - OVERWATCH_SKIP_SERVICE goes in the CHILD's environment and nowhere else. The
     daemon we spawn must not stop the login service out from under us; but if
     this process ever inherited or set that variable, stop_service() would
     become a no-op, the real daemon would keep the port, ours would be
@@ -186,7 +186,7 @@ def _popen(cmd, env, cwd):
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     if flags:
         kwargs["creationflags"] = flags
-    with open(str(env["BLINK_TAP"]) + ".log", "ab") as log:
+    with open(str(env["OVERWATCH_TAP"]) + ".log", "ab") as log:
         return subprocess.Popen(cmd, env=env, cwd=str(cwd), stdout=log,
                                 stderr=subprocess.STDOUT, **kwargs)
 
@@ -219,7 +219,7 @@ def daemon_cmd(port=None):
     that finds this hardware, and the name heuristic it replaced never once
     matched a real board.
     """
-    cmd = [sys.executable, str(REPO_ROOT / "blink_main.py"), "run"]
+    cmd = [sys.executable, str(REPO_ROOT / "overwatch_main.py"), "run"]
     if port and port != "auto":
         cmd += ["--port", port]
     return cmd
@@ -251,30 +251,30 @@ def prepare_scenario(path, board, workdir):
 
 
 def _clean_env():
-    """This process's environment with every inherited BLINK_* variable gone.
+    """This process's environment with every inherited OVERWATCH_* variable gone.
 
     Swept by prefix rather than removed by name, because a list of names is a
     snapshot and this has to stay true of variables nobody has written yet. A
     hand-kept list was already one short when review found it: an inherited
-    BLINK_RELEASE_PUBKEY_FILE would have let update_path verify a throwaway
+    OVERWATCH_RELEASE_PUBKEY_FILE would have let update_path verify a throwaway
     locally signed manifest and report that it had proved the real update
     path, and tests/ci/check_update.sh exports exactly that variable.
 
     The daemon passes need this as much as the install ones and arguably
-    more, because theirs reaches hardware: BLINK_OTA_DIR redirects the
+    more, because theirs reaches hardware: OVERWATCH_OTA_DIR redirects the
     FIRMWARE feed (pc/ota.py:52), and a scenario is a running daemon offering
     firmware to a real board. A stray variable in the operator's shell could
     put an unrelated local build in front of three of them.
 
-    Sweeping cannot cost us BLINK_SKIP_SERVICE, which is the one variable
+    Sweeping cannot cost us OVERWATCH_SKIP_SERVICE, which is the one variable
     that must reach every child: it is SET by each builder after this runs,
     never inherited. Both builders are pinned by a test that names their
-    whole BLINK_* surface, so a reordering that broke that would fail at
-    once -- and another test reads the shipped sources for BLINK_* and
+    whole OVERWATCH_* surface, so a reordering that broke that would fail at
+    once -- and another test reads the shipped sources for OVERWATCH_* and
     requires every name it finds to be swept here or set back deliberately,
     so the pair cannot fall behind pc/ the way a list would.
     """
-    env = {k: v for k, v in os.environ.items() if not k.startswith("BLINK_")}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("OVERWATCH_")}
     env["PYTHONIOENCODING"] = "utf-8"
     return env
 
@@ -289,7 +289,7 @@ def _redirect_home(env, sandbox_dir):
     twelve tests writing into a real user profile while asserting against a
     temporary directory (tests/conftest.py). The install and update scenarios
     below run a real installer, so for them the cost of that mistake is not a
-    confused assertion -- it is somebody's actual ~/.blink.
+    confused assertion -- it is somebody's actual ~/.overwatch.
     """
     env["HOME"] = env["USERPROFILE"] = str(sandbox_dir)
     return env
@@ -304,13 +304,13 @@ def env_for_run(sandbox_dir, scenario, tap, sandbox=True,
     account this machine actually has, which a redirected HOME hides.
     """
     env = _clean_env()
-    env["BLINK_SKIP_SERVICE"] = "1"
-    env["BLINK_TAP"] = str(tap)
-    env["BLINK_POLL_INTERVAL_S"] = str(poll_interval)
+    env["OVERWATCH_SKIP_SERVICE"] = "1"
+    env["OVERWATCH_TAP"] = str(tap)
+    env["OVERWATCH_POLL_INTERVAL_S"] = str(poll_interval)
     if sandbox:
         _redirect_home(env, sandbox_dir)
     if scenario is not None:
-        env["BLINK_SCENARIO"] = str(scenario)
+        env["OVERWATCH_SCENARIO"] = str(scenario)
     return env
 
 
@@ -551,7 +551,7 @@ def preflight(workroot, port, deps, poll_interval=POLL_INTERVAL_S):
             proc = deps.spawn(daemon_cmd(port), env, REPO_ROOT)
         except Exception as e:
             return False, (f"The daemon could not be started at all: {e}."
-                           f" Check that {REPO_ROOT / 'blink_main.py'} runs"
+                           f" Check that {REPO_ROOT / 'overwatch_main.py'} runs"
                            f" from this machine's Python.")
         try:
             heard, _ = _wait_for(tap, _heard_from_board, SETTLE_TIMEOUT_S, deps)
@@ -756,7 +756,7 @@ def run_real_account(workroot, port, deps, timeout=REAL_ACCOUNT_TIMEOUT_S,
     real home and no scenario, and asks for the two things that must be true
     of a working install: a percentage went out and the board took it.
 
-    `blink status --wire` is checked afterwards rather than alongside,
+    `overwatch status --wire` is checked afterwards rather than alongside,
     because it is the command a support conversation starts with and it must
     not be competing with the daemon for the port while it answers.
 
@@ -805,7 +805,7 @@ def run_real_account(workroot, port, deps, timeout=REAL_ACCOUNT_TIMEOUT_S,
 
 
 def _check_status_wire(deps):
-    """`blink status --wire` has to print one parseable JSON line.
+    """`overwatch status --wire` has to print one parseable JSON line.
 
     Decoded as UTF-8 rather than the platform's default: the Windows desk has
     a non-ASCII profile name, the wire message carries a transcript path, and
@@ -813,7 +813,7 @@ def _check_status_wire(deps):
     machine with no figure on its board.
 
     Its environment is built the same way as every other child's, through
-    _clean_env(). `blink status` reads only BLINK_SKIP_SERVICE today, so an
+    _clean_env(). `overwatch status` reads only OVERWATCH_SKIP_SERVICE today, so an
     inherited variable would change nothing -- but _clean_env()'s own reason
     for existing is that there is no child anywhere in this file that is the
     exception, because the exception is what the next person copies. The home
@@ -821,14 +821,14 @@ def _check_status_wire(deps):
     machine actually has, and status must answer for the same one.
     """
     env = _clean_env()
-    env["BLINK_SKIP_SERVICE"] = "1"
-    cmd = [sys.executable, str(REPO_ROOT / "blink_main.py"), "status", "--wire"]
+    env["OVERWATCH_SKIP_SERVICE"] = "1"
+    cmd = [sys.executable, str(REPO_ROOT / "overwatch_main.py"), "status", "--wire"]
     try:
         done = deps.runner(cmd, cwd=str(REPO_ROOT), env=env,
                            capture_output=True, encoding="utf-8",
                            errors="replace", timeout=120)
     except Exception as e:
-        return [f"Scenario {REAL_ACCOUNT}: `blink status --wire` could not be"
+        return [f"Scenario {REAL_ACCOUNT}: `overwatch status --wire` could not be"
                 f" run at all: {e}."]
     for line in (done.stdout or "").splitlines():
         try:
@@ -836,7 +836,7 @@ def _check_status_wire(deps):
                 return []
         except ValueError:
             continue
-    return [f"Scenario {REAL_ACCOUNT}: `blink status --wire` printed no line"
+    return [f"Scenario {REAL_ACCOUNT}: `overwatch status --wire` printed no line"
             f" that parses as a JSON object, so nothing can read the message"
             f" this machine would send. It printed:"
             f" {(done.stdout or '').strip()[:200]!r}"]
@@ -880,28 +880,28 @@ def bundle_bin(bundle_dir):
     The extension matters: without it Windows will not launch the file, which
     is why the installed copy carries one too (pc/cli.py:51).
     """
-    return Path(bundle_dir) / ("blink.exe" if sys.platform == "win32"
-                               else "blink")
+    return Path(bundle_dir) / ("overwatch.exe" if sys.platform == "win32"
+                               else "overwatch")
 
 
 def installed_bin_under(home):
-    """Where `blink install` leaves the program, for a given home.
+    """Where `overwatch install` leaves the program, for a given home.
 
-    Mirrors pc/cli.py's blink_home()/bin_dir()/installed_bin(), which resolve
+    Mirrors pc/cli.py's overwatch_home()/bin_dir()/installed_bin(), which resolve
     it from expanduser("~") on every call -- so a child with HOME and
     USERPROFILE redirected installs here and nowhere near the operator's own
     account. This is also where an update lands: cmd_update passes
     installed_bin() to update.apply() (pc/cli.py:1542), which rotates the
     directory rather than the file (<bin> -> <bin>.old, <bin>.new -> <bin>).
     """
-    return bundle_bin(Path(home) / ".blink" / "bin")
+    return bundle_bin(Path(home) / ".overwatch" / "bin")
 
 
 def bundle_env(sandbox_dir, ota_dir=None):
     """The environment for running a published release the way a customer does.
 
-    Nothing BLINK_* is inherited -- see _clean_env(), which both builders go
-    through -- and this one sets back only two things. BLINK_RELEASE_PUBKEY_FILE
+    Nothing OVERWATCH_* is inherited -- see _clean_env(), which both builders go
+    through -- and this one sets back only two things. OVERWATCH_RELEASE_PUBKEY_FILE
     is why that matters most here: it makes the update verify against a key of
     the caller's choosing (pc/update.py:73-85), and tests/ci/check_update.sh
     exports it by design, so it is a variable somebody working in this
@@ -909,30 +909,30 @@ def bundle_env(sandbox_dir, ota_dir=None):
     throwaway locally signed manifest and report that it had proved the real
     signed update path -- the exact claim the scenario exists to make.
 
-    BLINK_SKIP_SERVICE goes in the CHILD and only the child. It is what keeps
-    `blink install` from registering a login agent on this desk and `blink
+    OVERWATCH_SKIP_SERVICE goes in the CHILD and only the child. It is what keeps
+    `overwatch install` from registering a login agent on this desk and `overwatch
     update` from restarting one; the agent's own process must never have it
     (see the module docstring).
     """
     env = _clean_env()
-    env["BLINK_SKIP_SERVICE"] = "1"
+    env["OVERWATCH_SKIP_SERVICE"] = "1"
     _redirect_home(env, sandbox_dir)
     if ota_dir is not None:
-        env["BLINK_OTA_DIR"] = str(ota_dir)
+        env["OVERWATCH_OTA_DIR"] = str(ota_dir)
     return env
 
 
 def reported_version(text):
-    """The version out of `blink --version` output, or None.
+    """The version out of `overwatch --version` output, or None.
 
     Parsed to a token and compared whole, never matched as a substring: the
-    output is "blink 1.2.4", and asking whether "1.2" appears in it would pass
+    output is "overwatch 1.2.4", and asking whether "1.2" appears in it would pass
     a run of 1.2.4 that was meant to prove 1.2 -- and, worse, pass a failed
     update whose old version happens to be a prefix of the new one.
     """
     for line in (text or "").splitlines():
         parts = line.split()
-        if len(parts) >= 2 and parts[0].lower() == "blink":
+        if len(parts) >= 2 and parts[0].lower() == "overwatch":
             return parts[1].strip()
         if len(parts) == 1 and parts[0][:1].isdigit():
             return parts[0].strip()
@@ -1019,7 +1019,7 @@ def unpack_bundle(archive, dest, runner=subprocess.run, name=FRESH_INSTALL,
                   home=None):
     """Unpack a release archive and hand back the directory holding the program.
 
-    The archive carries one top-level `blink/` directory so that a person who
+    The archive carries one top-level `overwatch/` directory so that a person who
     unpacks it by hand gets a folder rather than a spill of files
     (pc/update.py:256), so the program is normally a level down -- but the
     directory itself is checked too, rather than assuming a layout, and an
@@ -1049,19 +1049,19 @@ def unpack_bundle(archive, dest, runner=subprocess.run, name=FRESH_INSTALL,
                                ours=False)
     if problems:
         return None, problems
-    for candidate in (dest / "blink", dest):
+    for candidate in (dest / "overwatch", dest):
         if bundle_bin(candidate).exists():
             return candidate, []
     return None, [f"Scenario {name}: {archive} unpacked into {dest} but there"
                   f" is no {bundle_bin(dest).name} program in it. Either the"
-                  f" archive is not a BLINK release or it was built for"
+                  f" archive is not an OVERWATCH release or it was built for"
                   f" another platform."]
 
 
 def check_feed_dir(ota_dir, name=UPDATE_PATH):
     """Say whether the local feed can serve an update, before one is attempted.
 
-    BLINK_OTA_DIR makes ota._get read <dir>/<basename of the url>
+    OVERWATCH_OTA_DIR makes ota._get read <dir>/<basename of the url>
     (pc/ota.py:87-93), and fetch_signed_manifest goes through it
     (pc/update.py:183), so three files have to be present or the update stops
     at a message the scenario would then have to reverse-engineer.
@@ -1072,7 +1072,7 @@ def check_feed_dir(ota_dir, name=UPDATE_PATH):
     a hand-written manifest cannot drive this scenario. The directory has to
     come from a genuinely signed release, draft or published. What this
     catches is the far more common mistake of pointing it at a directory that
-    has the archive but not the .sig, where `blink update` refuses the feed
+    has the archive but not the .sig, where `overwatch update` refuses the feed
     and the run reads as a broken update path.
     """
     ota_dir = Path(ota_dir)
@@ -1082,7 +1082,7 @@ def check_feed_dir(ota_dir, name=UPDATE_PATH):
                 f" manifest.json.sig and platform archive."]
     key = platform_key()
     if key is None:
-        return [f"Scenario {name}: there is no published BLINK build for this"
+        return [f"Scenario {name}: there is no published OVERWATCH build for this"
                 f" machine ({platform.system()} {platform.machine()}), so no"
                 f" feed could serve it one."]
     missing = [leaf for leaf in ("manifest.json", "manifest.json.sig",
@@ -1102,13 +1102,13 @@ def run_install_check(bundle_dir, expect_version, runner=subprocess.run,
     """Install an unpacked release into a sandbox home and prove what landed.
 
     Three questions in the order a customer meets them: is this the build we
-    think it is, does `blink install` finish, and does the copy it left under
-    ~/.blink/bin run and report the same version.
+    think it is, does `overwatch install` finish, and does the copy it left under
+    ~/.overwatch/bin run and report the same version.
 
     The third is the reason this scenario exists. The first two are answered
     by the archive we already have in our hands, and an installer that prints
     its way to a cheerful ending while leaving a program that will not start
-    is not a hypothetical here: `blink install` stages a copy and hands it to
+    is not a hypothetical here: `overwatch install` stages a copy and hands it to
     update.swap_in(), which self-tests it (pc/cli.py:1112) -- so this is the
     fleet's independent check on the machinery that decides whether a
     customer's login service has anything to run at all.
@@ -1130,7 +1130,7 @@ def run_install_check(bundle_dir, expect_version, runner=subprocess.run,
         return {"ok": False, "problems": problems}
 
     _, problems = _run_program([exe, "install"], env, runner, name,
-                               "`blink install`")
+                               "`overwatch install`")
     if problems:
         return {"ok": False, "problems": problems}
 
@@ -1139,7 +1139,7 @@ def run_install_check(bundle_dir, expect_version, runner=subprocess.run,
                                 "the installed program")
     if not problems and got != expect_version:
         problems.append(
-            f"Scenario {name}: `blink install` finished, but the program it"
+            f"Scenario {name}: `overwatch install` finished, but the program it"
             f" left at {installed} reports {got} rather than"
             f" {expect_version}. The install did not put this bundle in"
             f" place.")
@@ -1156,13 +1156,13 @@ def run_update_check(prev_dir, ota_dir, expect_version, runner=subprocess.run,
     <bin> to <bin>.old and <bin>.new to <bin> (pc/update.py:322-360), of a
     directory the running program is inside of. Updating from the unpacked
     bundle would rename a directory nothing is running from, and updating
-    into an empty ~/.blink/bin would prove the download and skip the rename.
+    into an empty ~/.overwatch/bin would prove the download and skip the rename.
     Either shortcut leaves the Windows desk -- the one where a locked file is
     a real possibility -- untested by the scenario named after it.
 
     Two ways this could pass while proving nothing, both closed here:
 
-      - `blink update` exits 0 for "Already up to date." So a previous bundle
+      - `overwatch update` exits 0 for "Already up to date." So a previous bundle
         that already reports the candidate version is refused before anything
         is run, and the verdict is taken from what the installed program
         reports afterwards, not from an exit status.
@@ -1185,13 +1185,13 @@ def run_update_check(prev_dir, ota_dir, expect_version, runner=subprocess.run,
     if previous == expect_version:
         return {"ok": False, "problems": [
             f"Scenario {name}: the previous release reports {previous}, the"
-            f" same version this run expects to end on, so `blink update`"
+            f" same version this run expects to end on, so `overwatch update`"
             f" would answer \"Already up to date.\" and this scenario would"
             f" pass without updating anything. Point --prev-bundle at the"
             f" release before {expect_version}."]}
 
     _, problems = _run_program([exe, "install"], env, runner, name,
-                               "`blink install` of the previous release")
+                               "`overwatch install` of the previous release")
     if problems:
         return {"ok": False, "problems": problems}
     installed = installed_bin_under(sandbox)
@@ -1213,7 +1213,7 @@ def run_update_check(prev_dir, ota_dir, expect_version, runner=subprocess.run,
     # Windows fails, and so proves nothing about the desk most likely to.
     _, problems = _run_program([installed, "update"],
                                bundle_env(sandbox, ota_dir),
-                               runner, name, "`blink update`")
+                               runner, name, "`overwatch update`")
     if problems:
         return {"ok": False, "problems": problems}
 
@@ -1221,7 +1221,7 @@ def run_update_check(prev_dir, ota_dir, expect_version, runner=subprocess.run,
                                 "the updated program")
     if not problems and got != expect_version:
         problems.append(
-            f"Scenario {name}: `blink update` finished without complaining,"
+            f"Scenario {name}: `overwatch update` finished without complaining,"
             f" but the program at {installed} still reports {got} rather than"
             f" {expect_version}. The feed was read and nothing newer was"
             f" taken from it: check that its manifest names a daemon version"
@@ -1237,7 +1237,7 @@ def _clear(work):
     it, so without this the sandbox home outlives the run that made it and
     the next run's version check reads a program THIS run's installer never
     wrote. An installer that exits 0 having copied nothing is not a
-    hypothetical -- that is what `blink install` does when handed an unfrozen
+    hypothetical -- that is what `overwatch install` does when handed an unfrozen
     build (pc/cli.py:1123) -- and the leftovers would prove it correct,
     hiding exactly the packaging fault these scenarios exist to catch.
 
@@ -1279,7 +1279,7 @@ def customer_path(args, workroot, deps):
     """The scenarios that need no board, as {name: outcome}.
 
     Each gets a home of its own, and neither of them gets the one the daemon
-    scenarios share. `blink install` writes a program into ~/.blink/bin and
+    scenarios share. `overwatch install` writes a program into ~/.overwatch/bin and
     hooks into ~/.claude/settings.json, and sandbox_home() is deliberately one
     directory for the whole run -- an installed program appearing in it
     halfway through would change what the passes after it are running against,
@@ -1324,7 +1324,7 @@ def run(args, deps=None):
 
     # Before the service is touched, and before a board is asked for. Neither
     # of these opens the serial port -- both run into a sandbox home with
-    # BLINK_SKIP_SERVICE set -- so neither is a reason to take somebody's
+    # OVERWATCH_SKIP_SERVICE set -- so neither is a reason to take somebody's
     # daemon away, and a desk whose board is unplugged still returns a verdict
     # on the half of the product a customer meets first.
     for scenario, outcome in customer_path(args, workroot, deps).items():
@@ -1340,7 +1340,7 @@ def run(args, deps=None):
         # still holds the port, and every scenario below would fail as though
         # the board were broken.
         result["problems"].append(
-            "BLINK_SKIP_SERVICE is set in this shell, so the installed"
+            "OVERWATCH_SKIP_SERVICE is set in this shell, so the installed"
             " service was never stopped and it still holds the serial port."
             " Nothing was run. Unset it and start again.")
         return _finish(result)
@@ -1454,7 +1454,7 @@ def parse_args(argv=None):
     ap.add_argument("--ota-dir", default=None,
                     help="Directory holding the candidate release's"
                          " manifest.json, manifest.json.sig and archive,"
-                         " served to the update as BLINK_OTA_DIR")
+                         " served to the update as OVERWATCH_OTA_DIR")
     ap.add_argument("--expect-version", default=None,
                     help="The version both customer-path scenarios must end"
                          " up reporting")

@@ -2,7 +2,7 @@
 
     python3 -m pc.webconfig        then open http://127.0.0.1:8730
 
-Editing ~/.blink/apps.json by hand works and always will; this exists because
+Editing ~/.overwatch/apps.json by hand works and always will; this exists because
 the file wants app names spelled exactly as `open -a` needs them, and getting
 "Adobe Photoshop 2026" right from memory is the sort of thing that fails
 silently as a tile that lights and launches nothing.
@@ -117,9 +117,9 @@ def start_daemon():
     if daemon_state()["running"]:
         return True, "Already running."
     cmd, cwd = cli.daemon_start_command()
-    log = os.path.join(cli.blink_home(), "bridge.log")
+    log = os.path.join(cli.overwatch_home(), "bridge.log")
     try:
-        os.makedirs(cli.blink_home(), exist_ok=True)
+        os.makedirs(cli.overwatch_home(), exist_ok=True)
         fh = open(log, "a", encoding="utf-8", errors="replace")
     except OSError as e:
         return False, "could not open %s: %s" % (log, e)

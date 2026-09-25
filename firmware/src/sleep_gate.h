@@ -102,7 +102,7 @@ bool sleep_stale_should_start(int32_t age_s, bool had_usage, bool ota_busy,
  *   - And an edge alone makes the symptom worse. The wake fires, run_usb
  *     re-asks sleep_stale_should_start on an active age that is still four
  *     hours old, and the board plays the closing clip again immediately: a
- *     deliberate blink-open-blink-shut on every reconnect. To be of any use
+ *     deliberate overwatch-open-overwatch-shut on every reconnect. To be of any use
  *     it would need a grace window suppressing the next doze for a minute or
  *     two -- new state, in the sleep path, unreachable by any host test.
  *   - The wait it is meant to shorten is not this file's to shorten. The

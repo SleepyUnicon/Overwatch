@@ -234,7 +234,7 @@ def gate(path, head_sha, inventory_path, now=time.time, max_age_s=MAX_AGE_S):
     # and the freshness check silently evaporates. Three characters in the
     # file would otherwise let a months-old green run vouch for today's
     # desks. (The same shape of bug already cost this project a run of
-    # polling, via BLINK_POLL_INTERVAL_S=nan walking past a `<= 0` guard.)
+    # polling, vian OVERWATCH_POLL_INTERVAL_S=nan walking past a `<= 0` guard.)
     if (isinstance(finished, bool)
             or not isinstance(finished, (int, float))
             or not math.isfinite(finished)):

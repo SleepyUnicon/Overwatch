@@ -37,7 +37,7 @@ interval. Sleep is a daemon-lifecycle event: a scenario that wants one sets
 `host_silence_s` and the agent stops the daemon for that long.
 
 Step spacing (>=4s apart) matters because fleet runs set the daemon's usage
-poll interval to about 3s (BLINK_POLL_INTERVAL_S) and the scripted provider
+poll interval to about 3s (OVERWATCH_POLL_INTERVAL_S) and the scripted provider
 hands over one step per poll. Steps closer together than one poll cycle are
 steps the replay cannot keep up with: they still all reach the board, but
 later than the file says, so `duration_s` stops describing what the daemon

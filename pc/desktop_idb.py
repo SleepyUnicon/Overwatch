@@ -5,7 +5,7 @@ customer's conversations, and it carries three rules none of the others need:
 
   - Nothing from the buffer is ever logged, printed, or placed in an
     exception message. The two floats returned here are the only things that
-    leave. README.md tells customers that ~/.blink/bridge.log holds nothing
+    leave. README.md tells customers that ~/.overwatch/bridge.log holds nothing
     secret, and that promise is load-bearing.
   - It runs at most once per process, and only when the cheaper seeders have
     failed. pc/ingest enforces that; this module must stay cheap enough that
@@ -33,11 +33,11 @@ from pc import cowork_audit, leveldb, v8_clone
 SAMPLE_EPOCH_MIN = 1_577_836_800
 SAMPLE_EPOCH_MAX = 4_102_444_800
 
-# Blink externalises any IndexedDB value over 64 KB to a sibling .blob file,
+# Overwatch externalises any IndexedDB value over 64 KB to a sibling .blob file,
 # leaving this prefix and a reference behind. The live records run around
 # 45 KB, so a longer-than-usual session crosses that line. We do not read blob
 # files: a value carrying this prefix is skipped, and the threshold itself is
-# Blink's business, not ours -- nothing here compares a length against it.
+# Overwatch's business, not ours -- nothing here compares a length against it.
 BLOB_WRAPPED_PREFIX = b"\xff\x11\x01"
 
 # Deeper than any shape these records take, and shallow enough that a

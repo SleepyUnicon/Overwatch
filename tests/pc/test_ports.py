@@ -1,4 +1,4 @@
-"""Which port may be reset, and what `blink status` says about the desk."""
+"""Which port may be reset, and what `overwatch status` says about the desk."""
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from claude_usage_bridge import may_reset_port
@@ -67,9 +67,9 @@ class TestBoardAheadOfTheApp:
     def test_it_says_so_and_names_the_command(self):
         lines = board_lines({"port": "COM3", "board_id": "abc",
                              "fw": self._ahead()},
-                            [("COM3", "CH340")], blink_cmd="blink")
+                            [("COM3", "CH340")], overwatch_cmd="overwatch")
         assert any(RELEASE_VERSION in l and "ship together" in l for l in lines), lines
-        assert any(l.strip() == "run: blink update" for l in lines), lines
+        assert any(l.strip() == "run: overwatch update" for l in lines), lines
 
     def test_it_says_nothing_when_the_halves_match(self):
         lines = board_lines({"port": "COM3", "fw": RELEASE_VERSION},
@@ -85,7 +85,7 @@ class TestBoardAheadOfTheApp:
 
     def test_an_unplugged_board_is_still_reported(self):
         """board.json remembers the firmware, so the mismatch is knowable with
-        nothing on the desk -- and that is when someone reads `blink status`."""
+        nothing on the desk -- and that is when someone reads `overwatch status`."""
         lines = board_lines({"port": "COM3", "fw": self._ahead()}, [])
         assert any("ship together" in l for l in lines), lines
 

@@ -30,11 +30,28 @@
 #define CA_TAG_GITHUB 3
 #define CA_TAG_GH_CDN 4
 #define OTA_HOST "github.com"
-#define OTA_BASE "/KfirLevy258/Blink/releases/latest/download/"
+/* WHOSE feed a board follows, and it is not upstream's.
+ *
+ * This said /KfirLevy258/Blink/. That is the right feed for a Blink and the
+ * wrong one for an Overwatch: this fork's firmware is a different build --
+ * 10 MHz panel clock, CONFIG_OVERWATCH_PANEL_PILOT, the touch axis fix, the
+ * widget pages, the cross navigation. A board pulling upstream's CYD image
+ * gets a mirrored screen with inverted touch and none of it. pc/ota.py had
+ * the same pointer and was disabled for the same reason.
+ *
+ * Latent rather than live: ota.c is compiled only under
+ * CONFIG_OVERWATCH_WIFI_MODE, which is default n, so no wired unit has ever
+ * carried this code. It still has to be right before wifi mode is turned on.
+ *
+ * SleepyUnicon/Overwatch is private, so this 404s rather than serving
+ * anything -- which is the safe failure, and the feed gate in pc/ota.py is
+ * the shape this wants when there is a public feed to point at.
+ */
+#define OTA_BASE "/SleepyUnicon/Overwatch/releases/latest/download/"
 /* Fixed asset names; the manifest's sha256 pins the exact bytes, so a release
  * changing between check and install fails safe at the hash step. */
 #define OTA_MANIFEST_PATH OTA_BASE "manifest.json"
-#define OTA_IMAGE_PATH    OTA_BASE "blink-fw.bin"
+#define OTA_IMAGE_PATH    OTA_BASE "overwatch-fw.bin"
 
 /* Must hold a whole 302 response head fragment INCLUDING the Location header:
  * capture_headers() scans one fragment at a time and cannot stitch a header
@@ -270,7 +287,7 @@ static int https_get(const char *host, const char *path, sec_tag_t tag,
 	}
 
 	const char *headers[] = {
-		"User-Agent: blink/" BLINK_FW_VERSION "\r\n",
+		"User-Agent: overwatch/" OVERWATCH_FW_VERSION "\r\n",
 		NULL,
 	};
 
@@ -370,9 +387,9 @@ enum ota_result ota_check(struct ota_manifest *out, bool *newer)
 		return OTA_ERR_SIZE;
 	}
 	last_m = *out;
-	*newer = ota_version_newer(out->version, BLINK_FW_VERSION);
+	*newer = ota_version_newer(out->version, OVERWATCH_FW_VERSION);
 	printk("[ota] latest %s (running %s) -> %s\n", out->version,
-	       BLINK_FW_VERSION, *newer ? "update available" : "up to date");
+	       OVERWATCH_FW_VERSION, *newer ? "update available" : "up to date");
 	return OTA_OK;
 }
 

@@ -81,12 +81,12 @@ CHIP_NAMES = {
 
 
 class Tap:
-    """BLINK_TAP: a transcript of everything crossing the serial link.
+    """OVERWATCH_TAP: a transcript of everything crossing the serial link.
 
     The fleet suite runs this daemon against a real board and then has to
     prove what happened. Nothing else can: the daemon's own stderr log is
     prose meant for a person, and the board cannot be interrogated after the
-    fact. So when BLINK_TAP names a file, every message and every line the
+    fact. So when OVERWATCH_TAP names a file, every message and every line the
     board printed is appended to it as JSON, one object per line, and the
     test asserts against that.
 
@@ -117,7 +117,7 @@ class Tap:
     def _append(self, record):
         """Append one record, and never let a bad tap path stop the daemon.
 
-        An unwritable or full BLINK_TAP path raises OSError as the file is
+        An unwritable or full OVERWATCH_TAP path raises OSError as the file is
         opened, and console() runs in the read loop -- whose except treats it
         as a disconnected board. Left to propagate, a broken tap would present
         as hardware that keeps dropping off the bus, which is the most
@@ -205,7 +205,7 @@ class Tap:
 
 
 def open_tap():
-    """The Tap for this connection, or None when BLINK_TAP is unset.
+    """The Tap for this connection, or None when OVERWATCH_TAP is unset.
 
     Separate from install_tap() because the transcript has to start earlier
     than the read loop does. The port is opened, then probed, and the probe
@@ -213,14 +213,14 @@ def open_tap():
     board says what it is and what state it was in. One connection, one Tap,
     created before the first read.
     """
-    path = os.environ.get("BLINK_TAP")
+    path = os.environ.get("OVERWATCH_TAP")
     return Tap(path) if path else None
 
 
 def install_tap(write_msg, on_message, tap=None):
     """(tap, write_msg, on_message) for this connection.
 
-    Unset BLINK_TAP hands back the two callables it was given, unchanged and
+    Unset OVERWATCH_TAP hands back the two callables it was given, unchanged and
     unwrapped, and no file is opened. A daemon that behaves differently
     because a test facility exists is a defect, so the inert path costs one
     environment lookup and nothing else.
@@ -246,7 +246,7 @@ def poll_interval():
     100 -- and the daemon emits one usage message per poll. At a poll a
     minute a thirty-second scenario produces exactly one frame, so the
     sequence the test exists to observe never reaches the board at all. The
-    suite sets BLINK_POLL_INTERVAL_S to about 3 and gets its timeline.
+    suite sets OVERWATCH_POLL_INTERVAL_S to about 3 and gets its timeline.
 
     Worth knowing before shortening it: poll_once() writes a `time` message
     on EVERY poll, before and independently of the usage message, so this
@@ -269,7 +269,7 @@ def poll_interval():
     board never receives usage again, and nothing anywhere says why. Hence
     isfinite FIRST, before any comparison that nan would win by default.
     """
-    raw = os.environ.get("BLINK_POLL_INTERVAL_S")
+    raw = os.environ.get("OVERWATCH_POLL_INTERVAL_S")
     if raw is None:
         return POLL_INTERVAL_S
     try:
@@ -280,7 +280,7 @@ def poll_interval():
         # "usable" rather than "positive": inf IS positive, and telling
         # someone who typed it that it is not would send them looking in the
         # wrong direction.
-        print(f"[bridge] BLINK_POLL_INTERVAL_S={raw!r} is not a usable"
+        print(f"[bridge] OVERWATCH_POLL_INTERVAL_S={raw!r} is not a usable"
               f" number of seconds; polling every {POLL_INTERVAL_S} s.",
               file=sys.stderr)
         return POLL_INTERVAL_S
@@ -288,19 +288,19 @@ def poll_interval():
 
 
 def build_bus():
-    """The daemon's usage source: scripted when BLINK_SCENARIO says so.
+    """The daemon's usage source: scripted when OVERWATCH_SCENARIO says so.
 
     A fleet test has to reproduce the same invented usage history -- "past
     100%", "four hours stale" -- on three machines, which no real provider
     can do, since a real provider reports whatever that machine's tools
-    happened to write. Pointing BLINK_SCENARIO at a scenario file replaces
+    happened to write. Pointing OVERWATCH_SCENARIO at a scenario file replaces
     the whole provider set with the one that replays it.
 
     It replaces rather than joins the set on purpose: a real Claude install
     on the test machine would otherwise merge its own readings into the
     scenario and the assertion would depend on whose desk it ran on.
     """
-    scenario = os.environ.get("BLINK_SCENARIO")
+    scenario = os.environ.get("OVERWATCH_SCENARIO")
     if not scenario:
         return ingest.IngestionBus()
     from pc.providers.scripted import ScriptedProvider
@@ -310,7 +310,7 @@ def build_bus():
 def describe_ports():
     """[(device, chip)] for every candidate port, in candidate_ports() order.
 
-    For `blink status`: a person with three CH340 boards on the desk needs to
+    For `overwatch status`: a person with three CH340 boards on the desk needs to
     see what the app sees, and which of them it is talking to.
     """
     chips = {}
@@ -347,7 +347,7 @@ def candidate_ports():
     could pick a stranger's device, fail to talk to it, and never look at the
     real board sitting on the next port.
 
-    With more than one BLINK attached the first that answers wins and the rest
+    With more than one OVERWATCH attached the first that answers wins and the rest
     are ignored: one daemon drives one board. That is a real limitation rather
     than an oversight -- the protocol, the preference and the OTA path are all
     written around a single unit -- but it is at least now a defined one, and
@@ -444,7 +444,7 @@ def hold_single_instance(home, on_wait=None, poll_s=5.0):
             return fh
         except OSError:
             if not said:
-                print("[bridge] another Blink daemon is already running and"
+                print("[bridge] another Overwatch daemon is already running and"
                       " has the board; waiting for it to exit. Two of them on"
                       " one cable would interleave on the wire.",
                       file=sys.stderr)
@@ -514,7 +514,7 @@ def learn_board(known, port, msg):
     `hello` when it boots, so after a USB flash -- where the board is already
     running by the time the daemon reconnects -- the first and every
     subsequent message is an `ota_query`, and `msg.get("fw")` was None every
-    time. The old version stayed in board.json and `blink status` reported it
+    time. The old version stayed in board.json and `overwatch status` reported it
     for as long as the daemon ran: on 2026-08-31 it insisted a board was on
     1.2.4 while that board was answering `cur: 1.2.5` in the same log. Worse,
     it lied in exactly the moment someone reads it -- checking whether an
@@ -529,7 +529,7 @@ def learn_board(known, port, msg):
 
 
 def probe_is_our_board(ser, timeout=PROBE_S, tap=None):
-    """Ask the thing on this port whether it is a Blink board, without a reset.
+    """Ask the thing on this port whether it is an Overwatch board, without a reset.
 
     Why this exists: the reset below is not free, and it is not aimed at a
     board we have identified -- it is aimed at whatever matched a VID:PID.
@@ -554,12 +554,12 @@ def probe_is_our_board(ser, timeout=PROBE_S, tap=None):
     welcome itself provoked. The one that provoked it matters most: a
     sleeping board wakes on this welcome and prints that it is waking, so the
     only evidence that it ever slept was being consumed by the question that
-    woke it. Unset BLINK_TAP means tap is None and this path is exactly what
+    woke it. Unset OVERWATCH_TAP means tap is None and this path is exactly what
     it always was.
     """
     try:
         ser.reset_input_buffer()
-        ser.write(protocol.encode(protocol.welcome("blink-bridge",
+        ser.write(protocol.encode(protocol.welcome("overwatch-bridge",
                                                    RELEASE_VERSION)))
         deadline = time.time() + timeout
         reader = protocol.LineReader()
@@ -656,14 +656,14 @@ def _self_update_tick(target):
     off switch, a bad build would keep installing itself on every machine that
     checked, and nothing here could stop it.
     """
-    home = os.path.dirname(os.path.dirname(target))   # ~/.blink
+    home = os.path.dirname(os.path.dirname(target))   # ~/.overwatch
     manifest = update.fetch_signed_manifest()
     found = update.available(manifest)
     if not found:
         return
     version, artifact = found
     if not ((manifest.get("daemon") or {}).get("auto")):
-        print(f"[update] {version} is available; run `blink update` to install"
+        print(f"[update] {version} is available; run `overwatch update` to install"
               " it", file=sys.stderr)
         return
     if not update.auto_update_allowed(home):
@@ -683,17 +683,25 @@ def _self_update_tick(target):
 
 
 def main(argv=None):
-    """argv is passed explicitly by the `blink run` subcommand.
+    """argv is passed explicitly by the `overwatch run` subcommand.
 
     Without it this parsed sys.argv[1:], which inside the packaged binary is
     ["run"] -- the subcommand name itself. argparse rejected it, the process
     exited immediately, and the login service restarted it every ten seconds
     forever. It never ran once.
     """
-    ap = argparse.ArgumentParser(prog="blink run")
+    ap = argparse.ArgumentParser(prog="overwatch run")
     ap.add_argument("--port", default=None)
     ap.add_argument("--baud", type=int, default=115200)
     args = ap.parse_args(argv)
+
+    # Also here, not only in cli.main(). This file is runnable on its own --
+    # `python3 claude_usage_bridge.py` is how it is started from a checkout,
+    # and that path never passes through the CLI's dispatch. A daemon that
+    # skipped the move would read an empty ~/.overwatch and re-learn the
+    # board from scratch while the real state sat in ~/.blink.
+    from pc import migrate
+    migrate.run_quietly(log=lambda m: print(m, file=sys.stderr))
 
     # Stamp every line from here on. First thing in main(), because the most
     # valuable timestamps are on the startup failures below -- a crash-looping
@@ -701,7 +709,7 @@ def main(argv=None):
     # without a time on it there is no way to tell one loop from a hundred.
     #
     # Wraps whatever stderr already is: launchd and systemd redirect for us
-    # and the Windows service has opened its own file in `blink run` by now,
+    # and the Windows service has opened its own file in `overwatch run` by now,
     # so this sits on top of that rather than choosing a destination itself.
     sys.stderr = logbook.Journal(sys.stderr)
 
@@ -709,11 +717,11 @@ def main(argv=None):
     # binary aside and moving the new one in, the login service is pointing at
     # a path that does not exist -- and would go on doing so at every boot,
     # silently. This is the one moment that can notice.
-    from pc.cli import (_self_path, blink_home as _blink_home,
+    from pc.cli import (_self_path, overwatch_home as _overwatch_home,
                         hook_shim_path, installed_bin, settings_path,
                         shim_path)
     self_bin = installed_bin()
-    blink_home = _blink_home()
+    overwatch_home = _overwatch_home()
     update.recover(self_bin)
 
     # Outside the reconnect loop, unlike next_poll. A board that comes and goes
@@ -735,7 +743,7 @@ def main(argv=None):
     # marker means the user uninstalled, and that is never overridden.
     #
     # The hook shim fails the other way round: its entry in settings.json
-    # stays perfect while its contents fall behind, because `blink update`
+    # stays perfect while its contents fall behind, because `overwatch update`
     # swaps the program directory and has never rewritten a shim. Both shims
     # are listed rather than just the hook, so the statusline shim gets the
     # same protection it turned out never to have had either.
@@ -757,20 +765,20 @@ def main(argv=None):
     _REPEATED = {"usage": usage_frames, "time": time_frames}
     watchdog = install_statusline.DriftWatchdog(
         settings_path(), shim_path(),
-        shims=((shim_path(), "blink-statusline.sh"),
-               (hook_shim_path(), "blink-hook.sh")))
+        shims=((shim_path(), "overwatch-statusline.sh"),
+               (hook_shim_path(), "overwatch-hook.sh")))
 
     # Before the port is touched. The lock lives for the life of the process --
     # the file object is bound here so it is not garbage collected, which would
     # release it.
     _instance_lock = hold_single_instance(   # noqa: F841 -- held, not used
-        blink_home, on_wait=lambda: watchdog.tick())
+        overwatch_home, on_wait=lambda: watchdog.tick())
 
     # Record the pid so uninstall can stop US specifically. Ending the login
     # service is not the same as ending this program, and killing by image name
     # is how the uninstaller once killed itself; a pid is unambiguous.
     #
-    # Written NEXT TO THE BINARY rather than under ~/.blink, because those are
+    # Written NEXT TO THE BINARY rather than under ~/.overwatch, because those are
     # not always the same place. A login service runs in the user's own
     # environment, not in whatever environment registered it -- so under the CI
     # harness, which redirects HOME to a temporary directory, the daemon
@@ -778,14 +786,14 @@ def main(argv=None):
     # never going to look. Deriving it from sys.executable ties it to the
     # directory that actually has to be deleted, which is the thing the pid is
     # for.
-    # ~/.blink/bridge.pid, beside the program's directory rather than in it:
+    # ~/.overwatch/bridge.pid, beside the program's directory rather than in it:
     # an update rotates that directory to bin.old with this daemon still
     # inside, and the pid has to stay where cli.restart_service() looks.
-    # Frozen: the executable is ~/.blink/bin/blink, two levels down. From a
-    # checkout: the ordinary ~/.blink (a developer, not a login service).
+    # Frozen: the executable is ~/.overwatch/bin/overwatch, two levels down. From a
+    # checkout: the ordinary ~/.overwatch (a developer, not a login service).
     pid_file = (os.path.join(os.path.dirname(os.path.dirname(_self_path())),
                              "bridge.pid") if getattr(sys, "frozen", False)
-                else os.path.join(blink_home, "bridge.pid"))
+                else os.path.join(overwatch_home, "bridge.pid"))
     try:
         with open(pid_file, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
@@ -800,7 +808,7 @@ def main(argv=None):
     # machine whose board is unplugged too. That is in fact the case where
     # the file grew fastest, because the "waiting for the board" path used to
     # print on a timer.
-    _log_file = os.path.join(blink_home, "bridge.log")
+    _log_file = os.path.join(overwatch_home, "bridge.log")
 
     def _upkeep():
         drifted = watchdog.tick()
@@ -840,7 +848,7 @@ def main(argv=None):
 
     # What we learned last time. A machine that has connected before opens the
     # port it used, with no scanning at all.
-    known = remembered_board(blink_home)
+    known = remembered_board(overwatch_home)
     # The USB layout we have already searched without finding anything. While
     # it is unchanged there is nothing new to look at, so we wait instead of
     # reopening ports on a timer.
@@ -909,7 +917,7 @@ def main(argv=None):
             # The transcript starts at the port, not at the read loop. Built
             # here, per connection, and handed to install_tap further down so
             # a console line torn between the probe and the loop is still one
-            # line. None unless BLINK_TAP is set, which is every customer.
+            # line. None unless OVERWATCH_TAP is set, which is every customer.
             tap = open_tap()
             # Ask before pulling the reset line. See probe_is_our_board: the
             # VID:PID that got us here belongs to a chip used by a great deal
@@ -1132,7 +1140,7 @@ def main(argv=None):
                               set_preferred=bus.set_preferred,
                               self_update=self_update,
                               pending=update.PendingFirmware(
-                                  os.path.join(blink_home, "pending_fw.json")))
+                                  os.path.join(overwatch_home, "pending_fw.json")))
         report_failure = None   # handed to the Bridge above; never repeated
 
         # The launcher's config page, served for as long as the daemon runs.
@@ -1202,7 +1210,7 @@ def main(argv=None):
                         learned = learn_board(known, port, msg)
                         if not proven or learned != known:
                             known = learned
-                            remember_board(blink_home, known["port"],
+                            remember_board(overwatch_home, known["port"],
                                            known.get("board_id"),
                                            known.get("fw"))
                         if not proven:

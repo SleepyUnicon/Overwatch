@@ -256,7 +256,7 @@ def test_two_named_sessions_in_the_same_state_leave_the_board_unnamed():
                                label="LiveClaudeUi", n_wait=0)),
                    Fixed(named(provider="codex", at=NOW - 30,
                                state=base.STATE_WAITING,
-                               label="Blink", n_wait=0))],
+                               label="Overwatch", n_wait=0))],
         now=lambda: NOW)
     msg = bus.poll()
     assert msg["state"] == "waiting"
@@ -274,11 +274,11 @@ def test_a_codex_name_shows_when_it_is_the_only_holder_of_the_state():
                                label="LiveClaudeUi", n_run=1)),
                    Fixed(named(provider="codex", at=NOW - 30,
                                state=base.STATE_WAITING,
-                               label="Blink", n_wait=1))],
+                               label="Overwatch", n_wait=1))],
         now=lambda: NOW)
     msg = bus.poll()
     assert msg["state"] == "waiting"
-    assert bus.session_pair() == ("Blink", 1)
+    assert bus.session_pair() == ("Overwatch", 1)
 
 
 def test_a_failed_codex_session_outranks_a_waiting_claude_one():
@@ -291,11 +291,11 @@ def test_a_failed_codex_session_outranks_a_waiting_claude_one():
                                label="LiveClaudeUi", n_wait=1)),
                    Fixed(named(provider="codex", at=NOW - 30,
                                state=base.STATE_FAILED,
-                               label="Blink", n_stuck=1))],
+                               label="Overwatch", n_stuck=1))],
         now=lambda: NOW)
     msg = bus.poll()
     assert msg["state"] == "failed"
-    assert bus.session_pair() == ("Blink", 1)
+    assert bus.session_pair() == ("Overwatch", 1)
 
 
 def test_two_providers_agreeing_on_the_state_keep_the_name():

@@ -41,11 +41,11 @@ NO_WINDOW = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
 #
 # It was KfirLevy258/Blink, which is upstream. That is correct for a Blink
 # and wrong for an Overwatch: this fork's firmware is a different build --
-# 10 MHz panel clock, CONFIG_BLINK_PANEL_PILOT, the touch axis fix, the
+# 10 MHz panel clock, CONFIG_OVERWATCH_PANEL_PILOT, the touch axis fix, the
 # widget pages, the cross navigation. Pulling upstream's CYD image onto one
 # of these gives a mirrored screen with inverted touch and none of it.
 #
-# The boards are not defenceless: they are signed with a key in ~/.blink/,
+# The boards are not defenceless: they are signed with a key in ~/.overwatch/,
 # so MCUboot rejects an image signed with anyone else's and reverts
 # (OVERWATCH.md's step 3 is explicit about this). But that safety net is
 # accidental rather than designed, and it only catches the image AFTER the
@@ -62,7 +62,7 @@ RELEASE_REPO = ""
 RELEASE_BASE = ("https://github.com/%s/releases/latest/download/"
                 % RELEASE_REPO) if RELEASE_REPO else ""
 MANIFEST_URL = RELEASE_BASE + "manifest.json" if RELEASE_BASE else ""
-FIRMWARE_URL = RELEASE_BASE + "blink-fw.bin" if RELEASE_BASE else ""
+FIRMWARE_URL = RELEASE_BASE + "overwatch-fw.bin" if RELEASE_BASE else ""
 
 
 def feed_configured():
@@ -71,14 +71,14 @@ def feed_configured():
 
 
 
-# Serve a locally built release instead of GitHub's. Set BLINK_OTA_DIR to a
-# directory holding manifest.json + blink-fw.bin.
+# Serve a locally built release instead of GitHub's. Set OVERWATCH_OTA_DIR to a
+# directory holding manifest.json + overwatch-fw.bin.
 #
 # This exists because the published feed cannot exercise the update path during
 # development: the board usually runs something newer than the latest release,
 # so a check can only ever answer "up to date". Pointing this at a local build
 # is the only way to test a real transfer without publishing one.
-OTA_DIR_ENV = "BLINK_OTA_DIR"
+OTA_DIR_ENV = "OVERWATCH_OTA_DIR"
 
 
 def _local_dir():
@@ -93,7 +93,7 @@ def _ssl_context():
     CA bundle at /Library/Frameworks/Python.framework/Versions/3.X/etc/openssl
     -- a path that exists only on a Mac with that exact Python installed and
     its "Install Certificates" step run. On every other Mac each HTTPS fetch
-    failed with CERTIFICATE_VERIFY_FAILED: `blink update` said the feed could
+    failed with CERTIFICATE_VERIFY_FAILED: `overwatch update` said the feed could
     not be read and the daemon's daily check logged "unreachable", so no
     installed device could ever have updated (2026-08-29, found on the desk
     Mac an hour after 1.0.1 was published; 1.0.0 shipped the same way).
@@ -211,7 +211,7 @@ def _efuse_probe():
     """How to run pc/efuse_probe.py on THIS machine.
 
     Frozen, the interpreter is this program and the module is bundled, so it
-    is `blink -m pc.efuse_probe`. From source the daemon's cwd is wherever
+    is `overwatch -m pc.efuse_probe`. From source the daemon's cwd is wherever
     launchd or schtasks put it, where `-m pc.efuse_probe` would not resolve,
     so the file is run by path instead.
     """

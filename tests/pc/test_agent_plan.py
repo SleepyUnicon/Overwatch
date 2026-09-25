@@ -6,7 +6,7 @@ the child gets, whether the service comes back after a failure, what happens
 when the stop was skipped -- and plumbing is exactly what a fake can hold
 still while it is inspected.
 
-The one thing worth stating out loud: BLINK_SKIP_SERVICE belongs in the
+The one thing worth stating out loud: OVERWATCH_SKIP_SERVICE belongs in the
 child's environment and nowhere else. Set in the agent's own process it would
 turn stop_service() into a no-op, leave the real daemon holding the port, and
 report a hardware fault against a healthy board -- with start_service()
@@ -67,7 +67,7 @@ def _spawner(lines_for=lambda env, attempt: _tap_lines(), events=None):
         calls.append({"cmd": cmd, "env": env, "cwd": cwd})
         if events is not None:
             events.append("spawn")
-        with open(env["BLINK_TAP"], "a", encoding="utf-8") as f:
+        with open(env["OVERWATCH_TAP"], "a", encoding="utf-8") as f:
             for rec in lines_for(env, len(calls)):
                 f.write(json.dumps(rec) + "\n")
         return _FakeProc(events)
@@ -134,10 +134,10 @@ def test_env_for_run_sandboxes_both_home_vars(tmp_path):
     env = agent.env_for_run(tmp_path, scenario=tmp_path / "s.json",
                             tap=tmp_path / "tap.jsonl", sandbox=True)
     assert env["HOME"] == str(tmp_path) and env["USERPROFILE"] == str(tmp_path)
-    assert env["BLINK_SKIP_SERVICE"] == "1"
-    assert env["BLINK_SCENARIO"] == str(tmp_path / "s.json")
-    assert env["BLINK_TAP"] == str(tmp_path / "tap.jsonl")
-    assert float(env["BLINK_POLL_INTERVAL_S"]) > 0
+    assert env["OVERWATCH_SKIP_SERVICE"] == "1"
+    assert env["OVERWATCH_SCENARIO"] == str(tmp_path / "s.json")
+    assert env["OVERWATCH_TAP"] == str(tmp_path / "tap.jsonl")
+    assert float(env["OVERWATCH_POLL_INTERVAL_S"]) > 0
     assert env["PYTHONIOENCODING"] == "utf-8"
 
 
@@ -145,21 +145,21 @@ def test_real_account_env_keeps_real_home(tmp_path):
     sandbox = tmp_path / "sandbox"
     env = agent.env_for_run(sandbox, scenario=None,
                             tap=tmp_path / "tap.jsonl", sandbox=False)
-    assert "BLINK_SCENARIO" not in env
+    assert "OVERWATCH_SCENARIO" not in env
     assert env["HOME"] != str(sandbox)
     assert env["USERPROFILE"] != str(sandbox)
-    assert env["BLINK_TAP"] == str(tmp_path / "tap.jsonl")
+    assert env["OVERWATCH_TAP"] == str(tmp_path / "tap.jsonl")
 
 
 def test_skip_service_never_reaches_the_agents_own_environment(
         tmp_path, monkeypatch):
-    monkeypatch.delenv("BLINK_SKIP_SERVICE", raising=False)
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE", raising=False)
     agent.env_for_run(tmp_path, scenario=None, tap=tmp_path / "t.jsonl",
                       sandbox=True)
     args = agent.parse_args(["--scenarios", str(_scenario(tmp_path)),
                              "--out", str(tmp_path / "r.json")])
     agent.run(args, _deps())
-    assert "BLINK_SKIP_SERVICE" not in os.environ
+    assert "OVERWATCH_SKIP_SERVICE" not in os.environ
 
 
 # --- the daemon command -----------------------------------------------
@@ -237,10 +237,10 @@ def test_run_aborts_when_the_service_stop_was_skipped(tmp_path):
                              "--out", str(tmp_path / "r.json")])
     result = agent.run(args, _deps(
         spawn=spawn,
-        stop=lambda: Outcome(False, True, "skipped (BLINK_SKIP_SERVICE=1)"),
+        stop=lambda: Outcome(False, True, "skipped (OVERWATCH_SKIP_SERVICE=1)"),
         start=lambda: started.append(True) or Outcome(True, False, "started")))
     assert result["ok"] is False
-    assert any("BLINK_SKIP_SERVICE" in p for p in result["problems"])
+    assert any("OVERWATCH_SKIP_SERVICE" in p for p in result["problems"])
     assert spawn.calls == [], "no daemon may run while the service holds the port"
     assert started == [], "nothing was stopped, so nothing gets started"
 
@@ -335,7 +335,7 @@ def test_every_sandboxed_pass_shares_one_home(tmp_path):
     assert len(homes) == 1, f"one home per run, saw {homes}"
     home = homes.pop()
     assert all(c["env"]["USERPROFILE"] == home for c in spawn.calls)
-    taps = {c["env"]["BLINK_TAP"] for c in spawn.calls}
+    taps = {c["env"]["OVERWATCH_TAP"] for c in spawn.calls}
     assert len(taps) == len(spawn.calls), "each pass keeps its own transcript"
     assert not any(t.startswith(home + os.sep) for t in taps), (
         "transcripts must not accumulate inside the daemon's home")
@@ -347,7 +347,7 @@ def test_the_real_account_pass_is_not_given_the_shared_home(tmp_path):
                              "--out", str(tmp_path / "r.json"),
                              "--real-account"])
     agent.run(args, _deps(spawn=spawn))
-    real = [c for c in spawn.calls if "real_account" in c["env"]["BLINK_TAP"]]
+    real = [c for c in spawn.calls if "real_account" in c["env"]["OVERWATCH_TAP"]]
     sandboxed = [c for c in spawn.calls if c not in real]
     assert real and real[0]["env"]["HOME"] not in {
         c["env"]["HOME"] for c in sandboxed}
@@ -367,8 +367,8 @@ def _sleep_scenario(tmp_path, name="naps"):
 def _sleeper(events=None):
     """A board that sleeps while the daemon is gone and says so on waking."""
     def lines(env, attempt):
-        woke = os.path.getsize(env["BLINK_TAP"]) > 0 if os.path.exists(
-            env["BLINK_TAP"]) else False
+        woke = os.path.getsize(env["OVERWATCH_TAP"]) > 0 if os.path.exists(
+            env["OVERWATCH_TAP"]) else False
         out = _tap_lines({"steps": [{"at": 0}, {"at": 5}]})
         if woke:
             # From the marker, never a copy of it. A third hand-written copy
@@ -402,9 +402,9 @@ def test_a_sleep_scenario_stops_the_daemon_and_brings_it_back(tmp_path):
     result = agent.run(args, _deps(spawn=spawn, sleep=sleep))
     assert result["ok"] is True, result["scenarios"]
 
-    passes = [c for c in spawn.calls if "naps" in c["env"]["BLINK_TAP"]]
+    passes = [c for c in spawn.calls if "naps" in c["env"]["OVERWATCH_TAP"]]
     assert len(passes) == 2, "one pass before the silence and one after"
-    assert passes[0]["env"]["BLINK_TAP"] == passes[1]["env"]["BLINK_TAP"], (
+    assert passes[0]["env"]["OVERWATCH_TAP"] == passes[1]["env"]["OVERWATCH_TAP"], (
         "both passes write one transcript, or the wake cannot be seen after"
         " the frames that preceded it")
     assert 45 in sleeps, "the daemon must be gone for the scenario's silence"
@@ -441,7 +441,7 @@ def _stubborn_spawner():
             raise OSError("no such process")
 
     def spawn(cmd, env, cwd):
-        open(env["BLINK_TAP"], "a", encoding="utf-8").close()
+        open(env["OVERWATCH_TAP"], "a", encoding="utf-8").close()
         return _Undead()
     spawn.calls = []
     return spawn
@@ -510,7 +510,7 @@ def test_the_poll_interval_reaches_both_the_child_and_the_grace(tmp_path):
                              "--out", str(tmp_path / "r.json"),
                              "--real-account", "--poll-interval", "7"])
     agent.run(args, _deps(sleeps=sleeps, spawn=spawn))
-    assert all(c["env"]["BLINK_POLL_INTERVAL_S"] == "7.0" for c in spawn.calls)
+    assert all(c["env"]["OVERWATCH_POLL_INTERVAL_S"] == "7.0" for c in spawn.calls)
     assert max(sleeps) == 10 + agent.grace_s(doc, 7.0)
 
 
@@ -558,7 +558,7 @@ def test_a_late_connect_on_the_WAKE_pass_is_inconclusive_too(tmp_path):
     """
     def late_second(env, attempt):
         out = _tap_lines({"steps": [{"at": 0}, {"at": 5}]})
-        if os.path.getsize(env["BLINK_TAP"]) > 0:      # the wake pass
+        if os.path.getsize(env["OVERWATCH_TAP"]) > 0:      # the wake pass
             out.insert(0, {"dir": "console", "t": 0.0, "line": WOKE_MARKER})
             out = [dict(r, t=r["t"] + 30) for r in out]
         return out
@@ -621,7 +621,7 @@ def test_the_real_account_verdict_is_printed_like_every_other(tmp_path, capsys):
     """
     def no_percentage(env, attempt):
         out = _tap_lines()
-        if "BLINK_SCENARIO" not in env:
+        if "OVERWATCH_SCENARIO" not in env:
             for rec in out:
                 if rec["dir"] == "tx":
                     rec["msg"] = {"t": "usage", "v": 1, "session_pct": -1}
@@ -639,7 +639,7 @@ def test_the_real_account_verdict_is_printed_like_every_other(tmp_path, capsys):
 def test_real_account_pass_fails_when_no_percentage_goes_out(tmp_path):
     def lines(env, attempt):
         out = _tap_lines()
-        if "BLINK_SCENARIO" not in env:      # the real-account daemon
+        if "OVERWATCH_SCENARIO" not in env:      # the real-account daemon
             for rec in out:
                 if rec["dir"] == "tx":
                     rec["msg"] = {"t": "usage", "v": 1, "session_pct": -1,

@@ -61,7 +61,7 @@ void fmt_ascii(const char *src, char *dst, size_t dstlen);
  * The line under the status dot: what is happening, and to what.
  *
  *   status  ""      -> ""                      (nothing to say)
- *   label   set     -> "Working - Blink"
+ *   label   set     -> "Working - Overwatch"
  *   otherwise       -> "Working"
  *
  * The session count no longer appears here -- it moved to the pip row, see
@@ -153,7 +153,7 @@ int fmt_pips(int n_run, int n_wait, int n_fail, int n_fin,
  * The one sentence a status-change popup says.
  *
  *   count <= 0             -> ""                            (nothing happened)
- *   count == 1, label set  -> "Blink is waiting for you"
+ *   count == 1, label set  -> "Overwatch is waiting for you"
  *   count == 1, no label   -> "A session is waiting for you"
  *   count >  1             -> "3 sessions are waiting"
  *

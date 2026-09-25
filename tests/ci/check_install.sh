@@ -2,7 +2,7 @@
 # Run the packaged binary for real against one scenario, and check what it did.
 #
 # The pytest suite covers the same scenarios hermetically, but always with
-# BLINK_SKIP_DEPS=1 and BLINK_SKIP_SERVICE=1 -- so the two steps that touch
+# OVERWATCH_SKIP_DEPS=1 and OVERWATCH_SKIP_SERVICE=1 -- so the two steps that touch
 # the machine itself, building the virtualenv and registering a login service,
 # are exactly the two nothing exercises. That is what this is for, and why CI
 # runs it on a real runner of each OS rather than only running pytest.
@@ -18,14 +18,14 @@
 # The last four feed the INSTALLED binary the files the daemon reads on a
 # customer's machine -- a status line payload through the shim, hook events
 # through the hook shim, a Claude Desktop cache at the platform's path, a
-# Codex rollout log -- and check what `blink status` says about each and what
-# `blink status --wire` would put on the cable. No board is attached on a
+# Codex rollout log -- and check what `overwatch status` says about each and what
+# `overwatch status --wire` would put on the cable. No board is attached on a
 # runner; the wire message is the last thing that can be checked without one.
 #
-# BLINK_BIN names the binary to test (default: dist/blink/blink, as built by
+# OVERWATCH_BIN names the binary to test (default: dist/overwatch/overwatch, as built by
 # tools/build_binary.sh). CI builds it once per platform and hands the path in.
 #
-# Set BLINK_SKIP_SERVICE=1 to skip the login-service assertions. Do that when
+# Set OVERWATCH_SKIP_SERVICE=1 to skip the login-service assertions. Do that when
 # running this on a machine you care about: the launchd label is a constant, so
 # a real run here would bootout whatever agent is already installed and replace
 # it with one pointing into this scenario's throwaway HOME.
@@ -36,7 +36,7 @@ set -eu
 ci_binary
 
 SCENARIO="${1:?usage: check_install.sh <scenario> [work-dir]}"
-WORK="${2:-${TMPDIR:-/tmp}/blink-ci-$SCENARIO}"
+WORK="${2:-${TMPDIR:-/tmp}/overwatch-ci-$SCENARIO}"
 ci_label "$SCENARIO"
 
 rm -rf "$WORK"
@@ -60,7 +60,7 @@ export HOME
 # USERPROFILE also has to be in Windows form: the binary is native Windows
 # Python, and it echoes back paths in the shape it was given.
 NATIVE_HOME="$HOME"
-BINEXE="blink"
+BINEXE="overwatch"
 case "$(uname -s)" in
 MINGW* | MSYS* | CYGWIN*)
 	NATIVE_HOME=$(cygpath -w "$HOME")
@@ -72,7 +72,7 @@ MINGW* | MSYS* | CYGWIN*)
 	# where an export dies with the subshell.
 	APPDATA="$NATIVE_HOME\\AppData\\Roaming"
 	export APPDATA
-	BINEXE="blink.exe"
+	BINEXE="overwatch.exe"
 	;;
 esac
 
@@ -106,12 +106,12 @@ write_settings() {
 	printf '%s\n' "$1" >"$(settings)"
 }
 
-# A file in ~/.blink that Blink did not create. Uninstall must never take the
+# A file in ~/.overwatch that Overwatch did not create. Uninstall must never take the
 # directory, only its own three files -- the OTA signing key lives here and
 # cannot be regenerated.
 plant_signing_key() {
-	mkdir -p "$HOME/.blink"
-	echo "PRIVATE KEY" >"$HOME/.blink/ota_signing_key_p256.pem"
+	mkdir -p "$HOME/.overwatch"
+	echo "PRIVATE KEY" >"$HOME/.overwatch/ota_signing_key_p256.pem"
 }
 
 # Defined here as well as below: the scenario setup above the helpers section
@@ -238,7 +238,7 @@ json_get() {
 if [ "$SCENARIO" = "foreign-uninstall" ]; then
 	# Never installed. Uninstall must be a no-op on someone else's setup --
 	# the case where a person runs it "just to be sure" and would otherwise
-	# lose a status line Blink never touched.
+	# lose a status line Overwatch never touched.
 	"$BIN" uninstall >"$WORK/out.txt" 2>&1 ||
 		fail "uninstall exited non-zero: $(cat "$WORK/out.txt")"
 	[ "$(json_get statusLine.command)" = "sh $THEIR_BAR" ] ||
@@ -257,8 +257,8 @@ if [ "$SCENARIO" = "unreadable-settings" ]; then
 	fi
 	grep -q "setup stopped" "$WORK/out.txt" || fail "install did not say why it stopped: $(cat "$WORK/out.txt")"
 	cmp -s "$(settings)" "$WORK/settings.before" || fail "install changed a settings.json it could not parse"
-	[ ! -e "$HOME/.blink/bin" ] || fail "install copied the binary before refusing"
-	[ ! -e "$HOME/.blink/blink-statusline.sh" ] || fail "install wrote the shim before refusing"
+	[ ! -e "$HOME/.overwatch/bin" ] || fail "install copied the binary before refusing"
+	[ ! -e "$HOME/.overwatch/overwatch-statusline.sh" ] || fail "install wrote the shim before refusing"
 	ok "install refuses an unparseable settings.json, changes nothing, says why"
 	printf 'PASS [%s]\n' "$SCENARIO"
 	exit 0
@@ -272,10 +272,10 @@ if [ "$SCENARIO" = "install-uninstall-install" ]; then
 	"$BIN" uninstall >"$WORK/undo0.txt" 2>&1 || { cat "$WORK/undo0.txt" >&2; fail "first uninstall failed"; }
 	[ "$(json_get statusLine.command)" = "sh '$THEIR_BAR'" ] ||
 		fail "first uninstall did not restore their command: $(json_get statusLine.command)"
-	[ ! -e "$HOME/.blink/statusline-chain" ] || fail "first uninstall left the chain file"
+	[ ! -e "$HOME/.overwatch/statusline-chain" ] || fail "first uninstall left the chain file"
 	[ "$(json_get hooks)" = "" ] || fail "first uninstall left hooks behind: $(json_get hooks)"
-	n=0; while [ -e "$HOME/.blink/bin" ] && [ "$n" -lt 30 ]; do sleep 1; n=$((n + 1)); done
-	[ ! -e "$HOME/.blink/bin" ] || fail "first uninstall left the binary behind"
+	n=0; while [ -e "$HOME/.overwatch/bin" ] && [ "$n" -lt 30 ]; do sleep 1; n=$((n + 1)); done
+	[ ! -e "$HOME/.overwatch/bin" ] || fail "first uninstall left the binary behind"
 	ok "install, then uninstall: their bar back, nothing of ours left"
 	# ...and the main flow below now does the second install and uninstall,
 	# with every with-statusline assertion applied to the second round.
@@ -283,13 +283,13 @@ fi
 
 "$BIN" >"$WORK/out.txt" 2>&1 || {
 	cat "$WORK/out.txt" >&2
-	fail "blink exited non-zero"
+	fail "overwatch exited non-zero"
 }
 
 if [ "$SCENARIO" = "reinstall" ]; then
 	"$BIN" >"$WORK/out2.txt" 2>&1 || {
 		cat "$WORK/out2.txt" >&2
-		fail "second blink run exited non-zero"
+		fail "second overwatch run exited non-zero"
 	}
 	ok "second run succeeded"
 fi
@@ -309,19 +309,19 @@ grep -q "statusLine.command" "$WORK/disclosure.txt" || fail "disclosure omits th
 # written too -- and install asks nothing, so the disclosure is the only thing
 # between us and silently editing a file the customer owns.
 grep -q "hooks" "$WORK/disclosure.txt" || fail "disclosure omits the hooks key"
-grep -qF "blink-hook.sh" "$WORK/disclosure.txt" || fail "disclosure omits the hook shim"
+grep -qF "overwatch-hook.sh" "$WORK/disclosure.txt" || fail "disclosure omits the hook shim"
 grep -qF "$BINEXE uninstall" "$WORK/disclosure.txt" ||
 	fail "disclosure omits the undo"
 ok "disclosure precedes the first step and names file, key, undo"
 
-SHIM="$HOME/.blink/blink-statusline.sh"
+SHIM="$HOME/.overwatch/overwatch-statusline.sh"
 [ -x "$SHIM" ] || fail "shim not installed at $SHIM"
-cmp -s "$SHIM" "$ROOT/tools/blink-statusline.sh" || fail "installed shim differs from source"
+cmp -s "$SHIM" "$ROOT/tools/overwatch-statusline.sh" || fail "installed shim differs from source"
 ok "shim installed as a copy, not a pointer into the checkout"
 
 got=$(json_get statusLine.command)
 case "$got" in
-*"blink-statusline.sh"*) ;;
+*"overwatch-statusline.sh"*) ;;
 *) fail "statusLine.command is '$got'" ;;
 esac
 case "$got" in
@@ -332,21 +332,21 @@ ok "statusLine.command -> the installed copy"
 # The half no unit test reaches: the binary must copy ITSELF somewhere stable
 # and be runnable from there, because the login service names that path and
 # the customer is told they can delete the download.
-[ -x "$HOME/.blink/bin/$BINEXE" ] || fail "the binary did not install itself"
-"$HOME/.blink/bin/$BINEXE" status >/dev/null || fail "the installed copy does not run"
-ok "binary installed itself and runs from ~/.blink/bin"
+[ -x "$HOME/.overwatch/bin/$BINEXE" ] || fail "the binary did not install itself"
+"$HOME/.overwatch/bin/$BINEXE" status >/dev/null || fail "the installed copy does not run"
+ok "binary installed itself and runs from ~/.overwatch/bin"
 
-if [ "${BLINK_SKIP_SERVICE:-0}" != "1" ]; then
+if [ "${OVERWATCH_SKIP_SERVICE:-0}" != "1" ]; then
 	case "$(uname -s)" in
 	Darwin)
-		[ -f "$HOME/Library/LaunchAgents/com.blink.bridge.plist" ] ||
+		[ -f "$HOME/Library/LaunchAgents/com.overwatch.bridge.plist" ] ||
 			fail "no launchd plist written"
-		plutil -lint "$HOME/Library/LaunchAgents/com.blink.bridge.plist" >/dev/null ||
+		plutil -lint "$HOME/Library/LaunchAgents/com.overwatch.bridge.plist" >/dev/null ||
 			fail "launchd plist is not valid"
 		ok "launchd plist written and valid"
 		;;
 	Linux)
-		[ -f "$HOME/.config/systemd/user/blink-bridge.service" ] ||
+		[ -f "$HOME/.config/systemd/user/overwatch-bridge.service" ] ||
 			fail "no systemd unit written"
 		ok "systemd unit written"
 		# Deliberately NOT asserting the service is running: a CI runner has
@@ -359,7 +359,7 @@ fi
 
 case "$SCENARIO" in
 with-statusline | reinstall | spaced-home | install-uninstall-install)
-	chain=$(cat "$HOME/.blink/statusline-chain" 2>/dev/null || echo "")
+	chain=$(cat "$HOME/.overwatch/statusline-chain" 2>/dev/null || echo "")
 	[ "$chain" = "sh '$THEIR_BAR'" ] || fail "chain is [$chain], expected [sh '$THEIR_BAR']"
 	ok "their command preserved in the chain file"
 
@@ -371,12 +371,12 @@ with-statusline | reinstall | spaced-home | install-uninstall-install)
 	[ "$out" = "my bar" ] || fail "shim did not pass through their output (got '$out')"
 	ok "their bar still renders through the shim"
 
-	[ -s "$HOME/.blink/statusline.json" ] || fail "shim wrote no payload"
+	[ -s "$HOME/.overwatch/statusline.json" ] || fail "shim wrote no payload"
 	# The path goes in as an ARGUMENT, not inside the source. Under Git Bash a
 	# POSIX path handed to a native Windows program is auto-converted to
 	# Windows form; a path embedded in a string is not, so the identical check
 	# passed for json_get and failed here.
-	py - "$HOME/.blink/statusline.json" <<-'EOF' || fail "payload is not what was piped in"
+	py - "$HOME/.overwatch/statusline.json" <<-'EOF' || fail "payload is not what was piped in"
 		import json, sys
 		d = json.load(open(sys.argv[1]))
 		assert d["rate_limits"]["five_hour"]["used_percentage"] == 11, d
@@ -396,9 +396,9 @@ fi
 # What the daemon reads, fed through the installed pieces the way the real
 # programs feed them, then read back through the installed binary.
 
-HOOK="$HOME/.blink/blink-hook.sh"
+HOOK="$HOME/.overwatch/overwatch-hook.sh"
 wire() {
-	"$HOME/.blink/bin/$BINEXE" status --wire 2>/dev/null | grep '^{' | head -1
+	"$HOME/.overwatch/bin/$BINEXE" status --wire 2>/dev/null | grep '^{' | head -1
 }
 wire_get() {
 	# wire_get <key> -> the value, or "" when absent. A python one-liner
@@ -415,7 +415,7 @@ all-sources)
 	printf '{"session_id":"ci-2"}' | sh "$HOOK" Stop
 	printf '{"session_id":"ci-1","agent_id":"a1"}' | sh "$HOOK" SubagentStart
 
-	st=$("$HOME/.blink/bin/$BINEXE" status 2>&1) || fail "status exited non-zero: $st"
+	st=$("$HOME/.overwatch/bin/$BINEXE" status 2>&1) || fail "status exited non-zero: $st"
 	echo "$st" | grep -q "Usage data  fresh" || fail "status does not see the status line payload: $st"
 	echo "$st" | grep -q "2 live sessions" || fail "status does not count the two sessions: $st"
 	echo "$st" | grep -q "Desktop     usage cache parsed" || fail "status did not parse the Desktop cache: $st"
@@ -441,7 +441,7 @@ all-sources)
 	ok "wire: claude (status line) primary with state and counts, codex secondary, under budget"
 	;;
 desktop-only)
-	st=$("$HOME/.blink/bin/$BINEXE" status 2>&1) || fail "status exited non-zero: $st"
+	st=$("$HOME/.overwatch/bin/$BINEXE" status 2>&1) || fail "status exited non-zero: $st"
 	echo "$st" | grep -q "Desktop     usage cache parsed" || fail "status did not parse the Desktop cache: $st"
 	echo "$st" | grep -q "Codex       no session logs" || fail "status should report no Codex: $st"
 	# The "alone" wording keys off Claude Code being absent from PATH, which
@@ -464,7 +464,7 @@ desktop-only)
 	ok "wire: desktop percentages, no reset time, a 20 %/h burn rate"
 	;;
 codex-only)
-	st=$("$HOME/.blink/bin/$BINEXE" status 2>&1) || fail "status exited non-zero: $st"
+	st=$("$HOME/.overwatch/bin/$BINEXE" status 2>&1) || fail "status exited non-zero: $st"
 	echo "$st" | grep -q "Codex       session log parsed" || fail "status did not parse the Codex log: $st"
 	if command -v claude >/dev/null 2>&1; then
 		ok "status parses the Codex log (claude is on PATH here, so the 'alone' wording is asserted on runners only)"
@@ -482,7 +482,7 @@ codex-only)
 	ok "wire: codex primary with both countdowns"
 	;;
 broken-data)
-	st=$("$HOME/.blink/bin/$BINEXE" status 2>&1) || fail "status exited non-zero on broken files: $st"
+	st=$("$HOME/.overwatch/bin/$BINEXE" status 2>&1) || fail "status exited non-zero on broken files: $st"
 	echo "$st" | grep -q "did not parse" || fail "status does not report the unparseable Desktop cache: $st"
 	echo "$st" | grep -q "none with a rate-limit line" || fail "status does not report the useless Codex log: $st"
 	ok "status names both broken sources and exits 0"
@@ -495,25 +495,25 @@ esac
 # ----------------------------------------------------------------- undo --
 
 if [ "$SCENARIO" = "home-wiped-uninstall" ]; then
-	# The customer deleted ~/.blink by hand -- the installed copy, the shims,
+	# The customer deleted ~/.overwatch by hand -- the installed copy, the shims,
 	# the chain file and the marker all gone -- and then runs the download
 	# they still have to uninstall. settings.json still names our shim, and
 	# a status line pointing at a deleted script errors on every render, so
 	# it must go; the hooks too. With the chain file gone nothing can be
 	# restored, and the uninstall must still finish and say so.
-	rm -rf "$HOME/.blink"
-	"$BIN" uninstall >"$WORK/undo.txt" 2>&1 || { cat "$WORK/undo.txt" >&2; fail "uninstall failed after ~/.blink was wiped"; }
+	rm -rf "$HOME/.overwatch"
+	"$BIN" uninstall >"$WORK/undo.txt" 2>&1 || { cat "$WORK/undo.txt" >&2; fail "uninstall failed after ~/.overwatch was wiped"; }
 	[ "$(json_get statusLine.command)" = "" ] ||
 		fail "uninstall left a status line pointing at a deleted shim: $(json_get statusLine.command)"
 	[ "$(json_get hooks)" = "" ] || fail "uninstall left hooks pointing at a deleted shim: $(json_get hooks)"
 	[ "$(json_get model)" = "opus" ] || fail "an unrelated key was lost"
-	if [ "${BLINK_SKIP_SERVICE:-0}" != "1" ]; then
+	if [ "${OVERWATCH_SKIP_SERVICE:-0}" != "1" ]; then
 		case "$(uname -s)" in
-		Darwin) [ ! -e "$HOME/Library/LaunchAgents/com.blink.bridge.plist" ] || fail "launchd plist left behind" ;;
-		Linux) [ ! -e "$HOME/.config/systemd/user/blink-bridge.service" ] || fail "systemd unit left behind" ;;
+		Darwin) [ ! -e "$HOME/Library/LaunchAgents/com.overwatch.bridge.plist" ] || fail "launchd plist left behind" ;;
+		Linux) [ ! -e "$HOME/.config/systemd/user/overwatch-bridge.service" ] || fail "systemd unit left behind" ;;
 		esac
 	fi
-	ok "uninstall after a hand-deleted ~/.blink removes the dangling status line and hooks"
+	ok "uninstall after a hand-deleted ~/.overwatch removes the dangling status line and hooks"
 	printf 'PASS [%s]\n' "$SCENARIO"
 	exit 0
 fi
@@ -539,27 +539,27 @@ esac
 # to exit. Wait for it here rather than asserting instantly; on the other two
 # platforms the directory is already gone and this loop ends immediately.
 n=0
-while [ -e "$HOME/.blink/bin" ] && [ "$n" -lt 30 ]; do
+while [ -e "$HOME/.overwatch/bin" ] && [ "$n" -lt 30 ]; do
 	sleep 1
 	n=$((n + 1))
 done
-if [ -e "$HOME/.blink/bin" ]; then
+if [ -e "$HOME/.overwatch/bin" ]; then
 	# Say WHO is holding it. Three rounds were spent guessing at this from a
 	# bare "left the binary behind", and the answer -- which process, and
 	# whether the task was still registered -- was never in the log.
 	case "$(uname -s)" in
 	MINGW* | MSYS* | CYGWIN*)
 		echo "--- processes still running the binary ---" >&2
-		tasklist //fi "IMAGENAME eq blink.exe" //v >&2 || true
+		tasklist //fi "IMAGENAME eq overwatch.exe" //v >&2 || true
 		echo "--- scheduled task ---" >&2
-		schtasks //query //tn "Blink bridge" >&2 || true
+		schtasks //query //tn "Overwatch bridge" >&2 || true
 		echo "--- what is in the directory ---" >&2
-		ls -l "$HOME/.blink/bin" >&2 || true
+		ls -l "$HOME/.overwatch/bin" >&2 || true
 		;;
 	esac
 	fail "uninstall left the binary behind (waited ${n}s)"
 fi
-[ "$(cat "$HOME/.blink/ota_signing_key_p256.pem")" = "PRIVATE KEY" ] ||
+[ "$(cat "$HOME/.overwatch/ota_signing_key_p256.pem")" = "PRIVATE KEY" ] ||
 	fail "uninstall destroyed the OTA signing key"
 ok "uninstall restored everything and kept the signing key"
 

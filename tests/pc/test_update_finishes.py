@@ -1,4 +1,4 @@
-"""What `blink update` leaves behind when it is done.
+"""What `overwatch update` leaves behind when it is done.
 
 An update is two halves: the program on disk, and a daemon running it. Until
 2026-09-09 this command only checked the first. It printed whatever the
@@ -23,13 +23,13 @@ from pc import cli
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    """A ~/.blink with both shims already installed."""
+    """A ~/.overwatch with both shims already installed."""
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    blink = tmp_path / ".blink"
-    blink.mkdir()
-    for name in ("blink-statusline.sh", "blink-hook.sh"):
-        (blink / name).write_text("#!/bin/sh\n# an older release wrote this\n")
+    overwatch = tmp_path / ".overwatch"
+    overwatch.mkdir()
+    for name in ("overwatch-statusline.sh", "overwatch-hook.sh"):
+        (overwatch / name).write_text("#!/bin/sh\n# an older release wrote this\n")
     return tmp_path
 
 
@@ -67,7 +67,7 @@ def test_nothing_attempted_is_not_a_fault():
     from a checkout, and every test run in this repository, to go and repair
     an install that is working exactly as intended.
     """
-    assert cli.restart_left_it_down("skipped (BLINK_SKIP_SERVICE=1)") is False
+    assert cli.restart_left_it_down("skipped (OVERWATCH_SKIP_SERVICE=1)") is False
     assert cli.restart_left_it_down(
         "not running under a supervisor; restart it yourself") is False
 
@@ -79,23 +79,23 @@ def test_update_rewrites_the_shims_it_finds(home, monkeypatch):
     monkeypatch.setattr(cli, "_write_shim",
                         lambda path, name: written.append((path, name)))
     cli._refresh_shims()
-    assert sorted(n for _, n in written) == ["blink-hook.sh",
-                                             "blink-statusline.sh"]
+    assert sorted(n for _, n in written) == ["overwatch-hook.sh",
+                                             "overwatch-statusline.sh"]
 
 
 def test_update_does_not_create_a_shim_that_was_not_there(home, monkeypatch):
     """An update must not turn a machine with no install into half of one.
 
-    `blink uninstall` removes these files and leaves ~/.blink standing. If
+    `overwatch uninstall` removes these files and leaves ~/.overwatch standing. If
     update wrote them back, the next status would report an activity feature
     that the user had deliberately removed.
     """
-    os.remove(os.path.join(str(home), ".blink", "blink-hook.sh"))
+    os.remove(os.path.join(str(home), ".overwatch", "overwatch-hook.sh"))
     written = []
     monkeypatch.setattr(cli, "_write_shim",
                         lambda path, name: written.append((path, name)))
     cli._refresh_shims()
-    assert [n for _, n in written] == ["blink-statusline.sh"]
+    assert [n for _, n in written] == ["overwatch-statusline.sh"]
 
 
 def test_a_shim_that_cannot_be_written_does_not_fail_the_update(home,
@@ -113,4 +113,4 @@ def test_a_shim_that_cannot_be_written_does_not_fail_the_update(home,
     monkeypatch.setattr(cli, "_write_shim", boom)
     cli._refresh_shims()                     # must not raise
     out = capsys.readouterr().out
-    assert "could not refresh blink-hook.sh" in out
+    assert "could not refresh overwatch-hook.sh" in out

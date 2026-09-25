@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merge a built tree into ONE file a kit builder can flash at offset 0.
 
-Why this exists: `tools/release.sh` publishes `blink-fw.bin`, which is the app
+Why this exists: `tools/release.sh` publishes `overwatch-fw.bin`, which is the app
 slot alone. That is right for the feed it serves -- an OTA lands in slot 1 of a
 board whose MCUboot is already there. It is useless to somebody holding a chip
 that has never been programmed, which is every kit.
@@ -38,9 +38,9 @@ def _version():
     path = os.path.join(ROOT, "firmware", "src", "version.h")
     with open(path, encoding="utf-8") as f:
         for line in f:
-            if line.startswith("#define BLINK_FW_VERSION"):
+            if line.startswith("#define OVERWATCH_FW_VERSION"):
                 return line.split('"')[1]
-    raise SystemExit("no BLINK_FW_VERSION in %s" % path)
+    raise SystemExit("no OVERWATCH_FW_VERSION in %s" % path)
 
 
 def _confirmed_app(build_dir, python):

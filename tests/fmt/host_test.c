@@ -98,8 +98,8 @@ static void test_fmt_hint(void)
 	EXPECT_STR(b, "Waiting for you - LiveClaudeUi");
 
 	/* A label always composes with the status. */
-	fmt_hint("Working", "Blink", b, sizeof(b));
-	EXPECT_STR(b, "Working - Blink");
+	fmt_hint("Working", "Overwatch", b, sizeof(b));
+	EXPECT_STR(b, "Working - Overwatch");
 
 	/* Non-ASCII is transliterated, never drawn as boxes. */
 	fmt_hint("Working", "caf\xc3\xa9", b, sizeof(b));
@@ -193,7 +193,7 @@ static void test_fmt_pips(void)
 
 /*
  * The pip row's ink. This is the mapping the owner complained about by
- * looking at the panel -- "the color of the blink is still amber, not red as
+ * looking at the panel -- "the color of the overwatch is still amber, not red as
  * it should be" -- and until fmt_pip_tone() existed it lived in usage_view.c,
  * where no test on this machine could reach it.
  */
@@ -348,8 +348,8 @@ static void test_fmt_toast(void)
 
 	/* And a label that merely BEGINS with a blank keeps its name, with the
 	 * blank dropped -- the capital has to land on the first real letter. */
-	fmt_toast(FMT_PIP_WAITING, " blink", 1, b, sizeof(b));
-	EXPECT_STR(b, "Blink is waiting for you");
+	fmt_toast(FMT_PIP_WAITING, " overwatch", 1, b, sizeof(b));
+	EXPECT_STR(b, "Overwatch is waiting for you");
 
 	/* Truncation never overruns and always NUL-terminates. */
 	{

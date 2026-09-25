@@ -31,7 +31,7 @@ def test_the_port_is_always_the_one_in_use():
 def test_an_ota_query_teaches_the_firmware():
     """ota_query spells it `cur`. A board only says hello when it boots, so
     after a USB flash every message the daemon sees is an ota_query and the
-    old version used to persist -- `blink status` reported 1.2.4 for a board
+    old version used to persist -- `overwatch status` reported 1.2.4 for a board
     answering `cur: 1.2.5` in the same log (2026-08-31)."""
     known = {"port": "COM3", "board_id": "abc", "fw": "1.2.4"}
     assert learn_board(known, "COM3",

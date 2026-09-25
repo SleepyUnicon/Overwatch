@@ -33,7 +33,7 @@ The memory dies with the process, deliberately. It answers "since this
 daemon started, when did you last use Claude Code", and a daemon restart is
 almost always an app update or a login -- after which the desktop cache is
 as good an answer as we have. Persisting it would put a second copy of a
-file that already exists on disk into ~/.blink, with its own invalidation
+file that already exists on disk into ~/.overwatch, with its own invalidation
 and corruption paths, for a case the field report does not contain.
 """
 from pc import statusline_source as ss

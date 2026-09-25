@@ -69,10 +69,10 @@ jobs:
           # Not `ls a b | head -1`: ls exits non-zero when one operand is
           # missing, and this workflow runs with -e -o pipefail, so the job
           # died here before doing anything. It passed on Windows only because
-          # MSYS resolves `dist/blink` to `dist/blink.exe`, which is why the
+          # MSYS resolves `dist/overwatch` to `dist/overwatch.exe`, which is why the
           # one platform that cannot run the binary was the one that agreed.
-          built=dist/blink/blink
-          [ -f "$built" ] || built=dist/blink/blink.exe
+          built=dist/overwatch/overwatch
+          [ -f "$built" ] || built=dist/overwatch/overwatch.exe
           # The version inside the tag, whatever the tag is called around
           # it. Upstream tags `v1.3.3`; this fork tags `overwatch-v1.3.3`,
           # and `${TAG#v}` strips nothing from that -- it only removes a
@@ -102,8 +102,8 @@ jobs:
       # data file is exactly the failure that does not show up at build time.
       - name: verify it installs and uninstalls
         run: |
-          BLINK_SKIP_SERVICE=1 sh tests/ci/check_install.sh with-statusline
-          BLINK_SKIP_SERVICE=1 sh tests/ci/check_install.sh no-claude
+          OVERWATCH_SKIP_SERVICE=1 sh tests/ci/check_install.sh with-statusline
+          OVERWATCH_SKIP_SERVICE=1 sh tests/ci/check_install.sh no-claude
 
       # One archive per platform: tar.gz with the executable bit kept, zip on
       # Windows. The name and shape come from pc/update.py, which is also what
@@ -111,7 +111,7 @@ jobs:
       - name: package it for the platform
         id: pack
         run: |
-          out=$(python tools/package_binary.py "${{ matrix.label }}" dist/blink dist)
+          out=$(python tools/package_binary.py "${{ matrix.label }}" dist/overwatch dist)
           echo "file=$out" >> "$GITHUB_OUTPUT"
           ls -l "$out"
 

@@ -21,7 +21,7 @@ ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 HERE="$ROOT/tools/panel_render"
 OUT="${1:-$ROOT/dist/panel}"
 . "$ROOT/tools/lib_zephyr.sh"
-LVGL_DIR="${LVGL_DIR:-$(blink_zephyr_ws 2>/dev/null)/modules/lib/gui/lvgl}"
+LVGL_DIR="${LVGL_DIR:-$(overwatch_zephyr_ws 2>/dev/null)/modules/lib/gui/lvgl}"
 CC="${CC:-cc}"
 
 [ -d "$LVGL_DIR/src" ] || {
@@ -30,7 +30,7 @@ CC="${CC:-cc}"
 	exit 1
 }
 
-BUILD="${TMPDIR:-/tmp}/blink-panel-render"
+BUILD="${TMPDIR:-/tmp}/overwatch-panel-render"
 mkdir -p "$BUILD" "$OUT"
 find "$LVGL_DIR/src" -name '*.c' > "$BUILD/srcs.txt"
 

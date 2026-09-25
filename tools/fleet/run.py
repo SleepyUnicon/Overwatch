@@ -197,7 +197,7 @@ def _win_workdir(cfg):
 def shell_path(cfg, *parts):
     """The workdir, plus optional components, as one token for that shell.
 
-    The tilde is the subtlety: '~/blink-fleet' quoted is a directory NAMED
+    The tilde is the subtlety: '~/overwatch-fleet' quoted is a directory NAMED
     tilde, because sh expands the tilde before it expands quotes and never
     inside them. "$HOME" survives double quotes, so that is what is sent.
     """
@@ -599,7 +599,7 @@ class _workroot:
         if self.given:
             Path(self.given).mkdir(parents=True, exist_ok=True)
             return Path(self.given)
-        self.tmp = tempfile.TemporaryDirectory(prefix="blink-fleet-")
+        self.tmp = tempfile.TemporaryDirectory(prefix="overwatch-fleet-")
         return Path(self.tmp.name)
 
     def __exit__(self, *exc):

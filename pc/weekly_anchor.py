@@ -64,7 +64,7 @@ def _reject_constant(_token):
 
 
 def anchor_path() -> str:
-    return os.path.expanduser("~/.blink/weekly-anchor.json")
+    return os.path.expanduser("~/.overwatch/weekly-anchor.json")
 
 
 def load(path: str):

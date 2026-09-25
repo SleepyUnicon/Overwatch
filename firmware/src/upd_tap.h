@@ -24,7 +24,7 @@
  *
  * Both flags being up together is not a rare interleaving. The daemon sends
  * `welcome` on every connection and proto.c answers it with
- * ota_request_check(), so ANY daemon restart queues a check -- and `blink
+ * ota_request_check(), so ANY daemon restart queues a check -- and `overwatch
  * update` restarts the daemon by design. A customer looking at the update
  * prompt while their app updates underneath them taps "Update now" straight
  * into that window.

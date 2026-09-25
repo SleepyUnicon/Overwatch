@@ -19,13 +19,13 @@ set -eu
 # shellcheck source=tests/ci/lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
-PY="${BLINK_PYTHON:-python3}"
+PY="${OVERWATCH_PYTHON:-python3}"
 "$PY" -c "import numpy, PIL" 2>/dev/null || {
 	echo "needs numpy and pillow (pip install -r tests/requirements.txt)" >&2
 	exit 1
 }
 
-WORK="${TMPDIR:-/tmp}/blink-factory-test"
+WORK="${TMPDIR:-/tmp}/overwatch-factory-test"
 rm -rf "$WORK"
 mkdir -p "$WORK/bin" "$WORK/build/mcuboot/zephyr" "$WORK/build/firmware/zephyr" "$WORK/home"
 
@@ -43,8 +43,8 @@ cat >"$WORK/build/firmware/build.ninja" <<NINJA
   POST_BUILD = cd $WORK && $PY $WORK/bin/imgtool.py sign --version 9.9.9 --header-size 0x20 --slot-size 131072 --align 32 --key $WORK/home/signing.pem $WORK/build/firmware/zephyr/zephyr.bin $WORK/build/firmware/zephyr/zephyr.signed.bin
 NINJA
 
-FW=$(sed -n 's/^#define BLINK_FW_VERSION "\(.*\)"$/\1/p' "$ROOT/firmware/src/version.h")
-[ -n "$FW" ] || fail "cannot read BLINK_FW_VERSION"
+FW=$(sed -n 's/^#define OVERWATCH_FW_VERSION "\(.*\)"$/\1/p' "$ROOT/firmware/src/version.h")
+[ -n "$FW" ] || fail "cannot read OVERWATCH_FW_VERSION"
 
 # A picture for --logo: a flat rectangle with a mark in it.
 "$PY" - "$WORK/acme.png" <<'EOF'
@@ -59,10 +59,10 @@ EOF
 
 export PATH="$WORK/bin:$PATH"
 export PYTHONPATH="$ROOT/tests/ci/fakes/pyserial"
-export BLINK_ETOOLS="$WORK/bin"
-export BLINK_BUILD_DIR="$WORK/build"
-export BLINK_FLASH_KEY="$WORK/home/flash_key.bin"
-export BLINK_PYTHON="$PY"
+export OVERWATCH_ETOOLS="$WORK/bin"
+export OVERWATCH_BUILD_DIR="$WORK/build"
+export OVERWATCH_FLASH_KEY="$WORK/home/flash_key.bin"
+export OVERWATCH_PYTHON="$PY"
 export FAKE_TOOL_LOG="$WORK/tools.log"
 export FAKE_BOARD_TRANSCRIPT="$WORK/board.txt"
 export FAKE_EFUSE_BITS=0000000

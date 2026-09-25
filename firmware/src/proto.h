@@ -23,7 +23,7 @@ bool proto_host_lost(void);
 
 /* The daemon's release version as it announced itself, or "" if it has not.
  * Firmware and daemon ship from one tag, so this should equal
- * BLINK_FW_VERSION on a fully updated machine. */
+ * OVERWATCH_FW_VERSION on a fully updated machine. */
 const char *proto_host_version(void);
 
 /* True when that version is older than this firmware -- i.e. the app on the

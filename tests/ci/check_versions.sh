@@ -22,8 +22,8 @@ RELEASE=0
 VH="$ROOT/firmware/src/version.h"
 PV="$ROOT/pc/version.py"
 
-fw=$(sed -n 's/^#define BLINK_FW_VERSION "\(.*\)"$/\1/p' "$VH")
-fw_proto=$(sed -n 's/^#define BLINK_PROTO_VERSION \([0-9][0-9]*\).*$/\1/p' "$VH")
+fw=$(sed -n 's/^#define OVERWATCH_FW_VERSION "\(.*\)"$/\1/p' "$VH")
+fw_proto=$(sed -n 's/^#define OVERWATCH_PROTO_VERSION \([0-9][0-9]*\).*$/\1/p' "$VH")
 pc=$(sed -n 's/^RELEASE_VERSION = "\(.*\)"$/\1/p' "$PV")
 pc_proto=$(sed -n 's/^PROTO_VERSION = \([0-9][0-9]*\)$/\1/p' "$PV")
 
@@ -88,11 +88,11 @@ stale_firmware() {
 
 if changed=$(stale_firmware); then
 	n=$(printf '%s\n' "$changed" | wc -l | tr -d ' ')
-	echo "firmware/src has changed in $n file(s) since BLINK_FW_VERSION last moved:" >&2
+	echo "firmware/src has changed in $n file(s) since OVERWATCH_FW_VERSION last moved:" >&2
 	printf '%s\n' "$changed" | sed 's/^/       /' >&2
 	if [ "$RELEASE" -eq 1 ]; then
 		echo "FATAL: releasing $fw would publish firmware that every board" >&2
-		echo "       already believes it is running. Bump BLINK_FW_VERSION" >&2
+		echo "       already believes it is running. Bump OVERWATCH_FW_VERSION" >&2
 		echo "       in firmware/src/version.h (and RELEASE_VERSION with it)." >&2
 		exit 1
 	fi

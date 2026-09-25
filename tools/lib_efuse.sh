@@ -13,7 +13,7 @@
 # Written defensively for `set -euo pipefail` callers: a grep that matches
 # nothing must not abort the script before it can explain itself.
 
-# BLINK_ETOOLS overrides the directory outright, and must keep doing so:
+# OVERWATCH_ETOOLS overrides the directory outright, and must keep doing so:
 # tests/ci/check_factory.sh points it at stubs so the scripts that source this
 # can run against no chip at all. Nothing below may outrank it.
 #
@@ -30,15 +30,15 @@
 # path stays last: it is still right on the machine it was written for.
 efuse_default_etools() {
 	local d
-	if [ -n "${BLINK_ETOOLS:-}" ]; then
-		printf '%s\n' "$BLINK_ETOOLS"
+	if [ -n "${OVERWATCH_ETOOLS:-}" ]; then
+		printf '%s\n' "$OVERWATCH_ETOOLS"
 		return 0
 	fi
 	# Beside the interpreter the caller chose, if it named one. pip installs
 	# espefuse.py next to the python it belongs to, so this is where a repo
 	# venv's copy lives.
-	if [ -n "${BLINK_PYTHON:-}" ]; then
-		d=$(dirname -- "$BLINK_PYTHON")
+	if [ -n "${OVERWATCH_PYTHON:-}" ]; then
+		d=$(dirname -- "$OVERWATCH_PYTHON")
 		[ -f "$d/espefuse.py" ] && { printf '%s\n' "$d"; return 0; }
 	fi
 	# Then whatever is on PATH -- an esptool installed deliberately wins over

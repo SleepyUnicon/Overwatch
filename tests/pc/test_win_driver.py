@@ -8,7 +8,7 @@ does anything at all on a machine that is not Windows.
 That last one is not a formality. This module is imported by pc/cli.py at the
 top level and by the daemon's wait loop, on every platform, and the failure it
 guards against is an ImportError or an AttributeError on macOS taking out
-`blink status` for everybody.
+`overwatch status` for everybody.
 """
 import os
 import subprocess
@@ -160,7 +160,7 @@ class TestWhatTheCustomerIsTold:
     def test_a_declined_prompt_does_not_read_as_a_failure(self):
         line = win_driver.install_message("declined")
         assert "fail" not in line.lower()
-        assert "blink driver" in line
+        assert "overwatch driver" in line
 
     def test_a_real_failure_carries_its_reason(self):
         assert "pnputil exited 9" in win_driver.install_message(
@@ -173,7 +173,7 @@ class TestWhatTheCustomerIsTold:
         # the install fails on a real machine, so it gets real words.
         line = win_driver.install_message("needs-admin")
         assert "administrator" in line
-        assert "blink driver" in line
+        assert "overwatch driver" in line
 
 
 class TestSummaryAndAdvice:
@@ -199,24 +199,24 @@ class TestSummaryAndAdvice:
         assert win_driver.as_sentence("") == ""
 
     def test_a_missing_driver_is_pointed_at_the_command_that_fixes_it(self):
-        assert win_driver.advice([undriven()], "blink") == [
-            "run `blink driver` to install it"]
+        assert win_driver.advice([undriven()], "overwatch") == [
+            "run `overwatch driver` to install it"]
 
     def test_a_failed_install_is_pointed_there_too(self):
-        assert win_driver.advice([undriven(problem=28)], "blink") == [
-            "run `blink driver` to install it"]
+        assert win_driver.advice([undriven(problem=28)], "overwatch") == [
+            "run `overwatch driver` to install it"]
 
     def test_the_command_is_the_path_the_customer_actually_has(self):
-        # A customer whose PATH has no `blink` on it -- which is every
-        # Windows customer, the binary lives in ~/.blink/bin -- must be given
+        # A customer whose PATH has no `overwatch` on it -- which is every
+        # Windows customer, the binary lives in ~/.overwatch/bin -- must be given
         # the path they can paste.
-        line = win_driver.advice([undriven()], r"C:\Users\x\.blink\bin\blink.exe")[0]
-        assert r"C:\Users\x\.blink\bin\blink.exe driver" in line
+        line = win_driver.advice([undriven()], r"C:\Users\x\.overwatch\bin\overwatch.exe")[0]
+        assert r"C:\Users\x\.overwatch\bin\overwatch.exe driver" in line
 
     def test_a_disabled_device_is_not_pointed_at_the_driver_command(self):
-        # `blink driver` cannot re-enable a device somebody disabled on
+        # `overwatch driver` cannot re-enable a device somebody disabled on
         # purpose, and sending them round that loop wastes a support pass.
-        advice = win_driver.advice([undriven(problem=22)], "blink")
+        advice = win_driver.advice([undriven(problem=22)], "overwatch")
         assert advice == ["open Device Manager to see what it says about that device"]
 
 
@@ -224,17 +224,17 @@ class TestBoardLines:
     """The regression this whole module exists for."""
 
     def test_an_undriven_board_is_no_longer_reported_as_unplugged(self):
-        lines = board_lines({}, [], [undriven()], "blink")
+        lines = board_lines({}, [], [undriven()], "overwatch")
         assert "not plugged in" not in "\n".join(lines)
         assert lines[0] == ("Board       a board is plugged in, but Windows"
                             " has no driver for it")
-        assert lines[1] == "            run `blink driver` to install it"
+        assert lines[1] == "            run `overwatch driver` to install it"
 
     def test_an_empty_desk_still_reads_as_an_empty_desk(self):
-        assert board_lines({}, [], [], "blink") == ["Board       not plugged in"]
+        assert board_lines({}, [], [], "overwatch") == ["Board       not plugged in"]
 
     def test_the_remembered_port_survives_the_undriven_branch(self):
-        lines = board_lines({"port": "COM15"}, [], [undriven()], "blink")
+        lines = board_lines({"port": "COM15"}, [], [undriven()], "overwatch")
         assert lines[-1] == "            last seen on COM15"
 
     def test_a_working_board_and_an_undriven_one_are_both_reported(self):
@@ -242,10 +242,10 @@ class TestBoardLines:
         # use. The second is on no serial port, so nothing in `ports` knows
         # about it and the first board's line would otherwise hide it.
         lines = board_lines({"port": "COM3", "board_id": "abc"},
-                            [("COM3", "CH340")], [undriven()], "blink")
+                            [("COM3", "CH340")], [undriven()], "overwatch")
         assert lines[0].startswith("Board       COM3 (CH340)")
         assert any("also:" in line for line in lines)
-        assert any("blink driver" in line for line in lines)
+        assert any("overwatch driver" in line for line in lines)
 
     def test_the_old_signature_still_works(self):
         # Called with two arguments all over the existing tests, and the
@@ -286,7 +286,7 @@ class TestOffWindowsNothingHappens:
 class TestDetectionNeverThrows:
     def test_a_missing_system_library_costs_a_line_not_the_command(self,
                                                                   monkeypatch):
-        # `blink status` calls this. A status command that dies because
+        # `overwatch status` calls this. A status command that dies because
         # cfgmgr32 moved is worse than one that omits a line.
         monkeypatch.setattr(sys, "platform", "win32")
         monkeypatch.setattr(win_driver, "_cfgmgr",

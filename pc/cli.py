@@ -2,8 +2,8 @@
 
 A customer downloads a single file and runs it. There is no Python to install,
 no virtualenv to build, no repository to clone, and nothing left behind that
-they have to keep in place -- `blink install` copies the binary into
-~/.blink/bin and points the login service at that copy, so the download is
+they have to keep in place -- `overwatch install` copies the binary into
+~/.overwatch/bin and points the login service at that copy, so the download is
 disposable the moment it finishes.
 
 This replaces install.sh. The shell version needed Python 3.9+ on the machine,
@@ -31,7 +31,7 @@ from pc import (install_codex_hooks, install_hooks, install_statusline,
 # Eagerly, unlike the other providers, which are imported inside the functions
 # that use them to keep the frozen binary's start-up cheap. This one costs
 # nothing to import (os, and claude_state, which is json/os/sys/time) and it
-# has to be a module attribute rather than a local: `blink status` reads it,
+# has to be a module attribute rather than a local: `overwatch status` reads it,
 # and a test has to be able to replace it without a real slot directory in
 # reach -- the scan behind it deletes files.
 from pc.providers import codex_state
@@ -41,38 +41,38 @@ from pc.version import RELEASE_VERSION
 # meant every path was fixed by whatever HOME happened to be when the module
 # loaded -- untestable without a subprocess, and quietly wrong for any caller
 # that changes HOME.
-LABEL = "com.blink.bridge"
+LABEL = "com.overwatch.bridge"
 
 
 def _home():
     return os.path.expanduser("~")
 
 
-def blink_home():
-    return os.path.join(_home(), ".blink")
+def overwatch_home():
+    return os.path.join(_home(), ".overwatch")
 
 
 def bin_dir():
-    return os.path.join(blink_home(), "bin")
+    return os.path.join(overwatch_home(), "bin")
 
 
 def installed_bin():
     # .exe on Windows: without the extension the copy is not executable, and
     # the Scheduled Task would register a path Windows refuses to launch.
-    name = "blink.exe" if sys.platform == "win32" else "blink"
+    name = "overwatch.exe" if sys.platform == "win32" else "overwatch"
     return os.path.join(bin_dir(), name)
 
 
 def shim_path():
-    return os.path.join(blink_home(), "blink-statusline.sh")
+    return os.path.join(overwatch_home(), "overwatch-statusline.sh")
 
 
 def hook_shim_path():
-    return os.path.join(blink_home(), "blink-hook.sh")
+    return os.path.join(overwatch_home(), "overwatch-hook.sh")
 
 
 def log_path():
-    return os.path.join(blink_home(), "bridge.log")
+    return os.path.join(overwatch_home(), "bridge.log")
 
 
 def launcher_path():
@@ -87,25 +87,25 @@ def launcher_path():
     because a non-ASCII path inside a .vbs depends on the machine's code
     page, and the machine in question had a Hebrew user name.
     """
-    return os.path.join(blink_home(), "blink-bridge.vbs")
+    return os.path.join(overwatch_home(), "overwatch-bridge.vbs")
 
 
 LAUNCHER_VBS = "\n".join((
-    "' Starts the BLINK bridge with no window. Written by `blink install`;",
-    "' the Scheduled Task \"Blink bridge\" runs it at every logon.",
+    "' Starts the OVERWATCH bridge with no window. Written by `overwatch install`;",
+    "' the Scheduled Task \"Overwatch bridge\" runs it at every logon.",
     'Set sh = CreateObject("WScript.Shell")',
     'home = sh.ExpandEnvironmentStrings("%USERPROFILE%")',
     # VBScript doubles a quote to embed one: this runs
-    #   "<home>\.blink\bin\blink.exe" run --log "<home>\.blink\bridge.log"
+    #   "<home>\.overwatch\bin\overwatch.exe" run --log "<home>\.overwatch\bridge.log"
     # with window style 0 (hidden) and without waiting for it to finish.
-    'sh.Run """" & home & "\\.blink\\bin\\blink.exe"" run --log """'
-    ' & home & "\\.blink\\bridge.log""", 0, False',
+    'sh.Run """" & home & "\\.overwatch\\bin\\overwatch.exe"" run --log """'
+    ' & home & "\\.overwatch\\bridge.log""", 0, False',
     "",
 ))
 
 
 def pid_path():
-    """Where the running daemon records its pid: ~/.blink/bridge.pid.
+    """Where the running daemon records its pid: ~/.overwatch/bridge.pid.
 
     Derived from the program's own location (its directory's parent), not
     from ~. A login service runs in the user's environment rather than the
@@ -113,11 +113,11 @@ def pid_path():
     when they do, the pid lands where nothing will look for it.
 
     Beside the program, not inside its directory: an update rotates
-    ~/.blink/bin to bin.old with the old daemon still running from it, and a
+    ~/.overwatch/bin to bin.old with the old daemon still running from it, and a
     pid file that moved with the directory is one restart() can no longer
     find -- leaving the old daemon holding the serial port against the new.
     """
-    return os.path.join(blink_home(), "bridge.pid")
+    return os.path.join(overwatch_home(), "bridge.pid")
 
 
 def pid_paths():
@@ -140,7 +140,7 @@ def pid_paths():
     # there. Without this the page reported "Started (pid N)" and then, one
     # poll later, "Not running" -- both true, neither useful.
     cmd = daemon_start_command()[0]
-    if len(cmd) == 2:                     # a blink binary, not `python -m`
+    if len(cmd) == 2:                     # an overwatch binary, not `python -m`
         paths.append(os.path.join(
             os.path.dirname(os.path.dirname(cmd[0])), "bridge.pid"))
     seen, out = set(), []
@@ -152,7 +152,7 @@ def pid_paths():
 
 
 def daemon_holding_lock():
-    """Whether a daemon holds ~/.blink/bridge.lock. None if it cannot be told.
+    """Whether a daemon holds ~/.overwatch/bridge.lock. None if it cannot be told.
 
     Better than the pid file wherever it works, for three reasons: the path
     is fixed however the binary was installed or run, the kernel drops the
@@ -171,7 +171,7 @@ def daemon_holding_lock():
         import fcntl
     except ImportError:
         return None
-    path = os.path.join(blink_home(), "bridge.lock")
+    path = os.path.join(overwatch_home(), "bridge.lock")
     if not os.path.exists(path):
         return False                  # no daemon has ever run here
     try:
@@ -242,7 +242,7 @@ def daemon_alive(runner=None):
         except (OSError, subprocess.SubprocessError):
             continue
         name = os.path.basename((out.stdout or "").strip()).lower()
-        if name and ("blink" in name or "python" in name):
+        if name and ("overwatch" in name or "python" in name):
             return pid
     return None
 
@@ -256,16 +256,16 @@ def daemon_start_command():
     interpreter running it: true for a developer, not for anybody else.
 
     The cwd travels WITH the command because it is not free to choose. A
-    binary can be started from anywhere and ~/.blink is the tidiest place
+    binary can be started from anywhere and ~/.overwatch is the tidiest place
     for it; `-m pc.cli` cannot, because Python resolves the package from
     the working directory and started anywhere else it exits on
     "No module named 'pc'".
     """
     inst = installed_bin()
     if os.path.exists(inst):
-        return [inst, "run"], blink_home()
+        return [inst, "run"], overwatch_home()
     if _frozen():
-        return [_self_path(), "run"], blink_home()
+        return [_self_path(), "run"], overwatch_home()
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return [sys.executable, "-m", "pc.cli", "run"], root
 
@@ -280,12 +280,12 @@ def plist_path():
 
 def unit_path():
     return os.path.join(_home(), ".config", "systemd", "user",
-                        "blink-bridge.service")
+                        "overwatch-bridge.service")
 
 
 # Windows has no launchd and no systemd. A Scheduled Task with an at-logon
 # trigger is the equivalent that needs no admin rights and no service wrapper.
-TASK_NAME = "Blink bridge"
+TASK_NAME = "Overwatch bridge"
 
 # The oldest Claude Code that carries usage figures in its status line payload.
 # 2.1.0 does not carry rate_limits at all; 2.1.100 does. Below this every step
@@ -297,7 +297,7 @@ MIN_CLAUDE = (2, 1, 100)
 # $HOME, so without this a test under a temporary HOME still boots out the
 # real agent of whoever is logged in.
 def _skip_service():
-    return os.environ.get("BLINK_SKIP_SERVICE") == "1"
+    return os.environ.get("OVERWATCH_SKIP_SERVICE") == "1"
 
 
 def _frozen() -> bool:
@@ -309,7 +309,7 @@ def _self_path() -> str:
     return sys.executable if _frozen() else os.path.abspath(sys.argv[0])
 
 
-def _shim_source(name: str = "blink-statusline.sh") -> str:
+def _shim_source(name: str = "overwatch-statusline.sh") -> str:
     """A shim's text, from the bundle when frozen, the tree when not.
 
     One source of truth either way -- tools/ is what the build embeds, so the
@@ -337,7 +337,7 @@ def _write_shim(path: str, name: str) -> None:
     # hook that starts inside that window hands `sh` an empty file, or a
     # truncated trailing line -- which exits non-zero and gives the tool a
     # FAILING hook. The shim's own closing `exit 0` exists precisely so that
-    # Blink having a bad day never becomes the user's bad day, and truncating
+    # Overwatch having a bad day never becomes the user's bad day, and truncating
     # the script defeats it from outside.
     #
     # The window used to be one write during an explicit install, which is bad
@@ -350,7 +350,7 @@ def _write_shim(path: str, name: str) -> None:
     #
     # The temp file is a sibling so os.replace is atomic, and the mode is set
     # BEFORE the rename so the file is never briefly present and non-executable.
-    tmp = "%s.blink-tmp.%d" % (path, os.getpid())
+    tmp = "%s.overwatch-tmp.%d" % (path, os.getpid())
     try:
         with open(tmp, "w", encoding="utf-8", newline="\n") as f:
             f.write(_shim_source(name))
@@ -508,14 +508,14 @@ def _announce_codex_hooks() -> None:
     that every sentence starts with a capital; a line that continues one is
     not a new sentence, and capitalising it would read as a stutter.
     """
-    print("Blink is about to add a hook to Codex as well.")
+    print("Overwatch is about to add a hook to Codex as well.")
     print()
     print(f"  File     {install_codex_hooks.hooks_file()}")
     print("  Why      Codex does not record permission prompts in its session")
     print("           log, so without this a Codex session waiting on you")
     print("           looks idle on the panel.")
     print("  Note     The first time the hook runs, Codex asks you once")
-    print("           whether to trust it. That prompt is expected, and Blink")
+    print("           whether to trust it. That prompt is expected, and Overwatch")
     print("           cannot answer it for you. Say yes and the panel can show")
     print("           a Codex session waiting on you; say no and everything")
     print("           else still works.")
@@ -537,11 +537,11 @@ def _install_codex_hooks() -> str:
     """
     if not codex_present():
         return "no Codex on this machine, nothing to do"
-    # Private to the user, for the same reason ~/.blink/state is: these files
+    # Private to the user, for the same reason ~/.overwatch/state is: these files
     # name the projects someone has open, and the default umask would leave
     # them readable by every account on the machine. Created here rather than
     # left to the shim so the mode is right from the first hook onward.
-    state_dir = os.path.join(blink_home(), "state-codex")
+    state_dir = os.path.join(overwatch_home(), "state-codex")
     os.makedirs(state_dir, exist_ok=True)
     try:
         os.chmod(state_dir, 0o700)
@@ -593,7 +593,7 @@ def _note_if_no_claude_code():
         # No source exists. This is not a reduced panel, it is an empty
         # one, and saying anything softer would be misleading.
         print("  !! Nothing on this machine reports usage yet.")
-        print("     Blink reads figures that Claude Code, Claude Desktop or")
+        print("     Overwatch reads figures that Claude Code, Claude Desktop or")
         print("     Codex have already worked out. With none of them installed")
         print("     the panel will connect and then sit blank.")
         print()
@@ -633,7 +633,7 @@ def _warn_if_claude_too_old():
     # redo; refusing would make them run this again for no reason.
     m = ".".join(str(n) for n in MIN_CLAUDE)
     print()
-    print(f"  !! Your Claude Code is {text}, and Blink needs {m} or newer.")
+    print(f"  !! Your Claude Code is {text}, and Overwatch needs {m} or newer.")
     print("     Older versions do not put the usage figures in the status line")
     print("     at all, so the panel will sit blank until you update:")
     print()
@@ -675,7 +675,7 @@ def _systemd_exec() -> str:
     systemd splits ExecStart on whitespace, so a bare " ".join() broke on any
     space in the interpreter path, the checkout path or $HOME: with a spaced
     home the unit resolved the executable as the first fragment and failed
-    with "Failed to locate executable", while `blink install` still printed
+    with "Failed to locate executable", while `overwatch install` still printed
     "running (systemd)". The launchd and schtasks backends already quote
     per-argument; systemd was the only one that did not, and the CI scenario
     that uses a spaced home asserts only that the unit FILE exists.
@@ -689,7 +689,7 @@ def _systemd_exec() -> str:
 
 
 _UNIT_TEMPLATE = """[Unit]
-Description=Blink USB bridge
+Description=Overwatch USB bridge
 
 [Service]
 ExecStart={command}
@@ -709,25 +709,25 @@ def _xml_escape(s: str) -> str:
 def _service_command():
     """What the login service should run.
 
-    Frozen, that is the copy in ~/.blink/bin. From a checkout it is this
+    Frozen, that is the copy in ~/.overwatch/bin. From a checkout it is this
     interpreter and the repo's entry SCRIPT -- not `-m pc.cli`.
 
     `-m` was wrong and silently so. A login service starts with no working
     directory of ours (launchd uses /), so `python -m pc.cli` could not import
     `pc` at all: the agent crash-looped on ModuleNotFoundError every
     ThrottleInterval, forever, writing the same line to bridge.log -- while
-    `blink status` reported "registered with launchd", because registration
+    `overwatch status` reported "registered with launchd", because registration
     is not health. Found on the author's own machine 2026-08-28, where it had
     been failing unnoticed.
 
     Running the script BY PATH fixes it without a WorkingDirectory or a
     PYTHONPATH: Python puts a script's own directory on sys.path, and
-    blink_main.py sits at the repo root next to `pc/`.
+    overwatch_main.py sits at the repo root next to `pc/`.
     """
     if _frozen():
         return [installed_bin(), "run"]
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return [sys.executable, os.path.join(repo, "blink_main.py"), "run"]
+    return [sys.executable, os.path.join(repo, "overwatch_main.py"), "run"]
 
 
 def _confirm_running(probe, tries=4) -> bool:
@@ -749,7 +749,7 @@ def _confirm_running(probe, tries=4) -> bool:
     not written one.
 
     Four tries over five seconds: long enough for a start that is merely
-    slow, short enough that nobody watching `blink update` thinks it hung.
+    slow, short enough that nobody watching `overwatch update` thinks it hung.
 
     Returns False on anything it cannot recognise. That lean is deliberate
     and it is the whole point -- the one thing this must never do again is
@@ -804,7 +804,7 @@ class _Backend:
 
         Only Windows needs this, and only right before the update swap: it is
         the one platform that refuses to rename <bin> while the daemon holds
-        bin\\blink.exe open. Elsewhere a rename does not care what is open, and
+        bin\\overwatch.exe open. Elsewhere a rename does not care what is open, and
         stopping a daemon that launchd or systemd would restart a second later
         buys a gap on the board and nothing else. So: a no-op by default, on
         purpose.
@@ -819,7 +819,7 @@ class _Backend:
     def stop(self, runner=None) -> str:
         """Stop the installed service, without uninstalling it.
 
-        Restart() is what `blink update` needs; this pair is what a test run
+        Restart() is what `overwatch update` needs; this pair is what a test run
         needs. The fleet suite drives the real daemon against a real board, so
         it has to take the serial port off the service that owns it and hand
         it back afterwards -- on a machine the user works on, where anything
@@ -883,12 +883,12 @@ class _LaunchdBackend(_Backend):
         # also starts nothing. Measured on a live machine, with this very
         # plist (RunAtLoad is set in _PLIST_TEMPLATE):
         #
-        #   launchctl bootout   gui/501/com.blink.bridge   -> rc 0
+        #   launchctl bootout   gui/501/com.overwatch.bridge   -> rc 0
         #   launchctl bootstrap gui/501 <plist>            -> rc 0
-        #   launchctl print     gui/501/com.blink.bridge   -> "not running",
+        #   launchctl print     gui/501/com.overwatch.bridge   -> "not running",
         #                                                     runs = 0
         #                          (still not running six seconds later)
-        #   launchctl kickstart gui/501/com.blink.bridge   -> running, runs = 1
+        #   launchctl kickstart gui/501/com.overwatch.bridge   -> running, runs = 1
         #
         # So bootstrap registers the job and kickstart is what runs it. Until
         # this line existed the customer was told "running (launchd)" about a
@@ -969,7 +969,7 @@ class _LaunchdBackend(_Backend):
         kickstart is a request to launchd, and a request that was accepted is
         not a process that exists.
 
-        It matters most on the path that calls this. `blink update` swaps the
+        It matters most on the path that calls this. `overwatch update` swaps the
         binary underneath the agent and then bounces it; if the new binary
         cannot start -- a bad download, a missing dylib -- kickstart still
         succeeds and launchd's respawns still fail. Saying "restarted" there
@@ -1063,7 +1063,7 @@ class _LaunchdBackend(_Backend):
 
         This used to answer "registered with launchd" for a job that had
         crash-looped 59 times, which is how a dead daemon went unnoticed on
-        the author's own machine while every other line of `blink status`
+        the author's own machine while every other line of `overwatch status`
         looked healthy. launchctl already knows -- it reports the run count
         and the last exit code -- so ask it.
 
@@ -1213,7 +1213,7 @@ class _SchtasksBackend(_Backend):
         # The bridge's output goes to bridge.log by its own hand (--log),
         # since a hidden window is nowhere for it to go.
         try:
-            os.makedirs(blink_home(), exist_ok=True)
+            os.makedirs(overwatch_home(), exist_ok=True)
             with open(launcher_path(), "w", encoding="ascii", newline="\r\n") as f:
                 f.write(LAUNCHER_VBS)
         except OSError as e:
@@ -1221,7 +1221,7 @@ class _SchtasksBackend(_Backend):
         # /f overwrites a task from an earlier install rather than failing.
         #
         # This is tried FIRST because a Scheduled Task is the better of the
-        # two: it can be ended and re-run by name, which is what `blink
+        # two: it can be ended and re-run by name, which is what `overwatch
         # update` restarts through. But it is not always allowed -- see
         # _install_without_a_task, which is where a refusal goes.
         r = subprocess.run(
@@ -1267,7 +1267,7 @@ class _SchtasksBackend(_Backend):
         needs no admin rights; a Windows service would". The first half was
         wrong, and believing it was expensive because the failure was silent
         and complete: install printed one line about a task it had not
-        registered, `blink status` said "Bridge not installed", no daemon
+        registered, `overwatch status` said "Bridge not installed", no daemon
         ever ran, and the panel sat on its standalone setup screen -- with
         the board plugged in, driver installed and working. A customer
         reported exactly that.
@@ -1300,7 +1300,7 @@ class _SchtasksBackend(_Backend):
         NOT `schtasks /query`. The task's status answers a different question:
         its action is wscript running LAUNCHER_VBS, which starts the bridge
         with `, 0, False` -- do not wait -- and exits at once. A perfectly
-        healthy Blink therefore shows the task as Ready within a second of
+        healthy Overwatch therefore shows the task as Ready within a second of
         /run, so a check on the task's state would have called every working
         install dead. Registration is not health, and neither is the
         launcher's own exit.
@@ -1311,7 +1311,7 @@ class _SchtasksBackend(_Backend):
         So the question is the one _kill_recorded_daemon already asks -- the
         pid the daemon wrote for itself -- with the image name as a filter so
         a recycled pid belonging to something else cannot answer for it. Only
-        ~/.blink/bridge.pid is read, not the pre-1.1.0 copies that function
+        ~/.overwatch/bridge.pid is read, not the pre-1.1.0 copies that function
         also sweeps: a daemon still running out of bin.old is the thing an
         install was trying to replace, and counting it as health would report
         exactly the failure of 2026-08-29 as a success.
@@ -1347,14 +1347,14 @@ class _SchtasksBackend(_Backend):
             # No task to trigger. If this install starts from the Run key
             # instead, there is nothing wrong -- start the launcher directly,
             # which is what that key would have done at the next logon.
-            # Without this, `blink update` on such an install replaces the
+            # Without this, `overwatch update` on such an install replaces the
             # binary and then leaves nothing running.
             if not _autostart_present():
                 return "could not restart it"
             _start_launcher()
         if _confirm_running(self._is_running, tries=6):
             return "restarted"
-        # This is the `blink update` path: the .exe under the task was just
+        # This is the `overwatch update` path: the .exe under the task was just
         # replaced. If the new one cannot start, /run still succeeds and the
         # log is the only thing that says why -- and unlike install() there is
         # no command worth pasting, because the command that would be printed
@@ -1363,7 +1363,7 @@ class _SchtasksBackend(_Backend):
                 f"see {log_path()}")
 
     def halt(self) -> None:
-        """Let go of bin\\blink.exe so the update swap can rename the directory.
+        """Let go of bin\\overwatch.exe so the update swap can rename the directory.
 
         Windows is the one platform where halting is not the same as stopping
         a supervised service: it is the one that refuses to rename a directory
@@ -1372,7 +1372,7 @@ class _SchtasksBackend(_Backend):
         launched, and the recorded pid for a daemon that started its own
         successor detached -- and leaves the task and the Run key alone, which
         is the property that matters: a halt that unregistered the service
-        would turn a failed update into a machine that never starts Blink
+        would turn a failed update into a machine that never starts Overwatch
         again.
 
         The answer is discarded on purpose. There is nothing a caller in the
@@ -1474,19 +1474,19 @@ class _SystemdBackend(_Backend):
             return f"no systemd here; run it yourself: {installed_bin()} run"
         subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True, **update.ota.NO_WINDOW)
         r = subprocess.run(["systemctl", "--user", "enable", "--now",
-                            "blink-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
+                            "overwatch-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
         if r.returncode != 0:
-            return "installed, but could not be started: systemctl --user enable --now blink-bridge"
+            return "installed, but could not be started: systemctl --user enable --now overwatch-bridge"
         # `enable --now` RETURNED ZERO. That is systemctl accepting the
         # request; it is not a running unit, and this line has already been
         # wrong once in a way nobody caught: see _systemd_exec(), where an
         # unquoted ExecStart with a space in it failed to locate the
-        # executable "while `blink install` still printed running (systemd)".
+        # executable "while `overwatch install` still printed running (systemd)".
         # Ask systemd instead.
         if _confirm_running(self._is_running):
             return "running (systemd)"
         return ("enabled with systemd, but it is not running -- "
-                "see: systemctl --user status blink-bridge.service")
+                "see: systemctl --user status overwatch-bridge.service")
 
     def _is_running(self) -> bool:
         """Does systemd say the unit is active? Its word, not an exit code.
@@ -1506,7 +1506,7 @@ class _SystemdBackend(_Backend):
         is up, and answering the first ask would call that dead.
         """
         r = subprocess.run(["systemctl", "--user", "is-active",
-                            "blink-bridge.service"],
+                            "overwatch-bridge.service"],
                            capture_output=True, text=True,
                            **update.ota.NO_WINDOW)
         lines = (r.stdout or "").split()
@@ -1516,13 +1516,13 @@ class _SystemdBackend(_Backend):
         if not self._has_systemctl():
             return super().restart()
         r = subprocess.run(["systemctl", "--user", "restart",
-                            "blink-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
+                            "overwatch-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
         if r.returncode != 0:
             return "could not restart it"
         if _confirm_running(self._is_running):
             return "restarted"
         return ("restarted, but systemd reports it is not running -- "
-                "see: systemctl --user status blink-bridge.service")
+                "see: systemctl --user status overwatch-bridge.service")
 
     def stop(self, runner=None) -> str:
         if not self._has_systemctl():
@@ -1530,13 +1530,13 @@ class _SystemdBackend(_Backend):
         if not os.path.exists(unit_path()):
             return "not installed"
         r = (runner or subprocess.run)(
-            ["systemctl", "--user", "stop", "blink-bridge.service"],
+            ["systemctl", "--user", "stop", "overwatch-bridge.service"],
             capture_output=True, **update.ota.NO_WINDOW)
         # An explicit stop is not undone by Restart=always, so unlike launchd
         # this needs nothing stronger than the obvious command.
         if r.returncode == 0:
             return "stopped"
-        return "could not stop it: systemctl --user stop blink-bridge.service"
+        return "could not stop it: systemctl --user stop overwatch-bridge.service"
 
     def start(self, runner=None) -> str:
         if not self._has_systemctl():
@@ -1544,22 +1544,22 @@ class _SystemdBackend(_Backend):
         if not os.path.exists(unit_path()):
             return "not installed"
         r = (runner or subprocess.run)(
-            ["systemctl", "--user", "start", "blink-bridge.service"],
+            ["systemctl", "--user", "start", "overwatch-bridge.service"],
             capture_output=True, **update.ota.NO_WINDOW)
         if r.returncode == 0:
             return "started"
-        return "could not start it: systemctl --user start blink-bridge.service"
+        return "could not start it: systemctl --user start overwatch-bridge.service"
 
     def remove(self) -> str:
         if not self._has_systemctl():
             # Install said "no systemd here; run it yourself", so whatever is
             # running was started by hand and nothing here can stop it. Saying
-            # "removed" would be followed a line later by "Nothing of Blink's
+            # "removed" would be followed a line later by "Nothing of Overwatch's
             # is left running", which would not be true.
             _rm(unit_path())
             return "no systemd here; stop it yourself if you started it"
         subprocess.run(["systemctl", "--user", "disable", "--now",
-                        "blink-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
+                        "overwatch-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
         _rm(unit_path())
         subprocess.run(["systemctl", "--user", "daemon-reload"],
                        capture_output=True, **update.ota.NO_WINDOW)
@@ -1572,7 +1572,7 @@ class _SystemdBackend(_Backend):
             # was and status() claimed not to.
             return "no systemd here; not something this can check"
         r = subprocess.run(["systemctl", "--user", "is-active", "--quiet",
-                            "blink-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
+                            "overwatch-bridge.service"], capture_output=True, **update.ota.NO_WINDOW)
         return "running" if r.returncode == 0 else "not running"
 
 
@@ -1580,7 +1580,7 @@ def backend() -> _Backend:
     """The login-service backend for this machine.
 
     Built fresh each call rather than cached at import: every path it uses is
-    resolved from HOME at call time (see the note above blink_home), and the
+    resolved from HOME at call time (see the note above overwatch_home), and the
     tests move HOME between calls.
     """
     if sys.platform == "darwin":
@@ -1594,7 +1594,7 @@ def backend() -> _Backend:
 
 def _install_service() -> str:
     if _skip_service():
-        return "skipped (BLINK_SKIP_SERVICE=1)"
+        return "skipped (OVERWATCH_SKIP_SERVICE=1)"
     return backend().install()
 
 
@@ -1602,13 +1602,13 @@ def restart_service() -> str:
     """Bounce the login service so it comes up on a freshly replaced binary.
 
     Not the same as exiting and letting the supervisor notice: this is called
-    from `blink update`, which is a separate process from the daemon. The
+    from `overwatch update`, which is a separate process from the daemon. The
     daemon's own path is simpler -- on macOS and Linux it exits and KeepAlive /
     Restart=always bring it back. Windows has neither: a Scheduled Task with an
     onlogon trigger does not restart anything, so it is told explicitly.
     """
     if _skip_service():
-        return "skipped (BLINK_SKIP_SERVICE=1)"
+        return "skipped (OVERWATCH_SKIP_SERVICE=1)"
     return backend().restart()
 
 
@@ -1621,7 +1621,7 @@ def restart_service() -> str:
 _RESTART_OK = "restarted"
 
 # Nothing was attempted, so there is nothing here to call broken: a test
-# harness with BLINK_SKIP_SERVICE=1, and a platform with no supervisor to
+# harness with OVERWATCH_SKIP_SERVICE=1, and a platform with no supervisor to
 # bounce (a developer running out of a checkout).
 _RESTART_NOT_ATTEMPTED = ("skipped (", "not running under a supervisor")
 
@@ -1629,14 +1629,14 @@ _RESTART_NOT_ATTEMPTED = ("skipped (", "not running under a supervisor")
 def restart_left_it_down(detail: str) -> bool:
     """Did the bounce end with no daemon running?
 
-    `blink update` printed the backend's answer and returned 0 regardless, so
+    `overwatch update` printed the backend's answer and returned 0 regardless, so
     a service that did not come back was one line in the middle of a
     successful-looking update. The board then sits on "Link the PC daemon"
     forever with nothing on the computer saying why -- which is exactly what
     a customer hit upgrading 1.2.5 -> 1.3.2 on 2026-09-09. Their 1.2.5
     updater could not tell (every check in restart() landed in 1.3.0 and
     1.3.2, after the version doing the upgrading); this one can, and the
-    point of saying so is that `blink install` fixes it in one command.
+    point of saying so is that `overwatch install` fixes it in one command.
     """
     if detail == _RESTART_OK:
         return False
@@ -1646,8 +1646,8 @@ def restart_left_it_down(detail: str) -> bool:
 def _refresh_shims() -> None:
     """Put THIS version's shims on disk, as part of an update.
 
-    `blink update` replaces the program and nothing else, and both shims ship
-    inside it: after a swap, ~/.blink/blink-hook.sh is still the copy the
+    `overwatch update` replaces the program and nothing else, and both shims ship
+    inside it: after a swap, ~/.overwatch/overwatch-hook.sh is still the copy the
     previous release wrote out. The daemon's DriftWatchdog repairs that
     within five minutes -- but only while a daemon is running, and a daemon
     that did not come back is precisely the case this matters in. Two file
@@ -1662,8 +1662,8 @@ def _refresh_shims() -> None:
     report failure because a shim could not be rewritten. The watchdog still
     sits behind this.
     """
-    for path, name in ((shim_path(), "blink-statusline.sh"),
-                       (hook_shim_path(), "blink-hook.sh")):
+    for path, name in ((shim_path(), "overwatch-statusline.sh"),
+                       (hook_shim_path(), "overwatch-hook.sh")):
         if not os.path.exists(path):
             continue
         try:
@@ -1698,7 +1698,7 @@ def _say_bye():
         import json
         import serial
         from pc import protocol
-        with open(os.path.join(blink_home(), "board.json"), encoding="utf-8") as f:
+        with open(os.path.join(overwatch_home(), "board.json"), encoding="utf-8") as f:
             port = json.load(f).get("port")
         if not port:
             return
@@ -1711,7 +1711,7 @@ def _say_bye():
 
 def _remove_service() -> str:
     if _skip_service():
-        return "skipped (BLINK_SKIP_SERVICE=1)"
+        return "skipped (OVERWATCH_SKIP_SERVICE=1)"
     return backend().remove()
 
 
@@ -1728,18 +1728,18 @@ def _kill_recorded_daemon(runner=None) -> int:
 
     Ending the Scheduled Task ends the process the task launched. PyInstaller's
     onefile bootloader re-executes the same .exe as a child, and that child
-    keeps running the bridge loop and keeps blink.exe open, which is enough for
+    keeps running the bridge loop and keeps overwatch.exe open, which is enough for
     Windows to refuse every attempt to delete it -- including the detached
     rmdir scheduled for after we exit.
 
-    By pid, with the image name only as a FILTER: `taskkill /im blink.exe`
+    By pid, with the image name only as a FILTER: `taskkill /im overwatch.exe`
     matches the uninstaller too, and killing ourselves mid-uninstall is exactly
     what the previous attempt did. /t takes the bootloader's child with it.
     """
     if sys.platform != "win32":
         return 0
     killed = 0
-    # Every place a daemon may have left its pid: ~/.blink since 1.1.0, and
+    # Every place a daemon may have left its pid: ~/.overwatch since 1.1.0, and
     # beside the program before that -- which, after 1.1.0's install has
     # rotated the directory, means bin.old. The first 1.0.4 -> 1.1.0
     # install on a real PC left the old daemon running with the serial port
@@ -1789,11 +1789,11 @@ def _kill_by_path():
 
 
 def _remove_bin_dir(attempts=6):
-    """Delete ~/.blink/bin. Returns (done, message).
+    """Delete ~/.overwatch/bin. Returns (done, message).
 
     Straightforward everywhere but Windows, which will not delete a running
     executable -- and here the executable is usually this one. The undo hint we
-    print says `~/.blink/bin/blink.exe uninstall`, so a customer following it
+    print says `~/.overwatch/bin/overwatch.exe uninstall`, so a customer following it
     is asking a program to delete the file it is running from. The daemon can
     be holding the same file too: `schtasks /end` returns before the process
     has actually exited.
@@ -1801,7 +1801,7 @@ def _remove_bin_dir(attempts=6):
     So: try, wait, try again, and if Windows still says no, hand the job to
     something that will outlive us.
 
-    This used to end with `taskkill /f /im blink.exe`, which is worse than the
+    This used to end with `taskkill /f /im overwatch.exe`, which is worse than the
     problem it was for -- the uninstaller has that image name, so it killed
     itself, mid-uninstall, having already removed the Scheduled Task and the
     status line. Every Windows scenario in CI exited non-zero with no output at
@@ -1852,7 +1852,7 @@ def _announce():
     thing standing between us and silently editing a file the customer owns,
     so it is not optional and it runs before the first write.
     """
-    print("Blink setup. Here is everything it is about to do, before it does any of it.")
+    print("Overwatch setup. Here is everything it is about to do, before it does any of it.")
     print()
     print(f"  Creates    {installed_bin()}")
     print("             a copy of this program and its support files, so the")
@@ -1871,7 +1871,7 @@ def _announce():
     print("             agent ids Claude Code generates -- used to tell concurrent")
     print("             sessions apart, and for nothing else. No prompt, no tool")
     print("             arguments, no file paths, no message text.")
-    print(f"  Creates    {os.path.join(blink_home(), 'state')}")
+    print(f"  Creates    {os.path.join(overwatch_home(), 'state')}")
     print("             one small file per open session, deleted when it ends.")
     print(f"  Changes    {settings_path()}")
     # This list has to stay exactly true. Install asks nothing, so the
@@ -1911,7 +1911,7 @@ def _announce():
 
 
 def _install_steps() -> int:
-    """How many numbered steps `blink install` prints on this platform.
+    """How many numbered steps `overwatch install` prints on this platform.
 
     Five everywhere, plus one platform extra: Windows needs the USB driver,
     macOS needs the Automation grant. Both are 6 and they are NOT the same
@@ -1941,7 +1941,7 @@ def _stepper(total):
 
 
 def _install_driver_step() -> str:
-    """The USB-driver line of `blink install`. Windows only.
+    """The USB-driver line of `overwatch install`. Windows only.
 
     Staging the driver here, rather than waiting for a customer to plug the
     board in and hit the yellow triangle, is the whole point: `pnputil
@@ -1950,28 +1950,28 @@ def _install_driver_step() -> str:
 
     It is also the one step that can raise a Windows permission prompt, and
     it only does so when there is genuinely something to install -- see
-    win_driver.ensure_driver. Under BLINK_SKIP_SERVICE this is skipped
+    win_driver.ensure_driver. Under OVERWATCH_SKIP_SERVICE this is skipped
     entirely, for the same reason the login service is: the fleet test suite
     runs `install` for real on the Windows desk, and a modal permission
     prompt on a machine nobody is sitting at hangs the run until it times out.
     """
     if _skip_service():
-        return "not checked (BLINK_SKIP_SERVICE=1)"
+        return "not checked (OVERWATCH_SKIP_SERVICE=1)"
     try:
         _, line = win_driver.ensure_driver()
         return line
     except Exception as e:
         # The board is the product, but a driver that would not install is
         # not a reason to abandon an install that has otherwise worked --
-        # the customer can still run `blink driver` afterwards.
+        # the customer can still run `overwatch driver` afterwards.
         return f"skipped ({e})"
 
 
 def cmd_driver(_args) -> int:
-    """`blink driver` -- install the USB driver, and say what happened.
+    """`overwatch driver` -- install the USB driver, and say what happened.
 
     Exists as its own command for two audiences: a customer being walked
-    through a support conversation ("run blink driver"), and anyone whose
+    through a support conversation ("run overwatch driver"), and anyone whose
     install ran before this version, or who declined the permission prompt
     the first time.
     """
@@ -2000,7 +2000,7 @@ def cmd_driver(_args) -> int:
         return 0
 
     # Installed, or claimed to be, and Windows still will not use the device.
-    # Repeating "run blink driver" here would be a loop, so this is where the
+    # Repeating "run overwatch driver" here would be a loop, so this is where the
     # advice stops being something this program can do for them.
     print()
     print(f"Windows still cannot use the board: {win_driver.summary(still)}.")
@@ -2020,7 +2020,7 @@ def cmd_install(_args) -> int:
     try:
         install_statusline._load(settings_path())
     except install_statusline.SettingsUnreadable as e:
-        print(f"Blink setup stopped. {e}")
+        print(f"Overwatch setup stopped. {e}")
         print()
         print("Nothing was changed. Fix the file, or move it aside, and run")
         print("this again.")
@@ -2045,14 +2045,14 @@ def cmd_install(_args) -> int:
         # That is what makes re-running the installer over a live install
         # work on every platform: a running program can be renamed but not
         # overwritten, and its directory likewise. Not when it IS the
-        # installed copy: a re-run from ~/.blink/bin has nothing to copy.
+        # installed copy: a re-run from ~/.overwatch/bin has nothing to copy.
         src = os.path.dirname(_self_path())
         if os.path.abspath(src) != os.path.abspath(bin_dir()):
             staged = bin_dir() + ".new"
             shutil.rmtree(staged, ignore_errors=True)
             shutil.copytree(src, staged, symlinks=True)
             # Re-running the installer over a live install hits the same
-            # Windows rename refusal that `blink update` did; the service is
+            # Windows rename refusal that `overwatch update` did; the service is
             # (re)installed and started further down either way.
             halt_service()
             ok, message = update.swap_in(staged, installed_bin(),
@@ -2069,24 +2069,24 @@ def cmd_install(_args) -> int:
         print("running from a checkout, nothing to copy")
 
     step("Status line")
-    os.makedirs(blink_home(), exist_ok=True)
+    os.makedirs(overwatch_home(), exist_ok=True)
     # Private to the user. The shims write the status line payload -- which
     # names the working directory and the session -- and the per-session
     # state files in here. Both shims create with umask 077, but a directory
     # from an earlier install was made at the default umask, so this
     # tightens it once rather than leaving it to the next mkdir.
-    for d in (blink_home(), os.path.join(blink_home(), "state")):
+    for d in (overwatch_home(), os.path.join(overwatch_home(), "state")):
         try:
             os.chmod(d, 0o700)
         except OSError:
             pass          # absent (state/ appears on the first hook), or Windows
-    _write_shim(shim_path(), "blink-statusline.sh")
+    _write_shim(shim_path(), "overwatch-statusline.sh")
     install_statusline._announce(settings_path(), shim_path(),
                                  undo_hint=f"{installed_bin()} uninstall")
     print("      " + install_statusline.install(settings_path(), shim_path()))
 
     step("Activity hooks")
-    _write_shim(hook_shim_path(), "blink-hook.sh")
+    _write_shim(hook_shim_path(), "overwatch-hook.sh")
     try:
         print(install_hooks.install(settings_path(), hook_shim_path()))
     except install_statusline.SettingsUnreadable as e:
@@ -2140,7 +2140,7 @@ def cmd_install(_args) -> int:
 
 
 def cmd_uninstall(_args) -> int:
-    print("Blink uninstall.")
+    print("Overwatch uninstall.")
     print()
     print("[1/5] Background service ... ", end="", flush=True)
     print(_remove_service())
@@ -2170,18 +2170,18 @@ def cmd_uninstall(_args) -> int:
     _uninstall_codex_hooks()
 
     print("[5/5] Files ... ", end="", flush=True)
-    # Only what install created. NOT ~/.blink itself: it also holds the two
+    # Only what install created. NOT ~/.overwatch itself: it also holds the two
     # signing keys, which cannot be regenerated -- every board flashed with the
     # first one's public half, and every app carrying the second one's, would
     # stop accepting updates.
     for p in (shim_path(), hook_shim_path(), launcher_path(),
-              os.path.join(blink_home(), "statusline.json"),
-              os.path.join(blink_home(), "statusline.json.tmp"),
+              os.path.join(overwatch_home(), "statusline.json"),
+              os.path.join(overwatch_home(), "statusline.json.tmp"),
               # Pid-scoped temp names, from a render interrupted mid-write.
-              *glob.glob(os.path.join(blink_home(), "statusline.json.*.tmp")),
-              os.path.join(blink_home(), "state.json"),
-              os.path.join(blink_home(), "state.json.tmp"),
-              os.path.join(blink_home(), "pending_fw.json")):
+              *glob.glob(os.path.join(overwatch_home(), "statusline.json.*.tmp")),
+              os.path.join(overwatch_home(), "state.json"),
+              os.path.join(overwatch_home(), "state.json.tmp"),
+              os.path.join(overwatch_home(), "pending_fw.json")):
         _rm(p)
     # The per-session state directory, and everything under it. state.json
     # above is the single-slot file this replaced; it is still on the list so
@@ -2191,7 +2191,7 @@ def cmd_uninstall(_args) -> int:
     print(message)
     print()
     if done:
-        print("Done. Nothing of Blink's is left running.")
+        print("Done. Nothing of Overwatch's is left running.")
         return 0
     print("Everything else is undone, but that file is still there. Log out and")
     print("back in, then delete it by hand:")
@@ -2238,7 +2238,7 @@ def _uninstall_codex_hooks() -> None:
     if os.path.exists(config):
         print(f"      Left in place: your Codex trust records in {config}.")
         print("      If you approved this hook in Codex, that approval stays")
-        print("      on file, so installing Blink again works without asking")
+        print("      on file, so installing Overwatch again works without asking")
         print("      you a second time. Remove its [hooks.state] entry by hand")
         print("      if you would rather Codex asked you afresh.")
 
@@ -2254,7 +2254,7 @@ def _live_sessions() -> int:
     from pc.providers import claude_state
     try:
         counts, _, _ = claude_state.ClaudeStateProvider(
-            path=os.path.join(blink_home(), "state"), sweep=False
+            path=os.path.join(overwatch_home(), "state"), sweep=False
         ).scan(time.time())
     except Exception:
         return 0
@@ -2272,7 +2272,7 @@ def _rm_tree(root):
 
 
 def _rm_state_dir():
-    """Remove ~/.blink/state and ~/.blink/state-codex, and their subdirectories.
+    """Remove ~/.overwatch/state and ~/.overwatch/state-codex, and their subdirectories.
 
     Both directories, because the Codex slots deliberately live apart from the
     Claude ones (pc/providers/codex_state explains why) -- and a slot
@@ -2286,7 +2286,7 @@ def _rm_state_dir():
     loop cannot be talked into deleting more than it was told.
     """
     for sub in ("state", "state-codex"):
-        root = os.path.join(blink_home(), sub)
+        root = os.path.join(overwatch_home(), sub)
         try:
             names = os.listdir(root)
         except OSError:
@@ -2315,7 +2315,7 @@ def _rm_state_dir():
 def hook_shim_status_note():
     """A one-line warning when the installed hook shim cannot do its job.
 
-    `blink status` reports the activity hooks by comparing settings.json's
+    `overwatch status` reports the activity hooks by comparing settings.json's
     command strings against the shim path. That check passed throughout the
     period when the feature was dead: the path existed, the hook ran, and the
     file it ran was simply older than the daemon reading its output. The
@@ -2339,7 +2339,7 @@ def hook_shim_status_note():
     """
     if not os.path.exists(hook_shim_path()):
         return "the activity hook shim is missing, so the hooks run nothing"
-    if shim_is_current(hook_shim_path(), "blink-hook.sh"):
+    if shim_is_current(hook_shim_path(), "overwatch-hook.sh"):
         return None
     return "the activity hook shim is out of date"
 
@@ -2347,7 +2347,7 @@ def hook_shim_status_note():
 def statusline_shim_status_note():
     """The same check as `hook_shim_status_note`, for the other shim.
 
-    `blink status` has reported "Status line installed at ..." from the
+    `overwatch status` has reported "Status line installed at ..." from the
     file's mere presence since before DriftWatchdog existed -- the identical
     blind spot the Activity row had until shim_content_check was added to
     repair this shim too. Silent when the shim was never installed: a
@@ -2357,7 +2357,7 @@ def statusline_shim_status_note():
     """
     if not os.path.exists(shim_path()):
         return None
-    if shim_is_current(shim_path(), "blink-statusline.sh"):
+    if shim_is_current(shim_path(), "overwatch-statusline.sh"):
         return None
     return "the status line shim is out of date"
 
@@ -2366,7 +2366,7 @@ def _shim_repair_is_live(bridge_running: bool) -> bool:
     """Will DriftWatchdog's next tick actually rewrite a stale shim?
 
     Three ways "the daemon replaces it within five minutes" can be false even
-    though the shim really is stale: BLINK_NO_WATCHDOG turns self-healing off
+    though the shim really is stale: OVERWATCH_NO_WATCHDOG turns self-healing off
     entirely (install_statusline.drift_check and shim_content_check both
     check it first); shim_content_check no-ops with no install marker, the
     same "never installed, or deliberately uninstalled" rule drift_check
@@ -2395,7 +2395,7 @@ def cmd_status(args) -> int:
     # neither drift_check nor shim_content_check runs on its own, so a shim
     # note that promises "the daemon replaces it" is a lie with no bridge
     # behind it. Every status() string that means "up" starts with "running"
-    # (see backend().status()'s docstring); under BLINK_SKIP_SERVICE the
+    # (see backend().status()'s docstring); under OVERWATCH_SKIP_SERVICE the
     # question was never asked, and "cannot confirm" gets the same false as
     # "confirmed not running" -- the honest default when the promise cannot
     # be checked.
@@ -2404,7 +2404,7 @@ def cmd_status(args) -> int:
         # else is scoped to $HOME, so querying them under a test HOME reports
         # the real user's agent -- which read as "installed" for an install
         # that never happened.
-        print("Bridge      not checked (BLINK_SKIP_SERVICE=1)")
+        print("Bridge      not checked (OVERWATCH_SKIP_SERVICE=1)")
         bridge_running = False
     else:
         bridge_status = backend().status()
@@ -2500,7 +2500,7 @@ def cmd_status(args) -> int:
         print("Activity    unknown -- settings.json does not parse")
 
     # The most useful support answer: is fresh data actually arriving?
-    payload = os.path.join(blink_home(), "statusline.json")
+    payload = os.path.join(overwatch_home(), "statusline.json")
     if os.path.exists(payload):
         age = int(time.time() - os.path.getmtime(payload))
         # The same bound the panel uses (statusline_source.STALE_AFTER_S):
@@ -2552,8 +2552,8 @@ def _age(seconds: float) -> str:
     return f"{seconds // 86400} d"
 
 
-def board_lines(known, ports, undriven=(), blink_cmd="blink"):
-    """The Board lines of `blink status`, from what the app remembers and
+def board_lines(known, ports, undriven=(), overwatch_cmd="overwatch"):
+    """The Board lines of `overwatch status`, from what the app remembers and
     what is plugged in right now.
 
     `known` is board.json ({port, board_id, fw}); `ports` is [(device,
@@ -2578,7 +2578,7 @@ def board_lines(known, ports, undriven=(), blink_cmd="blink"):
         # in" -- to a customer looking straight at the board.
         out.append(f"Board       {win_driver.summary(undriven)}")
         out += [f"            {line}"
-                for line in win_driver.advice(undriven, blink_cmd)]
+                for line in win_driver.advice(undriven, overwatch_cmd)]
         if port:
             out.append(f"            last seen on {port}")
         return out
@@ -2602,7 +2602,7 @@ def board_lines(known, ports, undriven=(), blink_cmd="blink"):
     if port and port in here and others:
         names = ", ".join(f"{d} ({c})" for d, c in others)
         out.append(f"            other serial devices: {names}"
-                   " -- asked once, not BLINK, left alone")
+                   " -- asked once, not OVERWATCH, left alone")
     # Reached only when at least one port DID show up: a working board on one
     # socket and an undriven one on the next. The line above lists the serial
     # devices that were left alone deliberately; this one is a device that
@@ -2611,7 +2611,7 @@ def board_lines(known, ports, undriven=(), blink_cmd="blink"):
     if undriven:
         out.append(f"            also: {win_driver.summary(undriven)}")
         out += [f"            {line}"
-                for line in win_driver.advice(undriven, blink_cmd)]
+                for line in win_driver.advice(undriven, overwatch_cmd)]
     # The board running a LATER release than this app. The two ship from one
     # tag and install together, so this means something split them -- a
     # hand-flash, or an app update that failed after the firmware went on.
@@ -2621,7 +2621,7 @@ def board_lines(known, ports, undriven=(), blink_cmd="blink"):
     if ota.is_newer(known.get("fw") or "", RELEASE_VERSION):
         out.append(f"            the board is on {known['fw']} and this app is"
                    f" {RELEASE_VERSION} -- they ship together")
-        out.append(f"            run: {blink_cmd} update")
+        out.append(f"            run: {overwatch_cmd} update")
         # ...which can find nothing, and used not to admit it.
         #
         # This compares the board against THIS APP, so it fires whenever the
@@ -2630,7 +2630,7 @@ def board_lines(known, ports, undriven=(), blink_cmd="blink"):
         # onwards and any unit hand-flashed from an unreleased tree. There the
         # command above is a no-op and the reader is left rerunning it.
         #
-        # Answering it properly means asking the feed, and `blink status` does
+        # Answering it properly means asking the feed, and `overwatch status` does
         # not touch the network on purpose: it has to work on a plane, and it
         # is the first thing anyone runs when nothing works. So it names the
         # other possibility instead of guessing between them. The panel has
@@ -2644,14 +2644,14 @@ def board_lines(known, ports, undriven=(), blink_cmd="blink"):
 def _board_lines():
     try:
         from claude_usage_bridge import describe_ports, remembered_board
-        return board_lines(remembered_board(blink_home()), describe_ports(),
+        return board_lines(remembered_board(overwatch_home()), describe_ports(),
                            win_driver.undriven_boards(), installed_bin())
     except Exception as e:
         return [f"Board       could not list serial ports: {e}"]
 
 
 def _codex_hook_status():
-    """The Codex hook lines of `blink status`.
+    """The Codex hook lines of `overwatch status`.
 
     Three states worth telling apart, because the repairs are different:
     registered and firing, registered and silent, not registered at all.
@@ -2734,7 +2734,7 @@ def _source_lines():
     if logs:
         # sweep=False, matching _live_sessions above and for the same reason:
         # the provider's poll() scans the Codex hook slots, and the scan
-        # DELETES abandoned ones. `blink status` must not mutate what it
+        # DELETES abandoned ones. `overwatch status` must not mutate what it
         # reports -- asking "is the Codex hook working?" would otherwise
         # delete the evidence that it is, and leave the next run reading
         # differently because of this one.
@@ -2768,7 +2768,7 @@ def cmd_update(_args) -> int:
     first release to switch it on is a decision someone makes, not a side
     effect of shipping this command.
     """
-    print(f"Blink update. This app is {RELEASE_VERSION}.")
+    print(f"Overwatch update. This app is {RELEASE_VERSION}.")
     print()
     manifest = update.fetch_signed_manifest()
     if manifest is None:
@@ -2793,7 +2793,7 @@ def cmd_update(_args) -> int:
         print("Nothing was changed.")
         return 1
     # Let go of the program before replacing it. Windows will not rename <bin>
-    # while the daemon holds bin\blink.exe open, and the daemon is restarted a
+    # while the daemon holds bin\overwatch.exe open, and the daemon is restarted a
     # few lines below regardless -- so this only moves that bounce earlier.
     halt_service()
     ok, message = update.apply(blob, installed_bin(), version)
@@ -2853,11 +2853,11 @@ def cmd_provision(args) -> int:
         try:
             backend().remove()
             # Put a service back afterwards only where one belongs: on a
-            # machine Blink is INSTALLED on. remove() reports "removed"
+            # machine Overwatch is INSTALLED on. remove() reports "removed"
             # whether or not anything was registered, and treating that as
             # proof of a service left a bench laptop -- running the
             # downloaded binary, never installed -- with a login item
-            # pointing at ~/.blink/bin/blink, which does not exist there,
+            # pointing at ~/.overwatch/bin/overwatch, which does not exist there,
             # respawning on every throttle interval forever.
             stopped = os.path.exists(installed_bin())
         except Exception:
@@ -3126,11 +3126,11 @@ def cmd_run(args) -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        prog="blink", description="Blink desk gauge: setup and bridge.")
+        prog="overwatch", description="Overwatch desk gauge: setup and bridge.")
     # Also the self-test in pc/update.py: a replacement binary has to run and
     # say what it is before it is allowed to become the login service's target.
     parser.add_argument("--version", action="version",
-                        version=f"blink {RELEASE_VERSION}")
+                        version=f"overwatch {RELEASE_VERSION}")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("install", help="Set everything up (this is the default)")
     sub.add_parser("uninstall", help="Put it all back")
@@ -3166,7 +3166,17 @@ def main(argv=None) -> int:
                        help="Append output to this file (the Windows service)")
     args = parser.parse_args(argv)
 
-    # Bare `./blink` installs. Someone who just downloaded a file and
+    # Before anything reads a path. Every function below resolves its files
+    # out of overwatch_home(), so a machine that still has ~/.blink would
+    # find an empty directory and behave like a fresh install -- silently
+    # abandoning the signing key and the launcher's slots rather than
+    # failing. Once, on the way in, for every subcommand: `status` is what
+    # somebody runs when it has already gone wrong, and it has to be the
+    # command that fixes this rather than the one that reports it.
+    from pc import migrate
+    migrate.run_quietly(log=print)
+
+    # Bare `./overwatch` installs. Someone who just downloaded a file and
     # double-clicked it meant "set this up", and making them discover a
     # subcommand first is the opposite of the point.
     return {

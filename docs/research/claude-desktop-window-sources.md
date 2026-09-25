@@ -190,14 +190,14 @@ Four traps:
   reference in LevelDB. The live records are ~45 KB, so a longer session
   crosses it. Detect and skip; do not serve an older record instead.
 
-Format versions on disk today: Blink v21, V8 v15. Chromium is migrating
+Format versions on disk today: Overwatch v21, V8 v15. Chromium is migrating
 IndexedDB to a SQLite backing store. Check versions and go quiet when they
 change.
 
 ## Privacy
 
 `README.md:90` tells customers to email support the tail of
-`~/.blink/bridge.log` and promises "nothing in either is a secret". That
+`~/.overwatch/bridge.log` and promises "nothing in either is a secret". That
 promise is true today and every source here must keep it true.
 
 Local Storage and `plan-usage-history.json` contain no conversation content,

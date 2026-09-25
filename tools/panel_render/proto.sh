@@ -4,8 +4,8 @@ set -eu
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 HERE="$ROOT/tools/panel_render"
 . "$ROOT/tools/lib_zephyr.sh"
-LVGL_DIR="${LVGL_DIR:-$(blink_zephyr_ws 2>/dev/null)/modules/lib/gui/lvgl}"
-BUILD="${TMPDIR:-/tmp}/blink-proto"
+LVGL_DIR="${LVGL_DIR:-$(overwatch_zephyr_ws 2>/dev/null)/modules/lib/gui/lvgl}"
+BUILD="${TMPDIR:-/tmp}/overwatch-proto"
 mkdir -p "$BUILD"
 find "$LVGL_DIR/src" -name '*.c' > "$BUILD/srcs.txt"
 sed -e 's|#if 0 /\* Set this to "1" to enable content \*/|#if 1|' \

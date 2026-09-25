@@ -1,9 +1,9 @@
-# What's new in BLINK — 1.2.5 to 1.3.2
+# What's new in OVERWATCH — 1.2.5 to 1.3.2
 
 Website copy. Everything below is a change a customer can see or feel. Three
 releases: **1.3.0**, **1.3.1**, **1.3.2**.
 
-Boards and the app update together. If you are on 1.2.5, run `blink update`
+Boards and the app update together. If you are on 1.2.5, run `overwatch update`
 and take the firmware update the board offers.
 
 ---
@@ -63,7 +63,7 @@ it in — one Windows permission prompt, and only when there is actually
 something to install. Before, a new board simply never appeared.
 
 **A board Windows cannot use yet says so.** It used to read as *"not plugged
-in"* to someone looking straight at it. Now `blink status` says *"a board is
+in"* to someone looking straight at it. Now `overwatch status` says *"a board is
 plugged in, but Windows has no driver for it"* and names the command that fixes
 it.
 
@@ -71,7 +71,7 @@ it.
 needed admin, silently failed without it, and left the panel stuck part-way
 through setup. There is a fallback now, so a normal account installs cleanly.
 
-**`blink update` stops reporting a failure for an update that worked.** Windows
+**`overwatch update` stops reporting a failure for an update that worked.** Windows
 will not rename the program's folder while the app is still holding a file in
 it, so the update raced its own background service and reported defeat on the
 first refusal — while succeeding anyway. It now stops the service first and
@@ -86,7 +86,7 @@ need the number, it stopped showing one. Fixed.
 
 **The board no longer claims "Up to date" over an app that is a release
 behind.** If the two halves have come apart, the board says so, and
-`blink status` names the version each half is on and the command that fixes it.
+`overwatch status` names the version each half is on and the command that fixes it.
 
 **The app stops creating that mismatch in the first place.** A firmware update
 is no longer offered unless the matching app update can be worked out too, so a
@@ -143,11 +143,11 @@ previously left a week of fixes unreachable by any board.
 ## Upgrading
 
 ```
-blink update
+overwatch update
 ```
 
 Then take the firmware update the board offers. The app installs first and the
 board follows, so the two stay in step.
 
 If the board is already ahead of the app — it can happen if firmware was
-installed by hand — `blink status` will say so and name the same command.
+installed by hand — `overwatch status` will say so and name the same command.

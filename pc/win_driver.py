@@ -3,7 +3,7 @@
 Every CYD ships a WCH CH340. macOS and Linux carry a driver for it in the
 kernel; Windows does not, and never has. So a customer on Windows plugs the
 board in and gets a device that does nothing, no COM port, and -- until this
-module existed -- `blink status` saying "Board not plugged in", which is the
+module existed -- `overwatch status` saying "Board not plugged in", which is the
 one thing that was definitely not true. That wording sent a customer looking
 for a bad cable (2026-09-06).
 
@@ -26,7 +26,7 @@ Manager itself uses, and then installs the driver.
 Two halves, and they are deliberately separable:
 
   - Detection is free. It needs no administrator, no bundled payload and no
-    network, so it runs on every `blink status` on Windows and costs a
+    network, so it runs on every `overwatch status` on Windows and costs a
     customer nothing. A build carrying no driver still tells them exactly
     what is wrong and what to install.
 
@@ -115,7 +115,7 @@ CM_PROB_FAILED_INSTALL = 28
 NO_DRIVER_BOUND = 0
 
 # The states that installing a driver can actually fix, and therefore the
-# ones `blink driver` is offered for. A disabled device (22), a damaged
+# ones `overwatch driver` is offered for. A disabled device (22), a damaged
 # registry entry (19) or a pending restart (14) are none of this program's
 # business, and sending somebody round that loop wastes a support pass.
 DRIVER_FIXES = frozenset({
@@ -229,7 +229,7 @@ def store_has_driver(enum_drivers_output):
 
 
 def install_message(status, note=""):
-    """The one line `blink install`, `blink driver` and support advice share.
+    """The one line `overwatch install`, `overwatch driver` and support advice share.
 
     A pure function so the wording is pinned by a test, rather than by
     whichever of the three call sites someone happened to read.
@@ -245,19 +245,19 @@ def install_message(status, note=""):
                 + DRIVER_PAGE)
     if status == "declined":
         return ("skipped -- the Windows permission prompt was declined."
-                " Run `blink driver` and choose Yes to finish setting up"
+                " Run `overwatch driver` and choose Yes to finish setting up"
                 " the board")
     if status == "needs-admin":
         return ("needs administrator -- Windows did not grant it. Right-click"
                 " Command Prompt, choose \"Run as administrator\", and run"
-                " `blink driver` there")
+                " `overwatch driver` there")
     return f"failed ({note or 'no reason given'})"
 
 
 def summary(undriven):
     """What is wrong, in one clause, or "" when nothing is.
 
-    No label and no indent: the callers -- `blink status`, the bridge log --
+    No label and no indent: the callers -- `overwatch status`, the bridge log --
     each have their own column layout, and formatting belongs to them.
     """
     if not undriven:
@@ -280,10 +280,10 @@ def as_sentence(text):
     return text[0].upper() + text[1:]
 
 
-def advice(undriven, blink_cmd="blink"):
+def advice(undriven, overwatch_cmd="overwatch"):
     """What to do about it: zero or one line, unindented.
 
-    Only the plain missing-driver case gets pointed at `blink driver`.
+    Only the plain missing-driver case gets pointed at `overwatch driver`.
     Nothing here re-enables a device somebody disabled on purpose or repairs
     a damaged registry entry, and telling a customer to run a command that
     cannot fix their problem wastes a support round trip.
@@ -291,7 +291,7 @@ def advice(undriven, blink_cmd="blink"):
     if not undriven:
         return []
     if undriven[0].problem in DRIVER_FIXES:
-        return [f"run `{blink_cmd} driver` to install it"]
+        return [f"run `{overwatch_cmd} driver` to install it"]
     return ["open Device Manager to see what it says about that device"]
 
 
@@ -406,7 +406,7 @@ def undriven_boards():
     is installed: a bound CH340 has a Service, no problem flag, and a COM
     port that shows up through pyserial like any other.
 
-    Never raises. This runs on every `blink status`, and a status command that
+    Never raises. This runs on every `overwatch status`, and a status command that
     dies because a system library moved is worse than one that omits a line.
     """
     if sys.platform != "win32":
@@ -534,7 +534,7 @@ def _elevated_run(exe, params, timeout_s):
     for the Windows permission prompt. Note what gets elevated: pnputil, with
     the arguments below, and nothing else. Re-launching THIS program elevated
     would hand administrator rights to the whole install -- the service
-    registration, the settings file, the copy into ~/.blink -- and every one
+    registration, the settings file, the copy into ~/.overwatch -- and every one
     of those is meant to belong to the person who ran it.
     """
     import ctypes
@@ -637,7 +637,7 @@ def install_driver(inf_path=None):
 
 
 def ensure_driver(force=False):
-    """The whole job, for `blink install` and `blink driver`. (status, line).
+    """The whole job, for `overwatch install` and `overwatch driver`. (status, line).
 
     Idempotent, and quiet on a machine that is already set up: if the driver
     is in the store there is nothing to do and -- this is the part that

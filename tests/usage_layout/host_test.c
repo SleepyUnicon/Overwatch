@@ -224,7 +224,7 @@ int main(void)
 	 * The pip row runs from the bezel to the brand, not from the clock to
 	 * the brand: the clock shares STATUS_Y with the status/hint line now
 	 * and is asserted against this row separately, above. Only the right
-	 * edge here is still a measurement -- the wall derived from "BLINK"
+	 * edge here is still a measurement -- the wall derived from "OVERWATCH"
 	 * below -- and a font bump must fail here rather than slide pips under
 	 * the logo.
 	 */
@@ -235,7 +235,7 @@ int main(void)
 	 * here rather than typed in, because the number that was typed in was
 	 * wrong by 2 px in the direction that matters.
 	 *
-	 * "BLINK" at lv_font_montserrat_14, whose advances LVGL rounds to
+	 * "OVERWATCH" at lv_font_montserrat_14, whose advances LVGL rounds to
 	 * whole pixels as (adv_w + 8) >> 4: B 11 + L 8 + I 4 + N 11 + K 10 =
 	 * 44, plus the letter_space of 2 that usage_view.c sets, in each of
 	 * the four gaps = 52. Centred on SCR_MID_X, so it begins at 134 -- not

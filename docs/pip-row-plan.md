@@ -69,7 +69,7 @@ Replace the header-stack assertions in `tests/usage_layout/host_test.c` (the one
 	 * The pip row lives between the clock and the brand. Both edges are
 	 * asserted because both are measurements, not constants the code
 	 * knows: the clock's width comes from "12:04" at montserrat_14, and
-	 * the wall from "BLINK" centred with .09em tracking. A font bump
+	 * the wall from "OVERWATCH" centred with .09em tracking. A font bump
 	 * must fail here rather than slide pips under the logo.
 	 */
 	CHECK(PIP_X0 > 47, "pip row starts clear of the clock");
@@ -114,7 +114,7 @@ Below `DOT_SZ`:
  *
  * Both bounds are MEASUREMENTS, which is why the layout test asserts them
  * rather than trusting them. "12:04" at montserrat_14 ends near x=47, and
- * "BLINK" is centred at 160 with .09em tracking and about 47 px wide, so it
+ * "OVERWATCH" is centred at 160 with .09em tracking and about 47 px wide, so it
  * begins near x=136. An 8 px gap either side leaves 75 px.
  *
  * PIP_MAX is geometry, not policy: seven fit. The display switches to counts
@@ -600,13 +600,13 @@ git commit -m "feat: one pip per session, between the clock and the brand"
 
 ### Task 5: Flash it and look at it
 
-`usage_view.c` has no automated coverage, so this is the gate, not a formality. The board is on `/dev/cu.usbserial-14240` (it re-enumerates on reset — check `ls /dev/cu.usbserial*` first) and the installed daemon holds the port under launchd as `com.blink.bridge`.
+`usage_view.c` has no automated coverage, so this is the gate, not a formality. The board is on `/dev/cu.usbserial-14240` (it re-enumerates on reset — check `ls /dev/cu.usbserial*` first) and the installed daemon holds the port under launchd as `com.overwatch.bridge`.
 
 **Files:** none.
 
 - [ ] **Step 1: Free the port**
 
-Run: `launchctl bootout gui/502/com.blink.bridge`, then confirm with `lsof /dev/cu.usbserial-*`.
+Run: `launchctl bootout gui/502/com.overwatch.bridge`, then confirm with `lsof /dev/cu.usbserial-*`.
 Expected: port free.
 
 - [ ] **Step 2: Flash**
@@ -621,7 +621,7 @@ Expected: `welcome`, then `pref`/`ota_query`, then pings with `up_ms` climbing. 
 
 - [ ] **Step 4: Drive the pip counts**
 
-With the dev daemon up, write probe state files into `~/.blink/state/` to produce known counts — `{"event":"Notification","t":<now>,"name":"X"}` is waiting, `PreToolUse` is running, `StopFailure` is failed, `Stop` is finished — then restart the daemon (`bash tools/dev.sh up`) to force an immediate push. Check 1, 3, 6, 7 and 12 sessions.
+With the dev daemon up, write probe state files into `~/.overwatch/state/` to produce known counts — `{"event":"Notification","t":<now>,"name":"X"}` is waiting, `PreToolUse` is running, `StopFailure` is failed, `Stop` is finished — then restart the daemon (`bash tools/dev.sh up`) to force an immediate push. Check 1, 3, 6, 7 and 12 sessions.
 Expected at each: the row matches, and `up_ms` keeps climbing.
 
 - [ ] **Step 5: Look at the panel — the part only a person can do**
@@ -634,8 +634,8 @@ Expected at each: the row matches, and `up_ms` keeps climbing.
 
 - [ ] **Step 6: Clean up and restore**
 
-Run: `rm -f ~/.blink/state/zzprobe-*.state`, then `bash tools/dev.sh down`, then `launchctl bootstrap gui/502 ~/Library/LaunchAgents/com.blink.bridge.plist` **and** `launchctl kickstart gui/502/com.blink.bridge` — bootstrap registers without starting.
-Expected: `blink status` shows the bridge running and the board found.
+Run: `rm -f ~/.overwatch/state/zzprobe-*.state`, then `bash tools/dev.sh down`, then `launchctl bootstrap gui/502 ~/Library/LaunchAgents/com.overwatch.bridge.plist` **and** `launchctl kickstart gui/502/com.overwatch.bridge` — bootstrap registers without starting.
+Expected: `overwatch status` shows the bridge running and the board found.
 
 - [ ] **Step 7: Record what was seen**
 

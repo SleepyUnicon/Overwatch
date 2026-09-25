@@ -44,13 +44,13 @@ names, so those two pins are not where you will look for them.
 ## Build
 
 ```sh
-export BLINK_ZEPHYR="$HOME/zephyrproject"     # see the zsh note below
+export OVERWATCH_ZEPHYR="$HOME/zephyrproject"     # see the zsh note below
 cd firmware
 west build -p always --sysbuild -d build-sb -b esp32_devkitc/esp32/procpu . -- \
   -DSB_CONFIG_BOOTLOADER_MCUBOOT=y -DUSE_CCACHE=0 \
   -DEXTRA_DTC_OVERLAY_FILE=boards/wired.overlay \
   -DEXTRA_CONF_FILE=wired.conf \
-  -DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="\"$HOME/.blink/ota_signing_key_p256.pem\""
+  -DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="\"$HOME/.overwatch/ota_signing_key_p256.pem\""
 ```
 
 Two files carry every difference from a CYD build:
@@ -59,7 +59,7 @@ Two files carry every difference from a CYD build:
   32 was measured on the CYD's own PCB; a 20 cm jumper has no ground plane
   under it and the panel never latches its init.
 - **`boards/wired.overlay`** also toggles the touch inversion - see below.
-- **`wired.conf`** - `CONFIG_BLINK_PANEL_PILOT=y`. Measured here: with the
+- **`wired.conf`** - `CONFIG_OVERWATCH_PANEL_PILOT=y`. Measured here: with the
   stock production correction (MADCTL MV|MY, BGR cleared) this module rendered
   MIRRORED, and turning the board 180 degrees did not undo it, which rules out
   rotation. The pilot path compiles that correction away and leaves the
@@ -86,7 +86,7 @@ half.
 
 **`tools/lib_zephyr.sh` fails under zsh.** It searches with `$HOME/zephyr-v*`,
 and zsh makes an unmatched glob a fatal error where bash leaves it literal.
-macOS has defaulted to zsh since Catalina. `export BLINK_ZEPHYR` to skip the
+macOS has defaulted to zsh since Catalina. `export OVERWATCH_ZEPHYR` to skip the
 search. (Upstream bug - a `setopt nullglob` or a `set -o noglob` guard would
 fix it.)
 
@@ -108,7 +108,7 @@ turn of the touch plane, not a scale or offset error - which is why toggling
 two flags fixed it and no recalibration was needed.
 
 The cause is this file's own panel change. The CYD overlay's `invert-x` was
-fitted against the PRODUCTION panel's MADCTL (MV|MY); `CONFIG_BLINK_PANEL_PILOT`
+fitted against the PRODUCTION panel's MADCTL (MV|MY); `CONFIG_OVERWATCH_PANEL_PILOT`
 leaves the driver's own (MV), so the display's row order flipped and the
 mapping solved against the old one stopped holding. Anyone turning the pilot
 flag on for a different module should expect to toggle these two as well.
@@ -121,28 +121,28 @@ same either side of the compensation.
 **The four ADC numbers were NOT refitted.** `min-x` / `max-x` / `min-y` /
 `max-y` in the CYD overlay were measured on one specific unit, and this module
 happens to land close enough that taps hit their targets. If a future panel
-does not, `firmware/trace.conf` builds with `CONFIG_BLINK_TOUCH_TRACE`, which
+does not, `firmware/trace.conf` builds with `CONFIG_OVERWATCH_TOUCH_TRACE`, which
 dumps every raw XPT2046 report as CSV over the console; `tools/touch_trace.py`
 captures it and `tools/touch_trace_analyze.py` reduces it.
 
 ## Running the daemon from source
 
-The packaged installer (`blink install`) expects the frozen binary. Built from
+The packaged installer (`overwatch install`) expects the frozen binary. Built from
 source, the two halves are installed by hand:
 
 ```sh
-mkdir -p ~/.blink/bin
-cp tools/blink-statusline.sh tools/blink-hook.sh ~/.blink/bin/
-chmod +x ~/.blink/bin/blink-*.sh
+mkdir -p ~/.overwatch/bin
+cp tools/overwatch-statusline.sh tools/overwatch-hook.sh ~/.overwatch/bin/
+chmod +x ~/.overwatch/bin/overwatch-*.sh
 
-cp ~/.claude/settings.json ~/.claude/settings.json.before-blink   # back up FIRST
+cp ~/.claude/settings.json ~/.claude/settings.json.before-overwatch   # back up FIRST
 
 python3 -c "
 import sys, os; sys.path.insert(0, '.')
 from pc import install_statusline, install_hooks
 S = os.path.expanduser('~/.claude/settings.json')
-print(install_statusline.install(S, os.path.expanduser('~/.blink/bin/blink-statusline.sh')))
-print(install_hooks.install(S, os.path.expanduser('~/.blink/bin/blink-hook.sh')))
+print(install_statusline.install(S, os.path.expanduser('~/.overwatch/bin/overwatch-statusline.sh')))
+print(install_hooks.install(S, os.path.expanduser('~/.overwatch/bin/overwatch-hook.sh')))
 "
 ```
 
@@ -151,8 +151,8 @@ chain an existing statusline instead of replacing it, and touch no key but
 their own. Adds `statusLine` and ten `hooks` events. `uninstall()` on the same
 two modules reverses it.
 
-The shims are POSIX sh and need nothing else - they write into `~/.blink/` and
-pass the payload through unchanged. Copying them to `~/.blink/bin` rather than
+The shims are POSIX sh and need nothing else - they write into `~/.overwatch/` and
+pass the payload through unchanged. Copying them to `~/.overwatch/bin` rather than
 pointing at the repo means moving the checkout does not break the hooks.
 
 **Settings are read at session start**, so a Claude Code session that was

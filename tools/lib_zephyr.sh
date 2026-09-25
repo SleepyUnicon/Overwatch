@@ -18,15 +18,15 @@
 # So a directory name that carries a version number is a claim this repo cannot
 # keep. Searching for a workspace costs nothing and does not go stale.
 #
-# BLINK_ZEPHYR wins if it is set, for a machine that keeps several. Otherwise
+# OVERWATCH_ZEPHYR wins if it is set, for a machine that keeps several. Otherwise
 # the first candidate that looks like a west workspace is taken, and "looks
 # like" means it holds the venv these scripts are about to source -- not merely
 # that a directory of that name exists. A half-finished checkout should read as
 # absent here, not as a workspace that then fails deep inside a build.
-blink_zephyr_ws() {
-	if [ -n "${BLINK_ZEPHYR:-}" ]; then
-		[ -f "$BLINK_ZEPHYR/.venv/bin/activate" ] || return 1
-		printf '%s\n' "$BLINK_ZEPHYR"
+overwatch_zephyr_ws() {
+	if [ -n "${OVERWATCH_ZEPHYR:-}" ]; then
+		[ -f "$OVERWATCH_ZEPHYR/.venv/bin/activate" ] || return 1
+		printf '%s\n' "$OVERWATCH_ZEPHYR"
 		return 0
 	fi
 	for _bz_d in "$HOME"/zephyrproject "$HOME"/zephyr-v* \
@@ -47,12 +47,12 @@ blink_zephyr_ws() {
 # empty operand and fails the configure with "Unknown arguments specified".
 # Older CMake tolerated the empty expansion, which is why this appears only on
 # newly set-up machines and never on one that has been building for a year.
-blink_zephyr_activate() {
-	_bz_ws=$(blink_zephyr_ws) || {
+overwatch_zephyr_activate() {
+	_bz_ws=$(overwatch_zephyr_ws) || {
 		echo "FATAL: no Zephyr workspace found." >&2
 		echo "       Looked for a directory holding .venv/bin/activate and zephyr/ under" >&2
 		echo "       ~/zephyrproject, ~/zephyr-v*, ~/Projects/zephyrproject, ~/Projects/zephyr-v*." >&2
-		echo "       Set BLINK_ZEPHYR to the workspace, or see firmware/README.md." >&2
+		echo "       Set OVERWATCH_ZEPHYR to the workspace, or see firmware/README.md." >&2
 		return 1
 	}
 	# shellcheck disable=SC1090

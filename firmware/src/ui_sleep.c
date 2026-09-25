@@ -77,7 +77,7 @@ static bool awake_now(void)
 /*
  * The face page's way out. Deliberately does NOT consult woken(): the user
  * asked for this screen, so a computer that happens to start talking again
- * must not yank it away mid-blink. Only a touch ends it.
+ * must not yank it away mid-overwatch. Only a touch ends it.
  */
 static bool tap_only(void)
 {

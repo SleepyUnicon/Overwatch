@@ -1,10 +1,10 @@
 #!/bin/sh
-# Build the `blink` program for THIS platform, as a directory: dist/blink/blink
-# (blink.exe on Windows) plus dist/blink/_internal/.
+# Build the `overwatch` program for THIS platform, as a directory: dist/overwatch/overwatch
+# (overwatch.exe on Windows) plus dist/overwatch/_internal/.
 #
 # One directory, not one file. A one-file build unpacks 50 MB into a temp
 # directory on every run, and macOS scans every file it writes: 5 to 11 s
-# before the first line of Python, on `blink status` and everything else
+# before the first line of Python, on `overwatch status` and everything else
 # (2026-08-29). tools/package_binary.py turns the directory into the archive
 # the feed serves.
 #
@@ -20,7 +20,7 @@ set -eu
 
 ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 OUT="${1:-$ROOT/dist}"
-BUILD="${TMPDIR:-/tmp}/blink-build"
+BUILD="${TMPDIR:-/tmp}/overwatch-build"
 
 # Find an interpreter that RUNS, not merely one that is on PATH.
 #
@@ -33,7 +33,7 @@ BUILD="${TMPDIR:-/tmp}/blink-build"
 #
 # So each candidate is executed, not just located, and the first that answers
 # with a new enough version wins. `py -3` is the Windows launcher, worth trying
-# last because it is absent everywhere else. BLINK_PYTHON is tried first, so a
+# last because it is absent everywhere else. OVERWATCH_PYTHON is tried first, so a
 # machine whose default interpreter is too old can name a better one without
 # editing this file -- the same override burn.sh and check_factory.sh take.
 #
@@ -56,7 +56,7 @@ PY_TRIED=""
 # bare `python3` is Apple's 3.9 and fails the floor, while a Homebrew or
 # python.org install is sitting right there under its own version. Newest
 # first, so a machine with several does not build on its oldest.
-for cand in ${BLINK_PYTHON:-} python3 python \
+for cand in ${OVERWATCH_PYTHON:-} python3 python \
             python3.14 python3.13 python3.12 python3.11 python3.10 py; do
 	command -v "$cand" >/dev/null 2>&1 || continue
 	ver=$("$cand" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null) || continue
@@ -70,8 +70,8 @@ done
 	echo "need python 3.10 or newer to build" >&2
 	echo "  tried:${PY_TRIED:- nothing that ran}" >&2
 	echo "  pc/requirements.txt pins esptool==5.3.1, which needs >= 3.10." >&2
-	echo "  Set BLINK_PYTHON to a newer interpreter, e.g." >&2
-	echo "    BLINK_PYTHON=python3.13 sh tools/build_binary.sh" >&2
+	echo "  Set OVERWATCH_PYTHON to a newer interpreter, e.g." >&2
+	echo "    OVERWATCH_PYTHON=python3.13 sh tools/build_binary.sh" >&2
 	exit 1
 }
 
@@ -170,19 +170,19 @@ MINGW* | MSYS* | CYGWIN*)
 		DRIVER_WIN=$(cygpath -w "$ROOT/vendor/ch341ser")
 		set -- "$@" --add-data "${DRIVER_WIN};drivers/ch341ser"
 		echo "bundling the CH340 driver from $DRIVER_WIN"
-	elif [ -n "${BLINK_ALLOW_NO_DRIVER:-}" ]; then
-		echo "no CH340 driver, and BLINK_ALLOW_NO_DRIVER is set: this build"
+	elif [ -n "${OVERWATCH_ALLOW_NO_DRIVER:-}" ]; then
+		echo "no CH340 driver, and OVERWATCH_ALLOW_NO_DRIVER is set: this build"
 		echo "  will tell customers to install it by hand"
 	else
 		# Fail, rather than quietly producing a Windows build that cannot
 		# set up a board. The driver is committed under vendor/ch341ser, so
 		# its absence means something is wrong with this checkout -- and the
-		# only symptom downstream is one line of `blink install` output,
+		# only symptom downstream is one line of `overwatch install` output,
 		# which is far too easy to miss on a release.
 		echo "FATAL: no CH340 driver at $ROOT/vendor/ch341ser" >&2
 		echo "  A Windows build without it cannot set up a customer's board." >&2
 		echo "  See vendor/ch341ser/README.md. To build anyway:" >&2
-		echo "    BLINK_ALLOW_NO_DRIVER=1 $0" >&2
+		echo "    OVERWATCH_ALLOW_NO_DRIVER=1 $0" >&2
 		exit 1
 	fi
 	;;
@@ -192,12 +192,12 @@ cd "$ROOT"
 "$VBIN/pyinstaller" \
 	--onedir \
 	--contents-directory _internal \
-	--name blink \
+	--name overwatch \
 	--distpath "$OUT" \
 	--workpath "$BUILD/work" \
 	--specpath "$BUILD" \
-	--add-data "$ROOT/tools/blink-statusline.sh:." \
-	--add-data "$ROOT/tools/blink-hook.sh:." \
+	--add-data "$ROOT/tools/overwatch-statusline.sh:." \
+	--add-data "$ROOT/tools/overwatch-hook.sh:." \
 	--collect-all esptool \
 	--collect-all bitstring \
 	--collect-all bitarray \
@@ -208,28 +208,28 @@ cd "$ROOT"
 	--hidden-import serial.tools.list_ports \
 	"$@" \
 	--noconfirm --clean \
-	blink_main.py >"$BUILD/pyinstaller.log" 2>&1 || {
+	overwatch_main.py >"$BUILD/pyinstaller.log" 2>&1 || {
 		tail -30 "$BUILD/pyinstaller.log" >&2
 		echo "FATAL: build failed; full log at $BUILD/pyinstaller.log" >&2
 		exit 1
 	}
 
-BUILT="$OUT/blink/blink"
-[ -f "$BUILT" ] || BUILT="$OUT/blink/blink.exe"
-[ -f "$BUILT" ] || { echo "FATAL: no executable under $OUT/blink" >&2; exit 1; }
+BUILT="$OUT/overwatch/overwatch"
+[ -f "$BUILT" ] || BUILT="$OUT/overwatch/overwatch.exe"
+[ -f "$BUILT" ] || { echo "FATAL: no executable under $OUT/overwatch" >&2; exit 1; }
 
 # --collect-all bitarray brings its own test suite and a C header along with
 # the backend. 0.4 MB that no customer will ever run or compile.
-rm -f "$OUT"/blink/_internal/bitarray/test_*.py \
-	"$OUT"/blink/_internal/bitarray/*.h
+rm -f "$OUT"/overwatch/_internal/bitarray/test_*.py \
+	"$OUT"/overwatch/_internal/bitarray/*.h
 
 # Nothing the daemon runs may pull these back in: a customer's download
 # would double, and the first sign would be the release's size, if anyone
 # looked. See the exclusions above.
 for gone in cryptography espefuse espsecure tibs; do
-	if [ -e "$OUT/blink/_internal/$gone" ]; then
+	if [ -e "$OUT/overwatch/_internal/$gone" ]; then
 		echo "FATAL: $gone ended up in the bundle; see the exclusions in $0" >&2
 		exit 1
 	fi
 done
-echo "built $BUILT ($(du -sh "$OUT/blink" | cut -f1))"
+echo "built $BUILT ($(du -sh "$OUT/overwatch" | cut -f1))"

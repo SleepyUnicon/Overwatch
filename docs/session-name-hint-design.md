@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02
 **Status:** design, not yet planned
-**Scope:** `tools/blink-hook.sh`, `pc/providers/claude_state.py`, `pc/providers/base.py`, `pc/protocol.py`, `firmware/src/proto.c`, `firmware/src/usage_view.c`
+**Scope:** `tools/overwatch-hook.sh`, `pc/providers/claude_state.py`, `pc/providers/base.py`, `pc/protocol.py`, `firmware/src/proto.c`, `firmware/src/usage_view.c`
 
 ---
 
@@ -42,7 +42,7 @@ so the line answers *which* session as well as *what*.
 Working
 Waiting for you - LiveClaudeUi
 Waiting for you - 3 sessions
-Session failed - Blink
+Session failed - Overwatch
 Reading is old - showing last known      (unchanged)
 Error - showing last known               (unchanged)
 HOST LOST - numbers are frozen           (unchanged)
@@ -125,7 +125,7 @@ literal; a project name removes that guarantee.
 
 ## The pieces
 
-### `tools/blink-hook.sh` — capture the directory name
+### `tools/overwatch-hook.sh` — capture the directory name
 
 The shim gains a second `sed` that extracts **only the final path segment** of
 `cwd`. The full path is never materialised, never written, and never sent:
@@ -369,11 +369,11 @@ requests collide.
 
 They stop colliding once the row is measured rather than assumed. On the old
 row: the clock `12:04` at montserrat_14 runs from x=10 to about x=47, and the
-brand `BLINK` is centred at 160 and about 47 px wide, so it starts near x=136.
+brand `OVERWATCH` is centred at 160 and about 47 px wide, so it starts near x=136.
 **The 89 px between them is empty and always has been.** The pips go there.
 
     10        47              56 ────── 130      136        184    270  296
-    |─clock──-|               |── pip row ──|    |── BLINK ──|     age  dot
+    |─clock──-|               |── pip row ──|    |── OVERWATCH ──|     age  dot
 
 With an 8 px gap either side the row has **75 px**, which at an 8 px pip on an
 11 px pitch holds **7 pips** — one more than the threshold below needs.

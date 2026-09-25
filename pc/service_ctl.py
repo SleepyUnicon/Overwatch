@@ -33,7 +33,7 @@ class Outcome(NamedTuple):
     This was a bare string, and the string for a skipped stop reads much like
     the string for a successful one -- which matters because a skip is
     reachable in a real run: tests/ci/check_install.sh documents exporting
-    BLINK_SKIP_SERVICE=1, and a fleet agent started from such a shell would
+    OVERWATCH_SKIP_SERVICE=1, and a fleet agent started from such a shell would
     stop nothing, be refused the port, and blame the board. start_service()
     would no-op in turn, so the desk is left perfectly healthy and there is no
     broken state to diagnose from afterwards.
@@ -52,7 +52,7 @@ class Outcome(NamedTuple):
 
 
 # The backends answer in prose, the way all their sibling methods do -- these
-# are the phrases `blink status` and `blink install` print. Rather than teach
+# are the phrases `overwatch status` and `overwatch install` print. Rather than teach
 # four classes a new return type for two methods, the openings that mean "the
 # port is free" (or "the service is back") are named here, and pinned by a
 # test so a reworded backend cannot quietly start reporting failure.
@@ -75,13 +75,13 @@ def start_service(runner=None) -> Outcome:
 
 
 def _safely(verb: str, runner) -> Outcome:
-    # BLINK_SKIP_SERVICE is honoured for the same reason restart_service()
+    # OVERWATCH_SKIP_SERVICE is honoured for the same reason restart_service()
     # honours it: every test in this repository sets it, and the login
     # service is the one piece of state that is NOT scoped to $HOME -- so
     # without this a test under a temporary HOME could still stop the agent
     # of whoever is logged in.
     if cli._skip_service():
-        return Outcome(False, True, "skipped (BLINK_SKIP_SERVICE=1)")
+        return Outcome(False, True, "skipped (OVERWATCH_SKIP_SERVICE=1)")
     try:
         detail = getattr(cli.backend(), verb)(runner or cli.subprocess.run)
         # Inside the try, not after it: the backends answer in prose today,

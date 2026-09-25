@@ -18,9 +18,9 @@ PACKAGER = os.path.join(ROOT, "tools", "package_binary.py")
 
 def make_bundle(root):
     os.makedirs(os.path.join(root, "_internal", "Fw", "Versions", "3.11"))
-    with open(os.path.join(root, "blink"), "w") as f:
-        f.write("#!/bin/sh\necho blink 9.9.9\n")
-    os.chmod(os.path.join(root, "blink"), 0o755)
+    with open(os.path.join(root, "overwatch"), "w") as f:
+        f.write("#!/bin/sh\necho overwatch 9.9.9\n")
+    os.chmod(os.path.join(root, "overwatch"), 0o755)
     with open(os.path.join(root, "_internal", "Fw", "Versions", "3.11", "lib"), "w") as f:
         f.write("lib")
     os.symlink("3.11", os.path.join(root, "_internal", "Fw", "Versions", "Current"))
@@ -30,8 +30,8 @@ def make_bundle(root):
 @unittest.skipIf(sys.platform == "win32", "symlinks are a POSIX bundle's shape")
 class TestRoundTrip(unittest.TestCase):
     def setUp(self):
-        self.d = tempfile.mkdtemp(prefix="blink-pkg-")
-        self.src = os.path.join(self.d, "blink")
+        self.d = tempfile.mkdtemp(prefix="overwatch-pkg-")
+        self.src = os.path.join(self.d, "overwatch")
         make_bundle(self.src)
 
     def tearDown(self):
@@ -41,7 +41,7 @@ class TestRoundTrip(unittest.TestCase):
     def test_symlinks_survive_packaging_and_unpacking(self):
         out = subprocess.run([sys.executable, PACKAGER, "linux-x86_64", self.src, self.d],
                              capture_output=True, text=True, check=True).stdout.strip()
-        self.assertTrue(out.endswith("blink-linux-x86_64.tar.gz"))
+        self.assertTrue(out.endswith("overwatch-linux-x86_64.tar.gz"))
         into = os.path.join(self.d, "unpacked")
         update.unpack(open(out, "rb").read(), into)
         cur = os.path.join(into, "_internal", "Fw", "Versions", "Current")
@@ -49,14 +49,14 @@ class TestRoundTrip(unittest.TestCase):
         self.assertEqual(os.readlink(cur), "3.11")
         # The chain resolves: the file is reachable through both links.
         self.assertEqual(open(os.path.join(into, "_internal", "Fw", "lib")).read(), "lib")
-        self.assertTrue(os.access(os.path.join(into, "blink"), os.X_OK))
+        self.assertTrue(os.access(os.path.join(into, "overwatch"), os.X_OK))
 
     def test_a_symlink_pointing_outside_is_refused(self):
         import io
         import tarfile
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as t:
-            info = tarfile.TarInfo("blink/escape")
+            info = tarfile.TarInfo("overwatch/escape")
             info.type = tarfile.SYMTYPE
             info.linkname = "../../outside"
             t.addfile(info)

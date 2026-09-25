@@ -30,7 +30,7 @@ apparatus to ask the question again. Two details it is worth keeping with it:
     deliberately.
 
 The extension, the `pc/webbridge.py` receiver, `ClaudeWebProvider`, their
-tests and the `Browser` line in `blink status` were all removed on
+tests and the `Browser` line in `overwatch status` were all removed on
 2026-08-28. Three things paid for a source that returns nothing: a listening
 socket open on loopback for the daemon's whole life — the only one this
 product had — an install that asks a buyer to grant a browser extension read
@@ -47,7 +47,7 @@ plan: it sends someone to build a thing twice.
 
 ### What was built
 
-`tools/blink-hook.sh` writes one file per session (`~/.blink/state/<id>.state`)
+`tools/overwatch-hook.sh` writes one file per session (`~/.overwatch/state/<id>.state`)
 and one per agent, so two terminals no longer overwrite each other.
 `pc/providers/claude_state.py` reads the directory, derives a state per session
 from the last event, sweeps what has died, and reports the worst of them plus
@@ -146,7 +146,7 @@ fingertip.
 A second SKU: same board, same firmware image, same wordmark, **different boot
 clip and nothing else**. Which one a unit plays lives on the UNIT — an
 `edition` byte in the sealed config record, written once over USB with
-`blink provision --edition codex|claude`, read once at boot by
+`overwatch provision --edition codex|claude`, read once at boot by
 `bootclip_active()`.
 
 A build-time flag was rejected because it forks OTA: the manifest names one
@@ -160,7 +160,7 @@ compiled in instead; the second costs 17 KB on an image using 601 KB of 4 MB.
     `edition_locked` and every later one returns `-EPERM`. "Not reachable from
     the settings screen" was being treated as the whole enforcement and is not
     — the message arrives over USB from whatever is on the other end of the
-    cable, and `blink provision` is the same binary the customer installs.
+    cable, and `overwatch provision` is the same binary the customer installs.
   - **The edition survives `cfg_reset()`.** Factory reset used to wipe the
     whole record, which made the settings menu a second route to the same
     change: reset, re-provision, and a Codex box plays the Claude clip. Two
@@ -199,15 +199,15 @@ Everything with a section of its own is closed. What is left is not
 implementation:
 
 1. **Decided, 2026-08-28** (the README's "Decisions" table is the public
-   record): the name is **BLINK**, everywhere, repository included; a config
+   record): the name is **OVERWATCH**, everywhere, repository included; a config
    record from before the edition latch migrates **latched as Claude**, since
    every fielded unit is a Claude unit and the open reading would have handed
-   each owner `blink provision --edition codex`; `daemon.auto` ships **off**;
+   each owner `overwatch provision --edition codex`; `daemon.auto` ships **off**;
    the Codex clip's ground is now `#4C82A8` (4.15:1 against white, up from
    2.31:1).
 
    Still open: the Claude Desktop cache path on Windows and Linux -- an
-   Electron convention, never observed; `blink status` names the path it
+   Electron convention, never observed; `overwatch status` names the path it
    looked at, and one run beside a signed-in Desktop settles it; macOS
    notarisation (needs an Apple developer account); a board
    id on the settings screen; the disclosure question on the five known
@@ -223,7 +223,7 @@ implementation:
 
 Smaller, still open:
 
-- **`blink status` says nothing about which providers are reporting.** With
+- **`overwatch status` says nothing about which providers are reporting.** With
   two on the wire and a preference living on the board, "Usage data fresh
   (1s old)" is less than it could say.
 - **The wire carries float noise** — `session_pct: 14.000000000000002` was
@@ -286,7 +286,7 @@ two-digit tally, which is the case the numeral's Y actually matters in).
 the image they were taken from changed.
 
 **The hour took the row (2026-09-02, later the same day).** The line under
-BLINK read "Working" over a row of green pips — the panel spending its one
+OVERWATCH read "Working" over a row of green pips — the panel spending its one
 sentence to repeat what colour already said. It shows the time instead, and
 yields to a sentence only while something wants a person: a failed turn, a
 wedged session, an open prompt. "Finished" stays a pip on the owner's call —
@@ -308,7 +308,7 @@ against real LVGL. Six pips read as six. Four count groups fit. Two 9999
 groups fit and the rest are dropped by the wall guard rather than crossing it.
 
 Two numbers were wrong and are now derived rather than typed:
-`BRAND_W` — "BLINK" measures 52 px at montserrat_14 with the letter_space of
+`BRAND_W` — "OVERWATCH" measures 52 px at montserrat_14 with the letter_space of
 2 the code sets, so the wordmark starts at 134, not the 136 a comment claimed
 from a tracking value this code has never used. The clock's worst case was 49,
 not 47. Both errors ran in the direction that eats the row's clearance.

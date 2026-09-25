@@ -70,14 +70,14 @@ def icon_for(app):
 
 
 def _config_path():
-    """~/.blink/apps.json -- resolved HERE, never at module scope.
+    """~/.overwatch/apps.json -- resolved HERE, never at module scope.
 
     CLAUDE.md records why: a constant computed with expanduser("~") at import
     is evaluated before conftest.py can redirect HOME, so it points at the real
     home no matter what the fixture does. A test that wrote one would edit the
     developer's own file.
     """
-    return os.path.join(os.path.expanduser("~"), ".blink", "apps.json")
+    return os.path.join(os.path.expanduser("~"), ".overwatch", "apps.json")
 
 
 def _short(name):
@@ -91,7 +91,7 @@ def _short(name):
 
 
 def load_apps():
-    """The six slots, from ~/.blink/apps.json when it exists.
+    """The six slots, from ~/.overwatch/apps.json when it exists.
 
     A malformed or unreadable file falls back to the defaults rather than
     raising. The daemon is a login agent: a customer who hand-edits this file

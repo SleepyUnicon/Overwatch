@@ -1,6 +1,6 @@
 """The two env hooks the fleet tests drive the real daemon with.
 
-BLINK_SCENARIO swaps the usage source; BLINK_TAP records the serial link.
+OVERWATCH_SCENARIO swaps the usage source; OVERWATCH_TAP records the serial link.
 Both must be invisible to a customer who sets neither, so the inert case is
 tested as deliberately as the active one.
 """
@@ -133,20 +133,20 @@ def test_undecodable_console_bytes_do_not_raise(tmp_path):
 def test_scenario_env_selects_the_scripted_provider(tmp_path, monkeypatch):
     scen = tmp_path / "s.json"
     scen.write_text(json.dumps({"name": "t", "steps": []}), encoding="utf-8")
-    monkeypatch.setenv("BLINK_SCENARIO", str(scen))
+    monkeypatch.setenv("OVERWATCH_SCENARIO", str(scen))
 
     assert cub.build_bus().provider_ids() == ["scripted"]
 
 
 def test_no_scenario_env_keeps_the_real_providers(monkeypatch):
-    monkeypatch.delenv("BLINK_SCENARIO", raising=False)
+    monkeypatch.delenv("OVERWATCH_SCENARIO", raising=False)
 
     ids = cub.build_bus().provider_ids()
     assert "claude" in ids
 
 
 def test_without_the_env_the_poll_interval_is_the_shipped_default(monkeypatch):
-    monkeypatch.delenv("BLINK_POLL_INTERVAL_S", raising=False)
+    monkeypatch.delenv("OVERWATCH_POLL_INTERVAL_S", raising=False)
 
     # The customer path is the constant, untouched.
     assert cub.POLL_INTERVAL_S == 60
@@ -156,13 +156,13 @@ def test_without_the_env_the_poll_interval_is_the_shipped_default(monkeypatch):
 def test_the_poll_interval_can_be_shortened_for_a_scenario_timeline(monkeypatch):
     # A scenario is a timeline. At one poll a minute a thirty-second scenario
     # emits a single usage frame, so the sequence under test never happens.
-    monkeypatch.setenv("BLINK_POLL_INTERVAL_S", "3")
+    monkeypatch.setenv("OVERWATCH_POLL_INTERVAL_S", "3")
 
     assert cub.poll_interval() == 3
 
 
 def test_a_fractional_poll_interval_is_honoured(monkeypatch):
-    monkeypatch.setenv("BLINK_POLL_INTERVAL_S", "2.5")
+    monkeypatch.setenv("OVERWATCH_POLL_INTERVAL_S", "2.5")
 
     assert cub.poll_interval() == 2.5
 
@@ -180,15 +180,15 @@ def test_a_nonsense_poll_interval_falls_back_and_says_so(
     # usage again with nothing anywhere saying why. Note nan <= 0 is False,
     # so a bare positivity check does not catch it. "1e400" is the same trap
     # spelled as a number a person might plausibly type.
-    monkeypatch.setenv("BLINK_POLL_INTERVAL_S", junk)
+    monkeypatch.setenv("OVERWATCH_POLL_INTERVAL_S", junk)
 
     assert cub.poll_interval() == 60
-    assert "BLINK_POLL_INTERVAL_S" in capsys.readouterr().err
+    assert "OVERWATCH_POLL_INTERVAL_S" in capsys.readouterr().err
 
 
-def test_without_blink_tap_nothing_is_wrapped_and_no_file_appears(
+def test_without_overwatch_tap_nothing_is_wrapped_and_no_file_appears(
         tmp_path, monkeypatch):
-    monkeypatch.delenv("BLINK_TAP", raising=False)
+    monkeypatch.delenv("OVERWATCH_TAP", raising=False)
     monkeypatch.chdir(tmp_path)
 
     def write(m):
@@ -205,9 +205,9 @@ def test_without_blink_tap_nothing_is_wrapped_and_no_file_appears(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_blink_tap_installs_the_tap(tmp_path, monkeypatch):
+def test_overwatch_tap_installs_the_tap(tmp_path, monkeypatch):
     path = tmp_path / "tap.jsonl"
-    monkeypatch.setenv("BLINK_TAP", str(path))
+    monkeypatch.setenv("OVERWATCH_TAP", str(path))
     sent = []
 
     tap, write2, _ = cub.install_tap(_like_send(sent), lambda m: None)
@@ -299,7 +299,7 @@ def test_one_tap_spans_the_probe_and_the_read_loop(tmp_path):
 
 def test_the_probe_is_unchanged_for_anyone_not_recording(tmp_path,
                                                          monkeypatch):
-    monkeypatch.delenv("BLINK_TAP", raising=False)
+    monkeypatch.delenv("OVERWATCH_TAP", raising=False)
     monkeypatch.chdir(tmp_path)
     port = _FakeSerial([WAKE_CHUNK])
 
@@ -310,7 +310,7 @@ def test_the_probe_is_unchanged_for_anyone_not_recording(tmp_path,
 
 
 def test_open_tap_follows_the_env(tmp_path, monkeypatch):
-    monkeypatch.setenv("BLINK_TAP", str(tmp_path / "tap.jsonl"))
+    monkeypatch.setenv("OVERWATCH_TAP", str(tmp_path / "tap.jsonl"))
     tap = cub.open_tap()
     assert tap is not None
     tap.console(b"hello\n")

@@ -142,7 +142,7 @@ static lv_obj_t *ring(lv_obj_t *p, int cx, int y, int sz, int wdt, double pct,
 static void header(lv_obj_t *s, const char *note)
 {
 	lbl(s, "23:47", COL_DIM, NULL, LV_ALIGN_TOP_LEFT, 10, 8);
-	lv_obj_t *b = lbl(s, "BLINK", COL_DIM, NULL, LV_ALIGN_TOP_MID, 0, 8);
+	lv_obj_t *b = lbl(s, "OVERWATCH", COL_DIM, NULL, LV_ALIGN_TOP_MID, 0, 8);
 
 	lv_obj_set_style_text_letter_space(b, 2, 0);
 

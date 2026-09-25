@@ -51,7 +51,7 @@ def _read(tmp_path):
 def test_install_points_the_statusline_at_the_shim(tmp_path, capsys):
     _settings(tmp_path, {})
     assert cli.main(["install"]) == 0
-    shim = tmp_path / ".blink" / "blink-statusline.sh"
+    shim = tmp_path / ".overwatch" / "overwatch-statusline.sh"
     assert shim.exists() and os.access(shim, os.X_OK)
     assert (_read(tmp_path)["statusLine"]["command"]
             == cli.install_statusline.statusline_command(str(shim)))
@@ -61,14 +61,14 @@ def test_bare_invocation_installs(tmp_path):
     """Someone who downloads a file and runs it means "set this up"."""
     _settings(tmp_path, {})
     assert cli.main([]) == 0
-    assert (tmp_path / ".blink" / "blink-statusline.sh").exists()
+    assert (tmp_path / ".overwatch" / "overwatch-statusline.sh").exists()
 
 
 def test_an_existing_statusline_is_kept_and_still_runs(tmp_path):
     _settings(tmp_path, {"statusLine": {"type": "command",
                                         "command": "sh ~/my-bar.sh"}})
     cli.main(["install"])
-    chain = (tmp_path / ".blink" / "statusline-chain").read_text().strip()
+    chain = (tmp_path / ".overwatch" / "statusline-chain").read_text().strip()
     assert chain == "sh ~/my-bar.sh"
 
 
@@ -137,7 +137,7 @@ def test_install_is_idempotent(tmp_path):
                                         "command": "sh ~/my-bar.sh"}})
     cli.main(["install"])
     cli.main(["install"])
-    chain = (tmp_path / ".blink" / "statusline-chain").read_text().strip()
+    chain = (tmp_path / ".overwatch" / "statusline-chain").read_text().strip()
     assert chain == "sh ~/my-bar.sh", "second run chained the shim to itself"
 
 
@@ -147,12 +147,12 @@ def test_uninstall_restores_their_command(tmp_path):
     cli.main(["install"])
     cli.main(["uninstall"])
     assert _read(tmp_path)["statusLine"]["command"] == "sh ~/my-bar.sh"
-    assert not (tmp_path / ".blink" / "blink-statusline.sh").exists()
+    assert not (tmp_path / ".overwatch" / "overwatch-statusline.sh").exists()
 
 
 def test_uninstall_keeps_the_ota_signing_key(tmp_path):
-    """~/.blink is shared with a key that cannot be regenerated."""
-    key = tmp_path / ".blink" / "ota_signing_key_p256.pem"
+    """~/.overwatch is shared with a key that cannot be regenerated."""
+    key = tmp_path / ".overwatch" / "ota_signing_key_p256.pem"
     key.parent.mkdir(exist_ok=True)
     key.write_text("PRIVATE KEY")
     _settings(tmp_path, {})
@@ -172,7 +172,7 @@ def test_install_on_a_machine_where_claude_never_wrote_settings(tmp_path):
     """~/.claude/settings.json only exists once a setting has been changed."""
     _settings(tmp_path).unlink(missing_ok=True)
     assert cli.main(["install"]) == 0
-    assert "blink-statusline.sh" in _read(tmp_path)["statusLine"]["command"]
+    assert "overwatch-statusline.sh" in _read(tmp_path)["statusLine"]["command"]
 
 
 def test_status_runs_before_and_after_install(tmp_path, capsys):
@@ -180,7 +180,7 @@ def test_status_runs_before_and_after_install(tmp_path, capsys):
     assert "none yet" in capsys.readouterr().out
     _settings(tmp_path, {})
     cli.main(["install"])
-    (tmp_path / ".blink" / "statusline.json").write_text("{}")
+    (tmp_path / ".overwatch" / "statusline.json").write_text("{}")
     assert cli.main(["status"]) == 0
     assert "fresh" in capsys.readouterr().out
 
@@ -190,8 +190,8 @@ def test_the_shim_it_writes_is_the_one_in_the_tree(tmp_path):
     _settings(tmp_path, {})
     cli.main(["install"])
     here = os.path.dirname(os.path.dirname(os.path.abspath(cli.__file__)))
-    src = open(os.path.join(here, "tools", "blink-statusline.sh")).read()
-    assert (tmp_path / ".blink" / "blink-statusline.sh").read_text() == src
+    src = open(os.path.join(here, "tools", "overwatch-statusline.sh")).read()
+    assert (tmp_path / ".overwatch" / "overwatch-statusline.sh").read_text() == src
 
 
 def test_too_old_claude_warns_rather_than_refusing(tmp_path, capsys, monkeypatch):
@@ -205,7 +205,7 @@ def test_too_old_claude_warns_rather_than_refusing(tmp_path, capsys, monkeypatch
 
 
 def test_run_does_not_hand_the_subcommand_name_to_the_daemon(monkeypatch):
-    """`blink run` must not leave "run" in the daemon's own argv.
+    """`overwatch run` must not leave "run" in the daemon's own argv.
 
     It did: claude_usage_bridge.main() parsed sys.argv itself, saw the
     subcommand name, rejected it and exited. The login service restarted it
@@ -390,7 +390,7 @@ def test_live_sessions_counts_real_sessions_not_zero(tmp_path):
     sessions forever, on every machine, whether or not hooks are installed.
     Nothing else in this suite calls _live_sessions(), so this is the only
     test that would have caught that regression."""
-    state_dir = tmp_path / ".blink" / "state"
+    state_dir = tmp_path / ".overwatch" / "state"
     state_dir.mkdir(parents=True)
     (state_dir / "s1.state").write_text(
         json.dumps({"event": "PreToolUse", "t": time.time()}))
@@ -573,7 +573,7 @@ def test_install_creates_the_codex_state_directory_private(monkeypatch):
     monkeypatch.setattr(cli.install_codex_hooks, "install",
                         lambda p, s: "installed (10 events).")
     cli._install_codex_hooks()
-    d = os.path.join(cli.blink_home(), "state-codex")
+    d = os.path.join(cli.overwatch_home(), "state-codex")
     assert os.path.isdir(d)
     if os.name != "nt":
         assert stat.S_IMODE(os.stat(d).st_mode) == 0o700
@@ -583,7 +583,7 @@ def test_uninstall_removes_the_codex_slots_too(tmp_path):
     """A left-behind slot directory is not litter, it is a lie: the daemon
     would go on counting sessions from a tool it no longer hooks."""
     for sub in ("state", "state-codex"):
-        d = os.path.join(cli.blink_home(), sub)
+        d = os.path.join(cli.overwatch_home(), sub)
         os.makedirs(os.path.join(d, "sess-1"), exist_ok=True)
         with open(os.path.join(d, "sess-1.state"), "w") as f:
             f.write("{}")
@@ -593,7 +593,7 @@ def test_uninstall_removes_the_codex_slots_too(tmp_path):
     cli._rm_state_dir()
 
     for sub in ("state", "state-codex"):
-        d = os.path.join(cli.blink_home(), sub)
+        d = os.path.join(cli.overwatch_home(), sub)
         assert not os.path.exists(os.path.join(d, "sess-1.state"))
         assert not os.path.exists(os.path.join(d, "sess-1"))
 
@@ -669,7 +669,7 @@ def test_status_reports_a_registered_hook_that_has_never_fired(monkeypatch):
     `codex exec` a distrusted hook is skipped with no prompt and no output at
     all, so there is nothing else anywhere to see."""
     monkeypatch.setattr(cli.install_codex_hooks, "_read_marker",
-                        lambda: {"sh /x/blink-hook.sh Stop codex"})
+                        lambda: {"sh /x/overwatch-hook.sh Stop codex"})
     monkeypatch.setattr(cli.codex_state, "scan",
                         lambda now, path=None, sweep=True: ({}, 0))
     lines = cli._codex_hook_status()
@@ -678,7 +678,7 @@ def test_status_reports_a_registered_hook_that_has_never_fired(monkeypatch):
 
 def test_status_reports_live_codex_sessions(monkeypatch):
     monkeypatch.setattr(cli.install_codex_hooks, "_read_marker",
-                        lambda: {"sh /x/blink-hook.sh Stop codex"})
+                        lambda: {"sh /x/overwatch-hook.sh Stop codex"})
     monkeypatch.setattr(cli.codex_state, "scan",
                         lambda now, path=None, sweep=True: (
                             {"a": "running", "b": "waiting"}, 0))
@@ -692,7 +692,7 @@ def test_status_does_not_blame_the_trust_prompt_for_slots_it_cannot_read(
     unreadable directory as 'never written anything' sends someone to Codex's
     trust prompt to fix a permissions problem, and it will not be there."""
     monkeypatch.setattr(cli.install_codex_hooks, "_read_marker",
-                        lambda: {"sh /x/blink-hook.sh Stop codex"})
+                        lambda: {"sh /x/overwatch-hook.sh Stop codex"})
 
     def boom(now, path=None, sweep=True):
         raise OSError("permission denied")
@@ -719,7 +719,7 @@ def test_status_does_not_sweep_the_codex_slots(tmp_path):
     sessions = tmp_path / ".codex" / "sessions" / "2026" / "09" / "04"
     sessions.mkdir(parents=True)
     (sessions / "rollout-2026-09-04T00-00-00-abc.jsonl").write_text("")
-    slots = tmp_path / ".blink" / "state-codex"
+    slots = tmp_path / ".overwatch" / "state-codex"
     slots.mkdir(parents=True)
     # Older than claude_state.ABANDONED_AFTER_S, so a sweep would collect it.
     slot = slots / "sess-old.state"
@@ -727,14 +727,14 @@ def test_status_does_not_sweep_the_codex_slots(tmp_path):
 
     assert cli.main(["status"]) == 0
 
-    assert slot.exists(), "`blink status` swept the slots it was reporting on"
+    assert slot.exists(), "`overwatch status` swept the slots it was reporting on"
 
 
 # --- the board running ahead of this app -------------------------------------
 #
 # The line fires on a comparison against THIS APP, so it also fires when the app
 # is already the newest thing published -- every developer's desk from the first
-# local build onwards. `blink status` does not touch the network on purpose (it
+# local build onwards. `overwatch status` does not touch the network on purpose (it
 # has to work on a plane, and it is the first thing anyone runs when nothing
 # works), so it cannot tell those apart and must not pretend to.
 
@@ -742,7 +742,7 @@ def _board_lines_for(fw):
     from pc.cli import board_lines
     return "\n".join(board_lines({"port": "/dev/x", "board_id": "abc",
                                   "fw": fw},
-                                 [("/dev/x", "CH340")], (), "blink"))
+                                 [("/dev/x", "CH340")], (), "overwatch"))
 
 
 def test_a_board_ahead_names_both_possibilities():
@@ -750,7 +750,7 @@ def test_a_board_ahead_names_both_possibilities():
     a, b, c = RELEASE_VERSION.split(".")
     out = _board_lines_for(f"{a}.{b}.{int(c) + 1}")
     assert "they ship together" in out
-    assert "blink update" in out
+    assert "overwatch update" in out
     # The half that was missing: the command can find nothing, and then the
     # board is simply ahead of the feed rather than the app being behind it.
     assert "ahead of the published release" in out

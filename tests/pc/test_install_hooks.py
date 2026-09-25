@@ -6,7 +6,7 @@ import pytest
 from pc import install_hooks as ih
 from pc.install_statusline import SettingsUnreadable
 
-SHIM = "/opt/blink/blink-hook.sh"
+SHIM = "/opt/overwatch/overwatch-hook.sh"
 
 
 @pytest.fixture
@@ -108,13 +108,13 @@ def test_uninstall_leaves_no_empty_scaffolding(settings):
 
 
 def test_uninstall_on_a_clean_file_is_a_no_op(settings):
-    assert "No Blink state hooks" in ih.uninstall(settings, SHIM)
+    assert "No Overwatch state hooks" in ih.uninstall(settings, SHIM)
 
 
 def test_uninstall_works_from_the_marker_after_the_shim_moved(settings):
     """An update moves the binary; uninstall must still recognise its own."""
     ih.install(settings, SHIM)
-    assert "removed" in ih.uninstall(settings, "/somewhere/else/blink-hook.sh")
+    assert "removed" in ih.uninstall(settings, "/somewhere/else/overwatch-hook.sh")
     assert _commands(settings, "PreToolUse") == []
 
 
@@ -150,8 +150,8 @@ def test_unrelated_keys_are_never_rewritten(settings):
 
 def test_a_moved_shim_repoints_every_hook(tmp_path):
     p = str(tmp_path / "settings.json")
-    old_shim = str(tmp_path / "old" / "blink-hook.sh")
-    new_shim = str(tmp_path / "new" / "blink-hook.sh")
+    old_shim = str(tmp_path / "old" / "overwatch-hook.sh")
+    new_shim = str(tmp_path / "new" / "overwatch-hook.sh")
 
     ih.install(p, old_shim)
     first = json.loads(open(p).read())["hooks"]
@@ -205,10 +205,10 @@ def test_windows_commands_are_ascii_even_under_a_non_ascii_profile(monkeypatch):
     from pc import install_statusline as isl
     monkeypatch.setattr(sys, "platform", "win32")
     monkeypatch.setattr(os.path, "expanduser", lambda p: "C:\\Users\\\u05de\u05e9")
-    cmd = ih.hook_command("C:\\Users\\\u05de\u05e9\\.blink\\blink-hook.sh", "PreToolUse")
-    assert cmd == 'bash "$USERPROFILE/.blink/blink-hook.sh" PreToolUse'
+    cmd = ih.hook_command("C:\\Users\\\u05de\u05e9\\.overwatch\\overwatch-hook.sh", "PreToolUse")
+    assert cmd == 'bash "$USERPROFILE/.overwatch/overwatch-hook.sh" PreToolUse'
     assert cmd.isascii()
-    sl = isl.statusline_command("C:\\Users\\\u05de\u05e9\\.blink\\blink-statusline.sh")
-    assert sl == 'bash "$USERPROFILE/.blink/blink-statusline.sh"'
+    sl = isl.statusline_command("C:\\Users\\\u05de\u05e9\\.overwatch\\overwatch-statusline.sh")
+    assert sl == 'bash "$USERPROFILE/.overwatch/overwatch-statusline.sh"'
     # A shim somewhere else keeps its own path, forward-slashed and quoted.
     assert ih.hook_command("D:\\tools\\hook.sh", "Stop") == "bash D:/tools/hook.sh Stop"

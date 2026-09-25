@@ -66,7 +66,7 @@
  * pip row's clearance, which is why this is now a constant the layout test
  * asserts rather than prose nobody re-derives.
  */
-/* OVERWATCH, not BLINK, so this is no longer the hand-summed 52 the comment
+/* OVERWATCH, not OVERWATCH, so this is no longer the hand-summed 52 the comment
  * above derives. 110 is measured off a render rather than added up from the
  * font's advance table - it is nine glyphs instead of five and the arithmetic
  * stopped being worth trusting. Its only consumer is the layout host test's
@@ -181,7 +181,7 @@
  * what pushed those countdowns to a width that had to carry "claude  6d 22h"
  * instead of just a duration.
  *
- * It belongs under BLINK because that is the header's job: what you are
+ * It belongs under OVERWATCH because that is the header's job: what you are
  * looking at. The gauges then say only how much and how long.
  *
  * BOUNDED, not auto-sized. A label left to size itself grows with its text,

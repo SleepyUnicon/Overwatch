@@ -1,6 +1,6 @@
-"""Registering Blink's shim with Codex, and never damaging its config.
+"""Registering Overwatch's shim with Codex, and never damaging its config.
 
-Nothing here may touch a real ~/.codex or a real ~/.blink. tests/conftest.py
+Nothing here may touch a real ~/.codex or a real ~/.overwatch. tests/conftest.py
 redirects HOME and USERPROFILE at every test, which covers the marker file;
 CODEX_HOME is an environment variable that fixture knows nothing about, so it
 is cleared below -- on a machine that sets it, codex_home() would otherwise
@@ -14,7 +14,7 @@ import pytest
 from pc import install_codex_hooks as ich
 from pc.install_statusline import SettingsUnreadable
 
-SHIM = "/home/k/.blink/blink-hook.sh"
+SHIM = "/home/k/.overwatch/overwatch-hook.sh"
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def _write(p, events):
 
 
 def test_the_command_carries_the_codex_argument():
-    """Without it the shim writes Codex sessions into ~/.blink/state and the
+    """Without it the shim writes Codex sessions into ~/.overwatch/state and the
     board reports them as Claude ones."""
     cmd = ich.hook_command(SHIM, "PreToolUse")
     assert cmd.endswith("PreToolUse codex")
@@ -52,7 +52,7 @@ def test_install_writes_one_group_per_event(tmp_path):
     assert group["matcher"] == "*"
     assert group["hooks"] == [{
         "type": "command",
-        "command": "sh /home/k/.blink/blink-hook.sh PreToolUse codex"}]
+        "command": "sh /home/k/.overwatch/overwatch-hook.sh PreToolUse codex"}]
     assert "matcher" not in events["Stop"][0], \
         "events that take no matcher must not be given one"
 
@@ -94,17 +94,17 @@ def test_install_is_idempotent(tmp_path):
 
 
 def test_install_repoints_a_moved_shim(tmp_path):
-    """What `blink update` does every time it moves the binary. Without this
+    """What `overwatch update` does every time it moves the binary. Without this
     the old entries are orphaned: invisible to uninstall, still invoking a
     script that is not there, and a third install appends a duplicate."""
     p = tmp_path / "hooks.json"
-    ich.install(str(p), "/old/blink-hook.sh")
-    msg = ich.install(str(p), "/new/blink-hook.sh")
+    ich.install(str(p), "/old/overwatch-hook.sh")
+    msg = ich.install(str(p), "/new/overwatch-hook.sh")
 
     events = _read(p)
     assert len(events["PreToolUse"]) == 1
     assert events["PreToolUse"][0]["hooks"][0]["command"] == \
-        "sh /new/blink-hook.sh PreToolUse codex"
+        "sh /new/overwatch-hook.sh PreToolUse codex"
     assert "repointed" in msg
 
 
@@ -119,7 +119,7 @@ def test_install_never_touches_someone_elses_hook(tmp_path):
     events = _read(p)
     commands = [h["command"] for g in events["PreToolUse"] for h in g["hooks"]]
     assert "/usr/local/bin/audit.sh" in commands
-    assert "sh /home/k/.blink/blink-hook.sh PreToolUse codex" in commands
+    assert "sh /home/k/.overwatch/overwatch-hook.sh PreToolUse codex" in commands
 
 
 def test_install_keeps_the_rest_of_the_file(tmp_path):
@@ -143,7 +143,7 @@ def test_install_leaves_a_shared_groups_matcher_alone(tmp_path):
     shared = {"matcher": "Bash", "hooks": [
         {"type": "command", "command": "/usr/local/bin/audit.sh"},
         {"type": "command",
-         "command": "sh /home/k/.blink/blink-hook.sh PreToolUse codex"}]}
+         "command": "sh /home/k/.overwatch/overwatch-hook.sh PreToolUse codex"}]}
     _write(p, {"PreToolUse": [shared]})
 
     ich.install(str(p), SHIM)
@@ -165,7 +165,7 @@ def test_install_steps_over_a_group_it_cannot_read(tmp_path):
     assert "not a group" in events["PreToolUse"]
     commands = [h["command"] for g in events["PreToolUse"]
                 if isinstance(g, dict) for h in g["hooks"]]
-    assert commands == ["sh /home/k/.blink/blink-hook.sh PreToolUse codex"]
+    assert commands == ["sh /home/k/.overwatch/overwatch-hook.sh PreToolUse codex"]
 
 
 def test_install_refuses_a_file_it_cannot_parse(tmp_path):
@@ -208,7 +208,7 @@ def test_install_refuses_an_event_that_is_not_a_list(tmp_path):
 
 def test_install_refuses_a_file_it_cannot_open(tmp_path):
     """A hooks.json that is a directory, or owned by someone else, is not a
-    parse failure -- and unconverted it escapes `blink install` as a traceback
+    parse failure -- and unconverted it escapes `overwatch install` as a traceback
     about a file the user never asked us to touch."""
     p = tmp_path / "hooks.json"
     p.mkdir()
@@ -223,7 +223,7 @@ def test_the_marker_records_what_was_written(tmp_path):
     p = tmp_path / "hooks.json"
     ich.install(str(p), SHIM)
     recorded = ich._read_marker()
-    assert "sh /home/k/.blink/blink-hook.sh Stop codex" in recorded
+    assert "sh /home/k/.overwatch/overwatch-hook.sh Stop codex" in recorded
 
 
 def test_a_marker_that_is_not_utf8_is_no_marker(tmp_path):
@@ -231,7 +231,7 @@ def test_a_marker_that_is_not_utf8_is_no_marker(tmp_path):
     by a power cut must read as absent, not take the install down with it."""
     os.makedirs(os.path.dirname(ich._marker_path()), exist_ok=True)
     with open(ich._marker_path(), "wb") as f:
-        f.write(b"sh /home/k/.blink/blink-hook.sh Stop \xff\xfe codex\n")
+        f.write(b"sh /home/k/.overwatch/overwatch-hook.sh Stop \xff\xfe codex\n")
 
     assert ich._read_marker() == set()
     p = tmp_path / "hooks.json"
@@ -316,16 +316,16 @@ def test_uninstall_keeps_a_sibling_group_of_theirs(tmp_path):
 
 
 def test_uninstall_removes_a_moved_shim_by_its_marker(tmp_path):
-    """The entries `blink update` left behind name an old path. The marker is
+    """The entries `overwatch update` left behind name an old path. The marker is
     the only thing that still proves they are ours."""
     p = tmp_path / "hooks.json"
-    ich.install(str(p), "/old/blink-hook.sh")
-    ich.uninstall(str(p), "/new/blink-hook.sh")
+    ich.install(str(p), "/old/overwatch-hook.sh")
+    ich.uninstall(str(p), "/new/overwatch-hook.sh")
     assert json.loads(p.read_text(encoding="utf-8")) == {}
 
 
 def test_uninstall_needs_no_shim_path(tmp_path):
-    """`blink uninstall` may run after the shim file is already gone, so the
+    """`overwatch uninstall` may run after the shim file is already gone, so the
     path is optional and the marker carries the whole identification."""
     p = tmp_path / "hooks.json"
     ich.install(str(p), SHIM)
@@ -334,7 +334,7 @@ def test_uninstall_needs_no_shim_path(tmp_path):
 
 
 def test_uninstall_without_a_marker_still_removes_by_the_command(tmp_path):
-    """~/.blink wiped before `blink uninstall` ran. What we would write now is
+    """~/.overwatch wiped before `overwatch uninstall` ran. What we would write now is
     the fallback proof that the entries are ours."""
     p = tmp_path / "hooks.json"
     ich.install(str(p), SHIM)
@@ -348,7 +348,7 @@ def test_uninstall_never_deletes_a_hook_that_merely_mentions_us(tmp_path):
     """Substring matching on the command text would delete this. It is the
     customer's wrapper around our shim, not our entry."""
     p = tmp_path / "hooks.json"
-    theirs = "sh /home/k/.blink/blink-hook.sh PreToolUse codex >> /var/log/x"
+    theirs = "sh /home/k/.overwatch/overwatch-hook.sh PreToolUse codex >> /var/log/x"
     _write(p, {"PreToolUse": [
         {"matcher": "*", "hooks": [{"type": "command", "command": theirs}]}]})
 
@@ -462,12 +462,12 @@ def test_a_refusal_keeps_the_marker(tmp_path):
 
     ich.uninstall(str(p), SHIM)
 
-    assert "sh /home/k/.blink/blink-hook.sh Stop codex" in ich._read_marker()
+    assert "sh /home/k/.overwatch/overwatch-hook.sh Stop codex" in ich._read_marker()
 
 
 def test_uninstall_refuses_a_file_it_cannot_open(tmp_path):
     """A hooks.json that is a directory. Unconverted, the IsADirectoryError
-    escapes `blink uninstall` as a traceback about someone else's file."""
+    escapes `overwatch uninstall` as a traceback about someone else's file."""
     p = tmp_path / "hooks.json"
     p.mkdir()
 
@@ -477,7 +477,7 @@ def test_uninstall_refuses_a_file_it_cannot_open(tmp_path):
 
 
 def test_uninstall_with_no_hooks_file_is_not_an_error(tmp_path):
-    """`blink uninstall` runs this on every machine, including the many that
+    """`overwatch uninstall` runs this on every machine, including the many that
     never installed the Codex hook."""
     p = tmp_path / "nope.json"
     msg = ich.uninstall(str(p), SHIM)
@@ -498,7 +498,7 @@ def test_uninstall_leaves_no_temp_file_behind(tmp_path):
 
 def test_install_after_uninstall_is_a_clean_install(tmp_path):
     """Whatever uninstall leaves behind has to be something install can read
-    -- the reinstall path is the one every `blink update` takes."""
+    -- the reinstall path is the one every `overwatch update` takes."""
     p = tmp_path / "hooks.json"
     ich.install(str(p), SHIM)
     ich.uninstall(str(p), SHIM)
@@ -522,7 +522,7 @@ _needs_unprivileged_posix = pytest.mark.skipif(
 
 @_needs_unprivileged_posix
 def test_uninstall_reports_a_codex_home_it_cannot_write(tmp_path):
-    """uninstall promises never to raise, and `blink uninstall` leans on that
+    """uninstall promises never to raise, and `overwatch uninstall` leans on that
     promise: step [1/5] has already removed the login service by the time this
     runs at [4/5], and step [5/5] never happens if this throws. A machine with
     no service and all its files still in place is exactly the half-undone
@@ -563,13 +563,13 @@ def test_a_write_that_failed_keeps_the_marker(tmp_path):
     finally:
         home.chmod(0o700)
 
-    assert "sh /home/k/.blink/blink-hook.sh Stop codex" in ich._read_marker()
+    assert "sh /home/k/.overwatch/overwatch-hook.sh Stop codex" in ich._read_marker()
 
 
 @_needs_unprivileged_posix
 def test_install_refuses_a_codex_home_it_cannot_write(tmp_path):
     """The mirror case. cli._install_codex_hooks catches SettingsUnreadable
-    and nothing else, so a raw PermissionError from the write aborts `blink
+    and nothing else, so a raw PermissionError from the write aborts `overwatch
     install` at [4/5] -- before the background service is ever registered."""
     home = tmp_path / "codex"
     home.mkdir()

@@ -1,11 +1,11 @@
 <div align="center">
 
-<a href="https://blink-buddy.com"><img src="docs/img/brand/logo-wide.png" alt="BLINK" width="420"></a>
+<a href="https://github.com/SleepyUnicon/Overwatch"><img src="docs/img/brand/logo-wide.png" alt="OVERWATCH" width="420"></a>
 
 **Your Claude Code and Codex usage, as two live dials on your desk.**
 
 <p>
-  <a href="https://github.com/KfirLevy258/Blink/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/KfirLevy258/Blink?style=for-the-badge&labelColor=171B22&color=E8E8E8&label=release&logo=github&logoColor=white"></a>
+  <a href="https://github.com/SleepyUnicon/Overwatch/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/SleepyUnicon/Overwatch?style=for-the-badge&labelColor=171B22&color=E8E8E8&label=release&logo=github&logoColor=white"></a>
   <a href="https://docs.anthropic.com/en/docs/claude-code"><img alt="Works with Claude Code" src="https://img.shields.io/badge/works%20with-Claude%20Code-D97757?style=for-the-badge&labelColor=171B22&logo=claude&logoColor=white"></a>
   <a href="https://github.com/openai/codex"><img alt="Works with Codex" src="https://img.shields.io/badge/works%20with-Codex-10A37F?style=for-the-badge&labelColor=171B22&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyBmaWxsPSIjZmZmIiByb2xlPSJpbWciIHZpZXdCb3g9IjAgMCAyNCAyNCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48dGl0bGU%2BT3BlbkFJPC90aXRsZT48cGF0aCBkPSJNMjIuMjgxOSA5LjgyMTFhNS45ODQ3IDUuOTg0NyAwIDAgMC0uNTE1Ny00LjkxMDggNi4wNDYyIDYuMDQ2MiAwIDAgMC02LjUwOTgtMi45QTYuMDY1MSA2LjA2NTEgMCAwIDAgNC45ODA3IDQuMTgxOGE1Ljk4NDcgNS45ODQ3IDAgMCAwLTMuOTk3NyAyLjkgNi4wNDYyIDYuMDQ2MiAwIDAgMCAuNzQyNyA3LjA5NjYgNS45OCA1Ljk4IDAgMCAwIC41MTEgNC45MTA3IDYuMDUxIDYuMDUxIDAgMCAwIDYuNTE0NiAyLjkwMDFBNS45ODQ3IDUuOTg0NyAwIDAgMCAxMy4yNTk5IDI0YTYuMDU1NyA2LjA1NTcgMCAwIDAgNS43NzE4LTQuMjA1OCA1Ljk4OTQgNS45ODk0IDAgMCAwIDMuOTk3Ny0yLjkwMDEgNi4wNTU3IDYuMDU1NyAwIDAgMC0uNzQ3NS03LjA3Mjl6bS05LjAyMiAxMi42MDgxYTQuNDc1NSA0LjQ3NTUgMCAwIDEtMi44NzY0LTEuMDQwOGwuMTQxOS0uMDgwNCA0Ljc3ODMtMi43NTgyYS43OTQ4Ljc5NDggMCAwIDAgLjM5MjctLjY4MTN2LTYuNzM2OWwyLjAyIDEuMTY4NmEuMDcxLjA3MSAwIDAgMSAuMDM4LjA1MnY1LjU4MjZhNC41MDQgNC41MDQgMCAwIDEtNC40OTQ1IDQuNDk0NHptLTkuNjYwNy00LjEyNTRhNC40NzA4IDQuNDcwOCAwIDAgMS0uNTM0Ni0zLjAxMzdsLjE0Mi4wODUyIDQuNzgzIDIuNzU4MmEuNzcxMi43NzEyIDAgMCAwIC43ODA2IDBsNS44NDI4LTMuMzY4NXYyLjMzMjRhLjA4MDQuMDgwNCAwIDAgMS0uMDMzMi4wNjE1TDkuNzQgMTkuOTUwMmE0LjQ5OTIgNC40OTkyIDAgMCAxLTYuMTQwOC0xLjY0NjR6TTIuMzQwOCA3Ljg5NTZhNC40ODUgNC40ODUgMCAwIDEgMi4zNjU1LTEuOTcyOFYxMS42YS43NjY0Ljc2NjQgMCAwIDAgLjM4NzkuNjc2NWw1LjgxNDQgMy4zNTQzLTIuMDIwMSAxLjE2ODVhLjA3NTcuMDc1NyAwIDAgMS0uMDcxIDBsLTQuODMwMy0yLjc4NjVBNC41MDQgNC41MDQgMCAwIDEgMi4zNDA4IDcuODcyem0xNi41OTYzIDMuODU1OEwxMy4xMDM4IDguMzY0IDE1LjExOTIgNy4yYS4wNzU3LjA3NTcgMCAwIDEgLjA3MSAwbDQuODMwMyAyLjc5MTNhNC40OTQ0IDQuNDk0NCAwIDAgMS0uNjc2NSA4LjEwNDJ2LTUuNjc3MmEuNzkuNzkgMCAwIDAtLjQwNy0uNjY3em0yLjAxMDctMy4wMjMxbC0uMTQyLS4wODUyLTQuNzczNS0yLjc4MThhLjc3NTkuNzc1OSAwIDAgMC0uNzg1NCAwTDkuNDA5IDkuMjI5N1Y2Ljg5NzRhLjA2NjIuMDY2MiAwIDAgMSAuMDI4NC0uMDYxNWw0LjgzMDMtMi43ODY2YTQuNDk5MiA0LjQ5OTIgMCAwIDEgNi42ODAyIDQuNjZ6TTguMzA2NSAxMi44NjNsLTIuMDItMS4xNjM4YS4wODA0LjA4MDQgMCAwIDEtLjAzOC0uMDU2N1Y2LjA3NDJhNC40OTkyIDQuNDk5MiAwIDAgMSA3LjM3NTctMy40NTM3bC0uMTQyLjA4MDVMOC43MDQgNS40NTlhLjc5NDguNzk0OCAwIDAgMC0uMzkyNy42ODEzem0xLjA5NzYtMi4zNjU0bDIuNjAyLTEuNDk5OCAyLjYwNjkgMS40OTk4djIuOTk5NGwtMi41OTc0IDEuNDk5Ny0yLjYwNjctMS40OTk3WiIvPjwvc3ZnPg%3D%3D"></a>
 </p>
@@ -18,7 +18,7 @@
 
 <table>
   <tr>
-    <td align="center"><img src="docs/img/photos/claude-case-wink.webp" alt="The Claude case, mid-blink" width="340"></td>
+    <td align="center"><img src="docs/img/photos/claude-case-wink.webp" alt="The Claude case, mid-overwatch" width="340"></td>
     <td align="center"><img src="docs/img/photos/codex-case-gauges.webp" alt="The Codex case, dials live" width="300"></td>
   </tr>
   <tr>
@@ -27,31 +27,31 @@
   </tr>
 </table>
 
-### Don't want to build one? &nbsp;[**blink-buddy.com**](https://blink-buddy.com)
+### Don't want to build one?
 
-I build them, test them and post them.
+Ask me for a kit - the printed parts and a flashed board. Free.
 
 </div>
 
 ## What it is
 
-BLINK is a small touchscreen that shows the same numbers as Claude Code's `/usage` command, always in view: your **5-hour session** and your **7-day week**, each as a dial that turns from green to amber to red, with a countdown to its reset. It plugs into your computer over USB, sets itself up in one command, and keeps itself updated.
+OVERWATCH is a small touchscreen that shows the same numbers as Claude Code's `/usage` command, always in view: your **5-hour session** and your **7-day week**, each as a dial that turns from green to amber to red, with a countdown to its reset. It plugs into your computer over USB, sets itself up in one command, and keeps itself updated.
 
 ## Open source
 
-**BLINK is open source, and it is free.** Everything the device is made of is
+**OVERWATCH is open source, and it is free.** Everything the device is made of is
 here: the firmware that draws the dials, the app that reads your usage, the
 build scripts, the tests. Nothing is held back, nothing is a trial, nothing
 expires. The board is an ESP32 "Cheap Yellow Display", about $12 anywhere, and
 the case is a 3D print - the files are on
-[MakerWorld](https://makerworld.com/en/models/3294736-blink-claude-code-codex-usage-monitor).
+[MakerWorld](https://makerworld.com/en/models/3294736-overwatch-claude-code-codex-usage-monitor).
 
 **You can do anything you like with it, for yourself.** Build one. Build ten.
 Change it, rewrite it, put your own name on it. Give them to your friends. Use
 it at home, at school, in a club. You will never owe me anything for it.
 
 **The one thing you cannot do is sell it.** Not the device, not the software,
-not a product with this inside it. Making money out of BLINK is the only thing
+not a product with this inside it. Making money out of OVERWATCH is the only thing
 the licence forbids. If that is what you want to do, write to me and ask -
 the answer is often yes.
 
@@ -75,7 +75,7 @@ this.
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/img/screen-claude.png" alt="The Claude page: six coloured marks in the top-left corner, one per live session, the clock under the BLINK wordmark, and the session and weekly dials."></td>
+    <td width="33%"><img src="docs/img/screen-claude.png" alt="The Claude page: six coloured marks in the top-left corner, one per live session, the clock under the OVERWATCH wordmark, and the session and weekly dials."></td>
     <td width="33%"><img src="docs/img/screen-codex.png" alt="The Codex page, with its own session and weekly dials."></td>
     <td width="33%"><img src="docs/img/screen-desktop.png" alt="Claude Desktop alone: the session dial shows a fill rate where a countdown would otherwise be."></td>
   </tr>
@@ -96,25 +96,25 @@ time to count down to, so the session dial shows how fast it is filling instead.
 
 ## Setup
 
-One file. Download it, run it, delete it. It copies itself to `~/.blink/bin`, finds the board, and starts again every time you log in.
+One file. Download it, run it, delete it. It copies itself to `~/.overwatch/bin`, finds the board, and starts again every time you log in.
 
 ```bash
 # macOS (Apple silicon)
-curl -fsSL https://github.com/KfirLevy258/Blink/releases/latest/download/blink-macos-arm64.tar.gz | tar xz && ./blink/blink
-# macOS (Intel):  .../blink-macos-x86_64.tar.gz
-# Linux:          .../blink-linux-x86_64.tar.gz
+curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz | tar xz && ./overwatch/overwatch
+# macOS (Intel):  .../overwatch-macos-x86_64.tar.gz
+# Linux:          .../overwatch-linux-x86_64.tar.gz
 
 ```
 
 On Windows, in PowerShell or Command Prompt:
 
 ```
-curl.exe -fsSL -o blink.zip https://github.com/KfirLevy258/Blink/releases/latest/download/blink-windows-x86_64.zip && tar -xf blink.zip && .\blink\blink.exe
+curl.exe -fsSL -o overwatch.zip https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-windows-x86_64.zip && tar -xf overwatch.zip && .\overwatch\overwatch.exe
 ```
 
 ```bash
-~/.blink/bin/blink status      # is the panel getting data?
-~/.blink/bin/blink uninstall   # put everything back
+~/.overwatch/bin/overwatch status      # is the panel getting data?
+~/.overwatch/bin/overwatch uninstall   # put everything back
 ```
 
 Needs Claude Code 2.1.100 or newer. The installer changes one file, `~/.claude/settings.json` (the status line command and one hook per lifecycle event), says so before it does, and keeps your own status line running. Everything it does is reversible with `uninstall`.
@@ -122,26 +122,26 @@ Needs Claude Code 2.1.100 or newer. The installer changes one file, `~/.claude/s
 ## Something's wrong?
 
 ```bash
-~/.blink/bin/blink status
+~/.overwatch/bin/overwatch status
 ```
 
-That one command says whether the service is running, whether Claude Code and Codex are being read, and how old the numbers are. If the panel is dark or wrong, unplug the board and plug it back in first - the app finds it again on its own. If that does not fix it, email **support@blink-buddy.com** with the output of `blink status` and the last lines of `~/.blink/bridge.log`; nothing in either is a secret.
+That one command says whether the service is running, whether Claude Code and Codex are being read, and how old the numbers are. If the panel is dark or wrong, unplug the board and plug it back in first - the app finds it again on its own. If that does not fix it, open an issue on this repository with the output of `overwatch status` and the last lines of `~/.overwatch/bridge.log`; nothing in either is a secret.
 
-**If the board says the app is old.** The board and the app ship together, so normally they match. If they have come apart - the board on a later version than the computer - the board's own update screen cannot fix it, because the half that is behind is the half it cannot reach. `blink status` says so and names the cure:
+**If the board says the app is old.** The board and the app ship together, so normally they match. If they have come apart - the board on a later version than the computer - the board's own update screen cannot fix it, because the half that is behind is the half it cannot reach. `overwatch status` says so and names the cure:
 
 ```
 Board       COM25 (CH340) -- id 20500d33ff1c, firmware 1.3.2
             the board is on 1.3.2 and this app is 1.3.1 -- they ship together
-            run: blink update
+            run: overwatch update
 ```
 
 **On Windows, if the board never appears:** the board's USB chip needs a driver Windows does not ship, and the installer puts it in for you - it is the one step that asks for the Windows permission prompt, and it only asks when there is something to install. If you skipped that prompt, or installed an older version, run:
 
 ```
-%USERPROFILE%\.blink\bin\blink.exe driver
+%USERPROFILE%\.overwatch\bin\overwatch.exe driver
 ```
 
-`blink status` says which of these you are looking at: a board Windows cannot use yet reads as *"a board is plugged in, but Windows has no driver for it"*, not as an empty desk.
+`overwatch status` says which of these you are looking at: a board Windows cannot use yet reads as *"a board is plugged in, but Windows has no driver for it"*, not as an empty desk.
 
 ## What it works with
 
@@ -156,7 +156,7 @@ For Claude Desktop, the app learns usage by reading Claude Desktop's own local f
 
 ## Privacy
 
-BLINK never sees a credential and never sends anything anywhere. It keeps the last usage payload Claude Code wrote, readable by you alone, in `~/.blink/`. The device holds no token: nothing to leak, nothing to revoke if you lend it.
+OVERWATCH never sees a credential and never sends anything anywhere. It keeps the last usage payload Claude Code wrote, readable by you alone, in `~/.overwatch/`. The device holds no token: nothing to leak, nothing to revoke if you lend it.
 
 ## Building units
 
@@ -175,5 +175,5 @@ BLINK never sees a credential and never sends anything anywhere. It keeps the la
 <sub>Board: ESP32-2432S028.</sub>&nbsp;<br>
 <sub>Source under <a href="LICENSE">PolyForm Noncommercial 1.0.0</a>.</sub>&nbsp;<br>
 <sub>Free to build for yourself. Never to sell.</sub>&nbsp;<br>
-<sub>Built units at <a href="https://blink-buddy.com">blink-buddy.com</a>.</sub>&nbsp;
+<sub>A fork of <a href="https://github.com/KfirLevy258/Blink">Blink</a> by Kfir Levy.</sub>&nbsp;
 </div>

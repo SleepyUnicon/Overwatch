@@ -1,7 +1,7 @@
 #!/bin/sh
 # Strip agent trailers from every commit message, automatically.
 #
-# This repository is published at github.com/KfirLevy258/Blink. Two trailers
+# This repository is published at github.com/SleepyUnicon/Overwatch. Two trailers
 # must never reach it: `Co-Authored-By: Claude` and `Claude-Session:`, the
 # second of which carries a session URL. Both are added by tooling rather
 # than typed, so remembering to leave them out has failed repeatedly -- six

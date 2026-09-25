@@ -1,4 +1,4 @@
-# Blink firmware
+# Overwatch firmware
 
 The firmware that runs on the **ESP32-2432S028 "Cheap Yellow Display" (CYD)**: two
 270° gauges for your Claude Code **session (5 h)** and **weekly (7 d)** usage, a wall
@@ -25,7 +25,7 @@ The board picks a data source at boot - you never choose one:
 - **Zephyr v4.3.x** with its Python venv, and **Zephyr SDK 0.17.4**. The build
   scripts find the workspace themselves (`tools/lib_zephyr.sh` looks under
   `~/zephyrproject`, `~/zephyr-v*` and the same two under `~/Projects`); set
-  `BLINK_ZEPHYR` to override.
+  `OVERWATCH_ZEPHYR` to override.
 
   **Not v4.4.0.** Measured 2026-09-09: its mbedTLS is 4.1.0, which removed the
   legacy `mbedtls/sha256.h` that [`src/ota.c`](src/ota.c) includes, and the
@@ -41,17 +41,17 @@ The board picks a data source at boot - you never choose one:
 ## Build
 
 ```bash
-. tools/lib_zephyr.sh && blink_zephyr_activate   # from the repo root
+. tools/lib_zephyr.sh && overwatch_zephyr_activate   # from the repo root
 
 cd firmware
 west build --sysbuild -d build-sb -b esp32_devkitc/esp32/procpu . \
   -- -DSB_CONFIG_BOOTLOADER_MCUBOOT=y -DUSE_CCACHE=0 \
-  -DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="\"$HOME/.blink/ota_signing_key_p256.pem\""
+  -DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="\"$HOME/.overwatch/ota_signing_key_p256.pem\""
 ```
 
 Notes:
 
-- **This builds the shipped configuration: USB only.** `CONFIG_BLINK_WIFI_MODE`
+- **This builds the shipped configuration: USB only.** `CONFIG_OVERWATCH_WIFI_MODE`
   defaults to `n`, so the captive-portal setup, the OAuth sign-in, the refresh-token
   store and the on-device usage fetch are never handed to the compiler -- absent from
   the image rather than unreachable within it, and about half its size. The source
@@ -82,7 +82,7 @@ espefuse.py --port <port> summary | grep FLASH_CRYPT_CNT
 An **odd** number of bits set means encryption is on; `0` is a plaintext board.
 
 **Fused unit** - use the script, which re-reads the eFuse itself and refuses a
-plaintext chip (override with `BLINK_SKIP_EFUSE_CHECK=1`):
+plaintext chip (override with `OVERWATCH_SKIP_EFUSE_CHECK=1`):
 
 ```bash
 tools/flash_encrypted.sh        # defaults to the first /dev/cu.usbserial* port
@@ -113,11 +113,11 @@ keep its logo.
 
 ## Keys
 
-Two secrets live **outside the repo**, in `~/.blink/`:
+Two secrets live **outside the repo**, in `~/.overwatch/`:
 
 | Key | Purpose |
 |-----|---------|
-| `flash_key.bin` | Encrypts what's written to flash. Override with `BLINK_FLASH_KEY`. |
+| `flash_key.bin` | Encrypts what's written to flash. Override with `OVERWATCH_FLASH_KEY`. |
 | `ota_signing_key_p256.pem` | Signs firmware images (ECDSA P-256) so the board will boot them. Override with `OTA_SIGNING_KEY`. |
 
 **Back both up off this machine.** The eFuse copy of the flash key is sealed and
@@ -128,14 +128,14 @@ key recovers).
 ## Releasing an update
 
 ```bash
-# 1. bump BLINK_FW_VERSION in src/version.h, commit
+# 1. bump OVERWATCH_FW_VERSION in src/version.h, commit
 # 2. from the repo root:
 tools/release.sh
 ```
 
 `release.sh` builds from the committed tree (it refuses a dirty tree or a reused
-version), signs the image, and attaches `blink-fw.bin` + `manifest.json` to the
-`v<version>` release on **`KfirLevy258/Blink`** - which is the feed every board reads.
+version), signs the image, and attaches `overwatch-fw.bin` + `manifest.json` to the
+`overwatch-v<version>` release on **`SleepyUnicon/Overwatch`** - which is the feed every board reads.
 
 On the device there are two ways in, and it picks by itself:
 

@@ -352,15 +352,15 @@ def test_the_name_is_the_last_path_component():
 
 
 def test_a_trailing_separator_is_not_a_component():
-    assert codex_cli._project_name("/Users/K/Blink/") == "Blink"
-    assert codex_cli._project_name("/Users/K/Blink///") == "Blink"
+    assert codex_cli._project_name("/Users/K/Overwatch/") == "Overwatch"
+    assert codex_cli._project_name("/Users/K/Overwatch///") == "Overwatch"
 
 
 def test_a_windows_path_splits_on_the_windows_separator():
     """Both separators, not os.sep: a home directory can be synced between
     machines, and Codex on Windows writes C:\\Users\\...."""
-    assert codex_cli._project_name("C:\\Users\\Kfir\\Projects\\Blink") == "Blink"
-    assert codex_cli._project_name("C:\\Users\\Kfir\\Projects\\Blink\\") == "Blink"
+    assert codex_cli._project_name("C:\\Users\\Kfir\\Projects\\Overwatch") == "Overwatch"
+    assert codex_cli._project_name("C:\\Users\\Kfir\\Projects\\Overwatch\\") == "Overwatch"
 
 
 def test_a_directory_entry_is_not_a_name():
@@ -521,16 +521,16 @@ def test_the_name_is_read_once_per_file(tmp_path):
     it from 19 KB of embedded system prompt on every tick is waste that grows
     with whatever upstream puts in that record next."""
     root = str(tmp_path / "sessions")
-    path = write_rollout(root, lines=[meta_line("/Users/K/Blink"),
+    path = write_rollout(root, lines=[meta_line("/Users/K/Overwatch"),
                                       token_count_line(rate_limits())])
     p = codex_cli.CodexCliProvider(root=root)
     reads = []
     real = codex_cli._head_line
     codex_cli._head_line = lambda q: (reads.append(q), real(q))[1]
     try:
-        assert p._name_for(path) == "Blink"
-        assert p._name_for(path) == "Blink"
-        assert p._name_for(path) == "Blink"
+        assert p._name_for(path) == "Overwatch"
+        assert p._name_for(path) == "Overwatch"
+        assert p._name_for(path) == "Overwatch"
     finally:
         codex_cli._head_line = real
     assert reads == [path], reads
@@ -692,7 +692,7 @@ def test_two_sessions_in_the_winning_state_are_not_named(tmp_path):
     the other. The count is what is true of both."""
     root = str(tmp_path / "sessions")
     write_rollout(root, name="rollout-a.jsonl",
-                  lines=[meta_line("/Users/K/Blink"),
+                  lines=[meta_line("/Users/K/Overwatch"),
                          token_count_line(rate_limits()),
                          turn_line("task_complete", _stamp(NOW - 5))])
     write_rollout(root, name="rollout-b.jsonl",
@@ -724,7 +724,7 @@ def test_an_unnamed_session_leaves_a_named_one_alone(tmp_path):
     holders of the state is still two, named or not."""
     root = str(tmp_path / "sessions")
     write_rollout(root, name="rollout-a.jsonl",
-                  lines=[meta_line("/Users/K/Blink"),
+                  lines=[meta_line("/Users/K/Overwatch"),
                          token_count_line(rate_limits()),
                          turn_line("task_complete", _stamp(NOW - 5))])
     write_rollout(root, name="rollout-b.jsonl",
@@ -738,26 +738,26 @@ def test_a_rollout_with_no_turn_yet_lends_no_name(tmp_path):
     otherwise an opened-and-untyped-into terminal would rename the panel."""
     root = str(tmp_path / "sessions")
     write_rollout(root, name="rollout-a.jsonl",
-                  lines=[meta_line("/Users/K/Blink"),
+                  lines=[meta_line("/Users/K/Overwatch"),
                          token_count_line(rate_limits()),
                          turn_line("task_started", _stamp(NOW - 5))])
     write_rollout(root, name="rollout-b.jsonl",
                   lines=[meta_line("/Users/K/JustOpened")])
     st = _state_frame(root)
-    assert (st.state, st.n_run, st.label) == ("running", 1, "Blink")
+    assert (st.state, st.n_run, st.label) == ("running", 1, "Overwatch")
 
 
 def test_a_poll_prunes_the_names_of_files_it_no_longer_reads(tmp_path):
     root = str(tmp_path / "sessions")
     write_rollout(root, name="rollout-a.jsonl",
-                  lines=[meta_line("/Users/K/Blink"),
+                  lines=[meta_line("/Users/K/Overwatch"),
                          token_count_line(rate_limits()),
                          turn_line("task_started", _stamp(NOW - 5))])
     p = codex_cli.CodexCliProvider(root=root)
     p._names["/gone/rollout-z.jsonl"] = "Ghost"
     p.poll(NOW)
     assert "/gone/rollout-z.jsonl" not in p._names
-    assert list(p._names.values()) == ["Blink"]
+    assert list(p._names.values()) == ["Overwatch"]
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -987,7 +987,7 @@ def test_a_failed_session_is_the_worst_state_and_counted_with_the_stuck(tmp_path
     already carries which of the two it is."""
     root = str(tmp_path / "sessions")
     write_rollout(root, name="rollout-a.jsonl",
-                  lines=[meta_line("/Users/K/Blink"),
+                  lines=[meta_line("/Users/K/Overwatch"),
                          token_count_line(rate_limits()),
                          failed_line(_stamp(NOW - 5))])
     write_rollout(root, name="rollout-b.jsonl",
@@ -996,7 +996,7 @@ def test_a_failed_session_is_the_worst_state_and_counted_with_the_stuck(tmp_path
     st = _state_frame(root)
     assert (st.state, st.n_stuck, st.n_run, st.n_idle) == ("failed", 1, 1, 0)
     assert st.n_sessions() == 2
-    assert st.label == "Blink"      # the only session holding the state
+    assert st.label == "Overwatch"      # the only session holding the state
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -1161,7 +1161,7 @@ def test_two_named_sessions_in_the_same_state_leave_the_board_unnamed():
                                label="LiveClaudeUi", n_wait=1)),
                    Fixed(named(provider="codex", at=NOW - 30,
                                state=base.STATE_WAITING,
-                               label="Blink", n_wait=1))],
+                               label="Overwatch", n_wait=1))],
         now=lambda: NOW)
     msg = bus.poll()
     assert msg["state"] == "waiting"
@@ -1180,11 +1180,11 @@ def test_a_codex_name_shows_when_it_is_the_only_holder_of_the_state():
                                label="LiveClaudeUi", n_run=1)),
                    Fixed(named(provider="codex", at=NOW - 30,
                                state=base.STATE_WAITING,
-                               label="Blink", n_wait=1))],
+                               label="Overwatch", n_wait=1))],
         now=lambda: NOW)
     msg = bus.poll()
     assert msg["state"] == "waiting"
-    assert bus.session_pair() == ("Blink", 1)
+    assert bus.session_pair() == ("Overwatch", 1)
 
 
 def test_a_failed_codex_session_outranks_a_waiting_claude_one():
@@ -1197,11 +1197,11 @@ def test_a_failed_codex_session_outranks_a_waiting_claude_one():
                                label="LiveClaudeUi", n_wait=1)),
                    Fixed(named(provider="codex", at=NOW - 30,
                                state=base.STATE_FAILED,
-                               label="Blink", n_stuck=1))],
+                               label="Overwatch", n_stuck=1))],
         now=lambda: NOW)
     msg = bus.poll()
     assert msg["state"] == "failed"
-    assert bus.session_pair() == ("Blink", 1)
+    assert bus.session_pair() == ("Overwatch", 1)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -1313,14 +1313,14 @@ Expected: `PASS [codex contract at main]`, with the six new `ok` lines visible a
 A contract check that cannot go red is decoration. Verify one:
 
 ```bash
-mkdir -p /tmp/blink-codex-src
+mkdir -p /tmp/overwatch-codex-src
 sh tests/ci/check_codex_contract.sh >/dev/null 2>&1   # populate the cache
-cp "${TMPDIR:-/tmp}/blink-codex-contract/"* /tmp/blink-codex-src/
-sed -i.bak 's/pub cwd: PathBuf/pub working_dir: PathBuf/' /tmp/blink-codex-src/protocol.rs
-CODEX_SRC_DIR=/tmp/blink-codex-src sh tests/ci/check_codex_contract.sh
+cp "${TMPDIR:-/tmp}/overwatch-codex-contract/"* /tmp/overwatch-codex-src/
+sed -i.bak 's/pub cwd: PathBuf/pub working_dir: PathBuf/' /tmp/overwatch-codex-src/protocol.rs
+CODEX_SRC_DIR=/tmp/overwatch-codex-src sh tests/ci/check_codex_contract.sh
 ```
 
-Expected: exits non-zero with `SessionMeta no longer carries cwd -- Codex sessions cannot be named`. Then `rm -rf /tmp/blink-codex-src`.
+Expected: exits non-zero with `SessionMeta no longer carries cwd -- Codex sessions cannot be named`. Then `rm -rf /tmp/overwatch-codex-src`.
 
 - [ ] **Step 4: Commit**
 
@@ -1377,7 +1377,7 @@ Named here so a reviewer can see they were considered rather than missed.
 - **`waiting` for Codex.** Approval requests are in upstream's never-persisted arm of `should_persist_event_msg`, and no approval event appears in any real rollout. It needs the new Codex hooks system and its own plan. A permission prompt shows as `running` until it is answered — honest, if less useful.
 - **`budget_limited` as a failure.** The research called it "arguably failed". It is unobserved, the other three `TurnAbortReason` values are unambiguously user actions, and the owner froze the `turn_aborted` mapping. Splitting one unobserved value out of a frozen mapping is scope creep.
 - **The Claude hook shim's name rules.** See Task 9 Step 4.
-- **A Codex name in `blink status`.** `pc/cli.py:1357-1367` prints only the reading's age. Adding a name there is cosmetic and belongs with the `blink status` Board line already queued for v1.2.3.
+- **A Codex name in `overwatch status`.** `pc/cli.py:1357-1367` prints only the reading's age. Adding a name there is cosmetic and belongs with the `overwatch status` Board line already queued for v1.2.3.
 - **A Codex label with no rate-limit reading.** `normalizer.merge` returns `None` for a provider carrying no percentage, so a Codex state frame — and now its label — only reaches the board when some rollout also has a `token_count` line. That is pre-existing behaviour of the state frame, not something this plan introduces, and changing it would mean changing when a provider is allowed to speak at all.
 
 ---

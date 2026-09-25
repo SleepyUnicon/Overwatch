@@ -1,13 +1,13 @@
 #!/bin/bash
-# Build, sign, and publish a Blink firmware release the board can install
+# Build, sign, and publish an Overwatch firmware release the board can install
 # over WiFi. The version comes from firmware/src/version.h -- bump it FIRST.
 # Requires: zephyr env NOT needed here (script sources it), `gh auth status` ok.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
-REPO="${OTA_REPO:-KfirLevy258/Blink}"
+REPO="${OTA_REPO:-SleepyUnicon/Overwatch}"
 REPO_URL="${OTA_REPO_URL:-https://github.com/$REPO.git}"
-TAG="v$(sed -n 's/#define BLINK_FW_VERSION "\(.*\)"/\1/p' "$ROOT/firmware/src/version.h")"
+TAG="v$(sed -n 's/#define OVERWATCH_FW_VERSION "\(.*\)"/\1/p' "$ROOT/firmware/src/version.h")"
 
 VER="${TAG#v}"
 [ -n "$VER" ] || { echo "FATAL: no version in version.h"; exit 1; }
@@ -30,8 +30,8 @@ VER="${TAG#v}"
 #
 # PYTHONPATH because -m adds the CALLER's directory to sys.path, not this
 # checkout, and a release may be started from anywhere.
-if [ "${BLINK_SKIP_FLEET:-}" = "1" ]; then
-	echo "WARNING: BLINK_SKIP_FLEET=1 -- $TAG is being built with no proof" >&2
+if [ "${OVERWATCH_SKIP_FLEET:-}" = "1" ]; then
+	echo "WARNING: OVERWATCH_SKIP_FLEET=1 -- $TAG is being built with no proof" >&2
 	echo "         that it runs on any board. Nothing below checks that." >&2
 else
 	PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m pc.fleet_gate \
@@ -40,7 +40,7 @@ else
 		echo "FATAL: the fleet gate refused $TAG for the reason above." >&2
 		echo "       Prove this commit on all three desks first:" >&2
 		echo "         python3 tools/fleet/run.py" >&2
-		echo "       BLINK_SKIP_FLEET=1 releases without it." >&2
+		echo "       OVERWATCH_SKIP_FLEET=1 releases without it." >&2
 		exit 1; }
 fi
 # The tag has to exist on the remote BEFORE the draft is created.
@@ -60,15 +60,15 @@ git -C "$ROOT" ls-remote --exit-code --tags "$REPO_URL" "refs/tags/$TAG" \
 # agree about what it is. Cheaper to fail here than to publish a release whose
 # two halves introduce themselves differently.
 sh "$HERE/../tests/ci/check_versions.sh" --release
-PROTO=$(sed -n 's/^#define BLINK_PROTO_VERSION \([0-9][0-9]*\).*$/\1/p' \
+PROTO=$(sed -n 's/^#define OVERWATCH_PROTO_VERSION \([0-9][0-9]*\).*$/\1/p' \
 	"$ROOT/firmware/src/version.h")
 [ -z "$(git -C "$ROOT" status --porcelain)" ] || {
 	echo "FATAL: working tree dirty -- releases come from committed code only"; exit 1; }
 # The firmware feed lives on the same release as the source tag ($TAG). Refuse
 # to overwrite an existing firmware asset -- bump version.h for a new build.
 gh release view "$TAG" --repo "$REPO" --json assets \
-	-q '.assets[].name' 2>/dev/null | grep -qx blink-fw.bin && {
-	echo "FATAL: $TAG already carries blink-fw.bin -- bump version.h"; exit 1; }
+	-q '.assets[].name' 2>/dev/null | grep -qx overwatch-fw.bin && {
+	echo "FATAL: $TAG already carries overwatch-fw.bin -- bump version.h"; exit 1; }
 
 # The popup a customer sees after this update has to be able to describe it.
 # whatsnew.c carries one short entry per release, compiled into the image,
@@ -87,8 +87,8 @@ grep -q "\"$VER\"" "$ROOT/firmware/src/whatsnew.c" || {
 	exit 1; }
 
 source "$ROOT/tools/lib_zephyr.sh"
-blink_zephyr_activate || exit 1
-KEY="${OTA_SIGNING_KEY:-$HOME/.blink/ota_signing_key_p256.pem}"
+overwatch_zephyr_activate || exit 1
+KEY="${OTA_SIGNING_KEY:-$HOME/.overwatch/ota_signing_key_p256.pem}"
 [ -f "$KEY" ] || { echo "FATAL: signing key missing at $KEY (set OTA_SIGNING_KEY)"; exit 1; }
 # Stamp the real version into the MCUboot image header. Zephyr's default for
 # CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION is "0.0.0+0" (it only auto-fills from an
@@ -114,7 +114,7 @@ KEY="${OTA_SIGNING_KEY:-$HOME/.blink/ota_signing_key_p256.pem}"
 
 BIN="$ROOT/firmware/build-sb/firmware/zephyr/zephyr.signed.bin"
 
-# A release must not carry the on-device network path. CONFIG_BLINK_WIFI_MODE
+# A release must not carry the on-device network path. CONFIG_OVERWATCH_WIFI_MODE
 # defaults to n, but a default is not a guarantee: a stray EXTRA_CONF_FILE or a
 # sticky build directory flips it silently, and nobody would find out until a
 # customer's board signed itself in to Anthropic as Claude Code.
@@ -122,8 +122,8 @@ BIN="$ROOT/firmware/build-sb/firmware/zephyr/zephyr.signed.bin"
 # Checks the ARTIFACT, not only the config, because the artifact is what ships.
 # If the OAuth path were ever linked in, these strings would be in the image.
 CFG="$ROOT/firmware/build-sb/firmware/zephyr/.config"
-if grep -q "^CONFIG_BLINK_WIFI_MODE=y" "$CFG"; then
-	echo "FATAL: CONFIG_BLINK_WIFI_MODE=y in a release build." >&2
+if grep -q "^CONFIG_OVERWATCH_WIFI_MODE=y" "$CFG"; then
+	echo "FATAL: CONFIG_OVERWATCH_WIFI_MODE=y in a release build." >&2
 	echo "       That ships the on-device sign-in and the token store." >&2
 	exit 1
 fi
@@ -162,7 +162,7 @@ SLOT=$((0x150000))
 	exit 1; }
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-cp "$BIN" "$TMP/blink-fw.bin"
+cp "$BIN" "$TMP/overwatch-fw.bin"
 
 # --- publish -----------------------------------------------------------
 #
@@ -179,13 +179,13 @@ cp "$BIN" "$TMP/blink-fw.bin"
 # key stays on this machine. Putting it in GitHub Secrets would sign the
 # artifacts with a key held by the same account that could publish forged ones,
 # which is most of the reason for signing gone.
-RELKEY="${BLINK_RELEASE_KEY:-$HOME/.blink/release_signing_key_p256.pem}"
+RELKEY="${OVERWATCH_RELEASE_KEY:-$HOME/.overwatch/release_signing_key_p256.pem}"
 [ -f "$RELKEY" ] || { echo "FATAL: release signing key missing at $RELKEY"; exit 1; }
 
 ARTIFACTS="macos-arm64 macos-x86_64 linux-x86_64 windows-x86_64"
 # The file each key is served as (pc/update.archive_name): tar.gz, zip on
 # Windows. Since 1.1.0 the program is a directory, so an archive.
-artifact_file() { case "$1" in windows*) echo "blink-$1.zip" ;; *) echo "blink-$1.tar.gz" ;; esac; }
+artifact_file() { case "$1" in windows*) echo "overwatch-$1.zip" ;; *) echo "overwatch-$1.tar.gz" ;; esac; }
 
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
 	# Draft it again before adding anything. This branch runs when the tag
@@ -195,18 +195,18 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
 	# would be live at /latest/download/ for the ~40 minutes before the
 	# manifest describing it exists.
 	gh release edit "$TAG" --repo "$REPO" --draft=true
-	gh release upload "$TAG" --repo "$REPO" --clobber "$TMP/blink-fw.bin"
+	gh release upload "$TAG" --repo "$REPO" --clobber "$TMP/overwatch-fw.bin"
 else
 	# Notes written for the people who buy the device, when there are any
 	# (docs/releases/<version>.md); the firmware digest otherwise.
 	NOTES="$ROOT/docs/releases/$VER.md"
 	if [ -f "$NOTES" ]; then
-		gh release create "$TAG" --repo "$REPO" --draft --title "BLINK $VER" \
-			--notes-file "$NOTES" "$TMP/blink-fw.bin"
+		gh release create "$TAG" --repo "$REPO" --draft --title "OVERWATCH $VER" \
+			--notes-file "$NOTES" "$TMP/overwatch-fw.bin"
 	else
-		gh release create "$TAG" --repo "$REPO" --draft --title "BLINK $VER" \
+		gh release create "$TAG" --repo "$REPO" --draft --title "OVERWATCH $VER" \
 			--notes "Firmware $VER — size $SIZE bytes, sha256 $SHA" \
-			"$TMP/blink-fw.bin"
+			"$TMP/overwatch-fw.bin"
 	fi
 fi
 
@@ -290,13 +290,13 @@ PYEOF
 
 gh release upload "$TAG" --repo "$REPO" --clobber \
 	"$TMP/manifest.json" "$TMP/manifest.json.sig"
-# BLINK_RELEASE_DRAFT=1 stops here, with everything attached and signed but
+# OVERWATCH_RELEASE_DRAFT=1 stops here, with everything attached and signed but
 # nothing public. That is how a release gets watched end to end on a real
 # board first: `gh release download $TAG -D some-dir` and run the daemon with
-# BLINK_OTA_DIR=some-dir. When it has been seen to work:
+# OVERWATCH_OTA_DIR=some-dir. When it has been seen to work:
 #   gh release edit $TAG --draft=false
-if [ "${BLINK_RELEASE_DRAFT:-0}" = "1" ]; then
-	echo "Draft $TAG is complete and signed; left unpublished (BLINK_RELEASE_DRAFT=1)."
+if [ "${OVERWATCH_RELEASE_DRAFT:-0}" = "1" ]; then
+	echo "Draft $TAG is complete and signed; left unpublished (OVERWATCH_RELEASE_DRAFT=1)."
 	echo "Publish with: gh release edit $TAG --repo $REPO --draft=false"
 	exit 0
 fi

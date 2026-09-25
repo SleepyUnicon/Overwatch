@@ -16,7 +16,7 @@ blue `#4c82a8` / white):
 2. **Sleeping** (2.5 s, looped) — Zs rise from above the right eye, three in
    the air, periodic in the 2.5 s; the shut eyes breathe a pixel. Replayed end
    to end for as long as the computer sleeps.
-3. **Opening** (1.8 s, once) — eyes open, one quick blink, dashboard.
+3. **Opening** (1.8 s, once) — eyes open, one quick overwatch, dashboard.
 
 Decisions: 30 s of silence before sleeping; normal backlight; no company logo
 on wake; a tap while asleep shows the dashboard (last figures, flagged stale)

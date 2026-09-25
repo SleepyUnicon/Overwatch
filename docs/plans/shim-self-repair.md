@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `~/.blink/blink-hook.sh` repair itself when it is older than the daemon that reads it, so the session-name feature stops being a silent no-op on every install that arrives by `blink update`.
+**Goal:** Make `~/.overwatch/overwatch-hook.sh` repair itself when it is older than the daemon that reads it, so the session-name feature stops being a silent no-op on every install that arrives by `overwatch update`.
 
 **Architecture:** The daemon already runs `install_statusline.DriftWatchdog` on a 300-second tick to put the statusline hook back when something removes it. That watchdog answers "is the *entry in settings.json* still ours?". The hook shim has a different fault: its settings entry is perfectly correct and its *contents* are stale. So this adds a second, content-based check beside the existing one, sharing the same tick, the same install-marker gate, and the same never-raise discipline. Both shims are then covered by one repair pass.
 
@@ -14,7 +14,7 @@
 
 - **Never override a deliberate uninstall.** `install_statusline.drift_check` gates every repair on `_read_marker()` returning truthy, with the comment "a missing marker means the user uninstalled, and that is never overridden". Any repair added here obeys the same rule.
 - **Never raise inside the poll loop.** `drift_check`'s docstring: "a daemon that dies because settings.json was briefly unreadable is a worse outcome than a hook that stays missing for another sixty seconds." Repair functions return a description or `None`; they do not propagate.
-- **`BLINK_NO_WATCHDOG`** (`install_statusline.py:485`, `WATCHDOG_DISABLE_ENV`) disables self-healing entirely. New repairs honour it.
+- **`OVERWATCH_NO_WATCHDOG`** (`install_statusline.py:485`, `WATCHDOG_DISABLE_ENV`) disables self-healing entirely. New repairs honour it.
 - **Shim files are written with `newline="\n"`.** `cli.py:170` carries a comment explaining that Windows CRLF broke the shim on every status line render and every tool call, and that the CI CRLF check never looked at the installed copy. Any code that writes or compares a shim preserves this.
 - Python 3.10+, matching the style in `pc/`.
 - Comments explain WHY, in prose, at the density of the surrounding file.
@@ -51,11 +51,11 @@ Tasks 1–3 are the repair and are strictly ordered. Tasks 4–6 are independent
 ```python
 """The installed shims repair themselves when they fall behind the daemon.
 
-`blink update` swaps the program directory and restarts the service. It has
-never rewritten ~/.blink/blink-hook.sh, and nothing else did either, so a
+`overwatch update` swaps the program directory and restarts the service. It has
+never rewritten ~/.overwatch/overwatch-hook.sh, and nothing else did either, so a
 customer upgrading the documented way ran a new daemon that reads `name` out
 of the state files against an old shim that never writes one. The board was
-never named, `blink status` said "hooks installed (10/10 events)" because the
+never named, `overwatch status` said "hooks installed (10/10 events)" because the
 path existed and still ran, and nothing anywhere said why.
 """
 import os
@@ -69,24 +69,24 @@ def _write(path, text):
 
 
 def test_a_shim_matching_the_bundle_is_current(tmp_path):
-    p = str(tmp_path / "blink-hook.sh")
-    _write(p, cli._shim_source("blink-hook.sh"))
+    p = str(tmp_path / "overwatch-hook.sh")
+    _write(p, cli._shim_source("overwatch-hook.sh"))
 
-    assert cli.shim_is_current(p, "blink-hook.sh") is True
+    assert cli.shim_is_current(p, "overwatch-hook.sh") is True
 
 
 def test_an_older_shim_is_not_current(tmp_path):
     """The real defect: same path, same name, older contents."""
-    p = str(tmp_path / "blink-hook.sh")
+    p = str(tmp_path / "overwatch-hook.sh")
     _write(p, '#!/bin/sh\n# a shim from before this feature existed\n')
 
-    assert cli.shim_is_current(p, "blink-hook.sh") is False
+    assert cli.shim_is_current(p, "overwatch-hook.sh") is False
 
 
 def test_a_missing_shim_is_not_current(tmp_path):
     p = str(tmp_path / "does-not-exist.sh")
 
-    assert cli.shim_is_current(p, "blink-hook.sh") is False
+    assert cli.shim_is_current(p, "overwatch-hook.sh") is False
 
 
 def test_an_unreadable_shim_is_not_current(tmp_path):
@@ -96,11 +96,11 @@ def test_an_unreadable_shim_is_not_current(tmp_path):
     stale" lead to the same action -- rewrite it -- and a raise here would
     take the daemon down over a file permission.
     """
-    p = str(tmp_path / "blink-hook.sh")
-    _write(p, cli._shim_source("blink-hook.sh"))
+    p = str(tmp_path / "overwatch-hook.sh")
+    _write(p, cli._shim_source("overwatch-hook.sh"))
     os.chmod(p, 0o000)
     try:
-        assert cli.shim_is_current(p, "blink-hook.sh") is False
+        assert cli.shim_is_current(p, "overwatch-hook.sh") is False
     finally:
         os.chmod(p, 0o644)
 
@@ -113,11 +113,11 @@ def test_line_endings_alone_make_a_shim_stale(tmp_path):
     render and every tool call. A shim that differs ONLY by line ending is
     the exact shape of that bug, so it must read as stale and be rewritten.
     """
-    p = str(tmp_path / "blink-hook.sh")
+    p = str(tmp_path / "overwatch-hook.sh")
     with open(p, "w", encoding="utf-8", newline="\r\n") as f:
-        f.write(cli._shim_source("blink-hook.sh"))
+        f.write(cli._shim_source("overwatch-hook.sh"))
 
-    assert cli.shim_is_current(p, "blink-hook.sh") is False
+    assert cli.shim_is_current(p, "overwatch-hook.sh") is False
 ```
 
 - [ ] **Step 2: Run to verify it fails**
@@ -195,25 +195,25 @@ from pc import install_statusline
 
 
 def test_a_stale_shim_is_rewritten(tmp_path, monkeypatch):
-    p = tmp_path / "blink-hook.sh"
+    p = tmp_path / "overwatch-hook.sh"
     _write(str(p), "#!/bin/sh\n# old\n")
     monkeypatch.setattr(install_statusline, "_read_marker", lambda: "installed")
 
-    what = install_statusline.shim_content_check([(str(p), "blink-hook.sh")])
+    what = install_statusline.shim_content_check([(str(p), "overwatch-hook.sh")])
 
     assert what is not None
-    assert "blink-hook.sh" in what
-    assert p.read_text(encoding="utf-8") == cli._shim_source("blink-hook.sh")
+    assert "overwatch-hook.sh" in what
+    assert p.read_text(encoding="utf-8") == cli._shim_source("overwatch-hook.sh")
 
 
 def test_a_current_shim_is_left_alone(tmp_path, monkeypatch):
     """Silence is the normal case -- this runs every 300 seconds forever."""
-    p = tmp_path / "blink-hook.sh"
-    _write(str(p), cli._shim_source("blink-hook.sh"))
+    p = tmp_path / "overwatch-hook.sh"
+    _write(str(p), cli._shim_source("overwatch-hook.sh"))
     before = p.stat().st_mtime_ns
     monkeypatch.setattr(install_statusline, "_read_marker", lambda: "installed")
 
-    assert install_statusline.shim_content_check([(str(p), "blink-hook.sh")]) is None
+    assert install_statusline.shim_content_check([(str(p), "overwatch-hook.sh")]) is None
     assert p.stat().st_mtime_ns == before
 
 
@@ -221,36 +221,36 @@ def test_no_marker_means_hands_off(tmp_path, monkeypatch):
     """An uninstalled machine is not a broken one.
 
     Same rule drift_check states: a missing marker means the user uninstalled,
-    and that is never overridden. Without this, `blink uninstall` would be
+    and that is never overridden. Without this, `overwatch uninstall` would be
     undone by the next tick of a daemon that had not exited yet.
     """
-    p = tmp_path / "blink-hook.sh"
+    p = tmp_path / "overwatch-hook.sh"
     _write(str(p), "#!/bin/sh\n# old\n")
     monkeypatch.setattr(install_statusline, "_read_marker", lambda: "")
 
-    assert install_statusline.shim_content_check([(str(p), "blink-hook.sh")]) is None
+    assert install_statusline.shim_content_check([(str(p), "overwatch-hook.sh")]) is None
     assert p.read_text(encoding="utf-8") == "#!/bin/sh\n# old\n"
 
 
 def test_the_disable_switch_is_honoured(tmp_path, monkeypatch):
-    p = tmp_path / "blink-hook.sh"
+    p = tmp_path / "overwatch-hook.sh"
     _write(str(p), "#!/bin/sh\n# old\n")
     monkeypatch.setattr(install_statusline, "_read_marker", lambda: "installed")
     monkeypatch.setenv(install_statusline.WATCHDOG_DISABLE_ENV, "1")
 
-    assert install_statusline.shim_content_check([(str(p), "blink-hook.sh")]) is None
+    assert install_statusline.shim_content_check([(str(p), "overwatch-hook.sh")]) is None
 
 
 def test_an_unwritable_shim_reports_and_does_not_raise(tmp_path, monkeypatch):
     """The daemon survives a repair it cannot perform."""
     d = tmp_path / "ro"
     d.mkdir()
-    p = d / "blink-hook.sh"
+    p = d / "overwatch-hook.sh"
     _write(str(p), "#!/bin/sh\n# old\n")
     os.chmod(d, 0o500)
     monkeypatch.setattr(install_statusline, "_read_marker", lambda: "installed")
     try:
-        what = install_statusline.shim_content_check([(str(p), "blink-hook.sh")])
+        what = install_statusline.shim_content_check([(str(p), "overwatch-hook.sh")])
         assert what is not None
         assert "could not" in what
     finally:
@@ -259,18 +259,18 @@ def test_an_unwritable_shim_reports_and_does_not_raise(tmp_path, monkeypatch):
 
 def test_a_second_stale_shim_is_also_repaired(tmp_path, monkeypatch):
     """Both shims, one pass. The statusline shim has the same failure mode."""
-    a = tmp_path / "blink-hook.sh"
-    b = tmp_path / "blink-statusline.sh"
+    a = tmp_path / "overwatch-hook.sh"
+    b = tmp_path / "overwatch-statusline.sh"
     _write(str(a), "#!/bin/sh\n# old\n")
     _write(str(b), "#!/bin/sh\n# old\n")
     monkeypatch.setattr(install_statusline, "_read_marker", lambda: "installed")
 
     what = install_statusline.shim_content_check(
-        [(str(a), "blink-hook.sh"), (str(b), "blink-statusline.sh")])
+        [(str(a), "overwatch-hook.sh"), (str(b), "overwatch-statusline.sh")])
 
     assert what is not None
-    assert a.read_text(encoding="utf-8") == cli._shim_source("blink-hook.sh")
-    assert b.read_text(encoding="utf-8") == cli._shim_source("blink-statusline.sh")
+    assert a.read_text(encoding="utf-8") == cli._shim_source("overwatch-hook.sh")
+    assert b.read_text(encoding="utf-8") == cli._shim_source("overwatch-statusline.sh")
 ```
 
 - [ ] **Step 2: Run to verify it fails**
@@ -288,12 +288,12 @@ def shim_content_check(shims):
 
     A different fault from drift_check above, and the one that shipped.
     drift_check asks whether settings.json still points at us; this asks
-    whether the file it points at is still the file we would write. `blink
+    whether the file it points at is still the file we would write. `overwatch
     update` swaps the program directory and restarts the service -- it has
     never rewritten a shim -- so every install that arrived by the documented
     upgrade path ran a new daemon against whatever shim its original install
     left behind. The symptom is not an error: the hook runs, the path exists,
-    `blink status` reports ten of ten events, and the only thing missing is
+    `overwatch status` reports ten of ten events, and the only thing missing is
     the field the new daemon came to read.
 
     `shims` is a sequence of (path, name) pairs. Returns a description of what
@@ -305,7 +305,7 @@ def shim_content_check(shims):
 
     # Same rule as drift_check: a missing marker means the user uninstalled,
     # and that is never overridden. Without it a daemon still winding down
-    # would put back the shims `blink uninstall` had just removed.
+    # would put back the shims `overwatch uninstall` had just removed.
     if not _read_marker():
         return None
 
@@ -344,7 +344,7 @@ git commit -m "feat: the watchdog replaces a shim that fell behind the daemon"
 
 ---
 
-### Task 3: Wire it into the daemon, and say so in `blink status`
+### Task 3: Wire it into the daemon, and say so in `overwatch status`
 
 **Files:**
 - Modify: `claude_usage_bridge.py` (REPO ROOT — not `pc/claude_usage_bridge.py`, which does not exist), `pc/install_statusline.py`, `pc/cli.py`
@@ -384,17 +384,17 @@ def test_the_daemon_hands_the_watchdog_both_shims():
     assert "shims" in kwargs, (
         "the daemon builds a DriftWatchdog without shims=, so the hook shim "
         "is never checked and the naming feature is dead on every install "
-        "that arrived by `blink update`")
+        "that arrived by `overwatch update`")
 
 
 def test_status_reports_a_stale_shim(tmp_path, monkeypatch):
-    """`blink status` said "hooks installed (10/10 events)" throughout.
+    """`overwatch status` said "hooks installed (10/10 events)" throughout.
 
     It compares the command strings in settings.json against the shim path.
     The path existed and still ran; only its contents were stale, so the one
     place a user would look reported health.
     """
-    p = tmp_path / "blink-hook.sh"
+    p = tmp_path / "overwatch-hook.sh"
     _write(str(p), "#!/bin/sh\n# old\n")
     monkeypatch.setattr(cli, "hook_shim_path", lambda: str(p))
 
@@ -402,8 +402,8 @@ def test_status_reports_a_stale_shim(tmp_path, monkeypatch):
 
 
 def test_status_is_quiet_when_the_shim_is_current(tmp_path, monkeypatch):
-    p = tmp_path / "blink-hook.sh"
-    _write(str(p), cli._shim_source("blink-hook.sh"))
+    p = tmp_path / "overwatch-hook.sh"
+    _write(str(p), cli._shim_source("overwatch-hook.sh"))
     monkeypatch.setattr(cli, "hook_shim_path", lambda: str(p))
 
     assert cli.hook_shim_status_note() is None
@@ -442,17 +442,17 @@ In `claude_usage_bridge.py` at :447, extend the construction. Keep the existing 
     watchdog = install_statusline.DriftWatchdog(
         settings_path(), shim_path(),
         # The hook shim fails the other way round: its entry in settings.json
-        # stays perfect while its contents fall behind, because `blink update`
+        # stays perfect while its contents fall behind, because `overwatch update`
         # swaps the program directory and has never rewritten a shim. Both
         # shims are listed rather than just the hook, so the statusline shim
         # gets the same protection it turned out never to have had either.
-        shims=((shim_path(), "blink-statusline.sh"),
-               (hook_shim_path(), "blink-hook.sh")))
+        shims=((shim_path(), "overwatch-statusline.sh"),
+               (hook_shim_path(), "overwatch-hook.sh")))
 ```
 
 `hook_shim_path` must be imported alongside `shim_path` and `settings_path`; check the existing import line at the top of the file and extend it rather than adding a second one.
 
-- [ ] **Step 5: Make `blink status` tell the truth**
+- [ ] **Step 5: Make `overwatch status` tell the truth**
 
 In `pc/cli.py`, beside the other status helpers:
 
@@ -460,7 +460,7 @@ In `pc/cli.py`, beside the other status helpers:
 def hook_shim_status_note():
     """A one-line warning when the installed hook shim is out of date.
 
-    `blink status` reports the activity hooks by comparing settings.json's
+    `overwatch status` reports the activity hooks by comparing settings.json's
     command strings against the shim path. That check passed throughout the
     period when the feature was dead: the path existed, the hook ran, and the
     file it ran was simply older than the daemon reading its output. The
@@ -468,7 +468,7 @@ def hook_shim_status_note():
     the person looking at the gap before it closes, or at a machine where the
     watchdog is disabled.
     """
-    if shim_is_current(hook_shim_path(), "blink-hook.sh"):
+    if shim_is_current(hook_shim_path(), "overwatch-hook.sh"):
         return None
     return "the activity hook shim is out of date"
 ```
@@ -483,18 +483,18 @@ Expected: all pass.
 - [ ] **Step 7: Prove the end-to-end repair by hand**
 
 ```bash
-cp ~/.blink/blink-hook.sh /tmp/blink-hook.backup
-printf '#!/bin/sh\n# deliberately stale\n' > ~/.blink/blink-hook.sh
-~/.blink/bin/blink status | grep -A1 Activity     # must now warn
+cp ~/.overwatch/overwatch-hook.sh /tmp/overwatch-hook.backup
+printf '#!/bin/sh\n# deliberately stale\n' > ~/.overwatch/overwatch-hook.sh
+~/.overwatch/bin/overwatch status | grep -A1 Activity     # must now warn
 ```
 
 Then restart the service and wait for one tick:
 
 ```bash
-launchctl kickstart -k gui/502/com.blink.bridge
+launchctl kickstart -k gui/502/com.overwatch.bridge
 ```
 
-Expected: within 300 s, `~/.blink/blink-hook.sh` is byte-identical to `tools/blink-hook.sh` again, and `bridge.log` carries a `[watchdog]` line naming it. If anything goes wrong, `cp /tmp/blink-hook.backup ~/.blink/blink-hook.sh` restores it.
+Expected: within 300 s, `~/.overwatch/overwatch-hook.sh` is byte-identical to `tools/overwatch-hook.sh` again, and `bridge.log` carries a `[watchdog]` line naming it. If anything goes wrong, `cp /tmp/overwatch-hook.backup ~/.overwatch/overwatch-hook.sh` restores it.
 
 **Do not skip this step.** Every automated test here uses a temp directory; this is the only check that the paths the daemon actually passes are the paths a real install uses.
 
@@ -552,7 +552,7 @@ Check 4, "atomic write leaves no temp file", asserts `[ ! -e "$DIR/abc-123.state
 
 - [ ] **Step 1: Prove the current assertion is vacuous**
 
-Run: `grep -n 'state.tmp\|state\.\$\$\.tmp' tests/ci/check_hook_shim.sh tools/blink-hook.sh`
+Run: `grep -n 'state.tmp\|state\.\$\$\.tmp' tests/ci/check_hook_shim.sh tools/overwatch-hook.sh`
 Expected: the test's literal and the shim's `$$` form differ, exactly as described.
 
 - [ ] **Step 2: Write the assertion that can fail**
@@ -645,10 +645,10 @@ git commit -m "test: the clock moved rows and nothing was checking where it land
 
 ## Self-Review
 
-**Coverage.** The defect is that no code path rewrites `~/.blink/blink-hook.sh` after install. Task 1 detects staleness, Task 2 repairs it under the same gates the existing watchdog uses, Task 3 wires it to the one daemon that runs and makes `blink status` stop reporting health during the gap. Tasks 4–6 remove three assertions that cannot fail, which is what makes "the suite is green" mean something on this branch.
+**Coverage.** The defect is that no code path rewrites `~/.overwatch/overwatch-hook.sh` after install. Task 1 detects staleness, Task 2 repairs it under the same gates the existing watchdog uses, Task 3 wires it to the one daemon that runs and makes `overwatch status` stop reporting health during the gap. Tasks 4–6 remove three assertions that cannot fail, which is what makes "the suite is green" mean something on this branch.
 
 **Type consistency.** `shim_is_current(path, name) -> bool` is defined in Task 1 and called in Tasks 2 and 3. `shim_content_check(shims) -> str | None` is defined in Task 2 and called in Task 3, with `shims` a sequence of `(path, name)` pairs in both. `DriftWatchdog(..., *, shims=())` keeps every existing caller working.
 
 **Known soft spots, stated rather than hidden.** Task 3 Step 3 edits `DriftWatchdog.tick`, whose reinstatement cap I have described but not reproduced — the implementer must read it, because a content check that resets that cap would let a daemon fight another program forever. Task 6's assertions may all pass on first run; the step says so and requires proving each can fail, since a passing new assertion is exactly the failure mode the task exists to remove. Task 4 may find a caller for `make_fetch` and is told to stop rather than force the deletion.
 
-**Deliberately not here.** The non-ASCII label bug (`protocol.encode` leaves `ensure_ascii` at its default, so a non-ASCII label reaches the panel as truncated `\uXXXX` text) is real but cannot currently be triggered: `blink-hook.sh` refuses non-ASCII names outright. It becomes reachable the moment a Codex `cwd` becomes a label, so it belongs to the Codex naming plan, which owns that boundary.
+**Deliberately not here.** The non-ASCII label bug (`protocol.encode` leaves `ensure_ascii` at its default, so a non-ASCII label reaches the panel as truncated `\uXXXX` text) is real but cannot currently be triggered: `overwatch-hook.sh` refuses non-ASCII names outright. It becomes reachable the moment a Codex `cwd` becomes a label, so it belongs to the Codex naming plan, which owns that boundary.

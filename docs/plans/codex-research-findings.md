@@ -47,7 +47,7 @@ either — the rollout path is dead for Q2, exactly as the codex_cli.py:255-257 
   `SubagentStart`, `SubagentStop`, `Stop`, `Interrupt`. Deliberately Claude-Code-shaped naming.
 - Command-hook stdin JSON carries `session_id`, `cwd`, `hook_event_name`, `tool_name`, `turn_id`
   (hooks_schema.rs `PreToolUseCommandInput` / `PermissionRequestCommandInput` / `PostToolUseCommandInput`) —
-  the exact fields `tools/blink-hook.sh` consumes from Claude.
+  the exact fields `tools/overwatch-hook.sh` consumes from Claude.
 - **Shipped in the installed 0.150.0**: the binary's strings contain the full event-name list, a top-level
   `hooks` config key (next to `plugins`, `skills` in the config-key table), `HookHandlerConfig::Command`
   (fields incl. command, timeout), handler types `command|prompt|mcp_tool|agent`, `sync|async`, and a
@@ -55,11 +55,11 @@ either — the rollout path is dead for Q2, exactly as the codex_cli.py:255-257 
 - `PermissionRequest` fires when Codex asks for approval; the clear comes from the following `PostToolUse`
   (approved+ran) or `Stop`/`Interrupt`/`UserPromptSubmit` (denied/aborted/next turn) — same clearing structure
   the Claude shim already relies on, and claude_state.py:102 ALREADY lists `"PermissionRequest"` in
-  `_WAITING_EVENTS`, so a Codex shim writing the same `~/.blink/state/<sid>.state` slots would light `waiting`
+  `_WAITING_EVENTS`, so a Codex shim writing the same `~/.overwatch/state/<sid>.state` slots would light `waiting`
   with zero daemon changes.
 
-Cost: a `hooks` entry in `~/.codex/config.toml` pointing at blink-hook.sh (or a thin port), installed by
-`blink` the way the Claude hook is. What could go wrong (all unverified — I did not execute a hook):
+Cost: a `hooks` entry in `~/.codex/config.toml` pointing at overwatch-hook.sh (or a thin port), installed by
+`overwatch` the way the Claude hook is. What could go wrong (all unverified — I did not execute a hook):
 (1) hook *trust*: Codex requires persisted trust for hook sources; a programmatic install may need a one-time
 user confirmation in the TUI — needs a live test. (2) exact TOML shape (`HookEventsToml`, matcher groups) is in
 the config crate; I did not pin the syntax — read `codex-rs/config` or the developers.openai.com config
@@ -67,7 +67,7 @@ reference before writing it. (3) feature is new; wire shapes could still move �
 suggest they're now contract-tested upstream. (4) the two `.state` namespaces would collide if a Claude and a
 Codex session share a session_id — UUIDs, so effectively no; but the provider attribution (claude vs codex pip
 colour/count) WOULD be wrong: the Claude state dir is read by claude_state.py and would count Codex sessions as
-Claude. A separate dir (`~/.blink/state-codex/`) plus a second provider instance is the honest shape.
+Claude. A separate dir (`~/.overwatch/state-codex/`) plus a second provider instance is the honest shape.
 
 ## Q3 — failure distinct from finish: YES (schema), with a correction to today's mapping
 
@@ -81,7 +81,7 @@ Claude. A separate dir (`~/.blink/state-codex/`) plus a second provider instance
   `TurnCompleteEvent.error: Option<ErrorEvent>` — "Terminal error details when the turn completed
   unsuccessfully" — with `ErrorEvent{message, codex_error_info}` (protocol.rs:2063). `codex_error_info`
   variants in the binary include `UsageLimitExceeded`, `ContextWindowExceeded`, `SessionBudgetExceeded`,
-  `HttpConnectionFailed`, `InternalServerError`, `Unauthorized`, etc. — `UsageLimitExceeded` is BLINK's
+  `HttpConnectionFailed`, `InternalServerError`, `Unauthorized`, etc. — `UsageLimitExceeded` is OVERWATCH's
   headline case, mirroring Claude's `StopFailure error:"rate_limit"`. `task_complete` is persisted
   (policy.rs:118) and the field is skip-if-none, so today's files (all successes, SEEN) simply lack it.
   The standalone `EventMsg::Error` is NOT persisted (policy.rs:142) — do not wait for one.
@@ -113,7 +113,7 @@ Claude. A separate dir (`~/.blink/state-codex/`) plus a second provider instance
 
 Q1 and Q3 on the rollout reader now (head-read session_meta for the name; error/reason fields for failed —
 small, no user-side install, no new trust surface). Q2 only via the new Codex hooks, as a separate
-`~/.blink/state-codex/` shim + provider — prototype the config.toml hook on the desk first to settle the trust
+`~/.overwatch/state-codex/` shim + provider — prototype the config.toml hook on the desk first to settle the trust
 prompt and exact TOML syntax before building on it.
 # Codex session ids and cwd — measured on four real rollouts, 2026-09-03
 

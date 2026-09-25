@@ -16,13 +16,13 @@ tethered connecting screen's stage counter (`usage_view.c:2700`, printing
 so 1/2 is stage 0, and stage 0 only advances when `proto_host_seen()` is true.
 It means "no daemon has spoken to me", not "the update is halfway".
 
-`blink status` on that machine showed the shape of it exactly:
+`overwatch status` on that machine showed the shape of it exactly:
 
     App         1.3.2
     Board       ... firmware 1.2.5
 
 The app half of the pair update landed and the firmware half did not. It came
-back only after a hand-run `blink install`, which is the only command that both
+back only after a hand-run `overwatch install`, which is the only command that both
 rewrites the shims and re-registers the service (`cli.py:1933` is the sole
 caller of `install_hooks.install`, and `cmd_install` ends with
 `_install_service()`); the update path does neither.
@@ -45,12 +45,12 @@ it (`pc/logbook.py` postdates that release). Unexplained, and still is.
 - **KeepAlive not firing on a clean exit.** No: `cli.py:513` is
   `<key>KeepAlive</key><true/>`, unconditional, so `os._exit(0)` is restarted.
 - **The bin rotation carrying the shim away.** No: the shims live at
-  `~/.blink/blink-hook.sh`, outside `bin/`.
+  `~/.overwatch/overwatch-hook.sh`, outside `bin/`.
 - **A new daemon choking on old-format state slots.** No: the shim gained
   `pid` and a project name between those releases, but `_slot_pid()` uses
   `.get("pid")` with a type check, so absent fields degrade.
 - **Version skew in the breadcrumb.** No: both releases use
-  `os.path.join(blink_home, "pending_fw.json")`, 1.2.5 really does write it
+  `os.path.join(overwatch_home, "pending_fw.json")`, 1.2.5 really does write it
   (`bridge.py`, `_on_ota_flash`), and 1.3.2's `_resume_pending()` is
   byte-identical to the current one -- `git diff v1.3.2 -- pc/bridge.py` is
   empty.
@@ -121,7 +121,7 @@ Two false starts worth keeping, because both cost an hour:
 unreachable and any similar failure visible and retryable, but the trigger is
 not identified. Two things from that machine would settle it:
 
-- `ls -la ~/.blink/` -- whether `pending_fw.json` is still there. Present means
+- `ls -la ~/.overwatch/` -- whether `pending_fw.json` is still there. Present means
   the resume never ran; absent means it ran and failed after spending consent.
 - The `bridge.log` generation holding the lines AFTER
   `restarting into the new version`.

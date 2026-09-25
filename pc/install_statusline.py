@@ -1,4 +1,4 @@
-"""Install the Blink statusline shim into a user's Claude Code settings.
+"""Install the Overwatch statusline shim into a user's Claude Code settings.
 
 We are editing a file the user owns and did not ask us to touch beyond this one
 key. Two rules follow: never lose their existing statusline command (it goes in
@@ -11,21 +11,21 @@ import shlex
 import shutil
 import sys
 
-CHAIN_PATH = "~/.blink/statusline-chain"
+CHAIN_PATH = "~/.overwatch/statusline-chain"
 
 # Records the exact command string the last install() call wrote to
 # statusLine, so a later install() can recognize "this is our own shim"
 # without pattern-matching the command text. A substring check on the
-# command (e.g. "blink-statusline.sh" in previous) is not safe: a
+# command (e.g. "overwatch-statusline.sh" in previous) is not safe: a
 # customer's own script can legitimately contain the shim's filename as a
 # substring (a wrapper literally named
-# "wrap-blink-statusline.sh-backup.sh", say), and a naive check mistakes
+# "wrap-overwatch-statusline.sh-backup.sh", say), and a naive check mistakes
 # that for "already installed" -- silently discarding the customer's real
 # command with no way to recover it via uninstall(). Comparing against what
 # we ourselves last wrote is exact.
 #
 # This marker is NOT the only way install() recognizes its own command --
-# see the is_ours check in install() below. The marker lives in ~/.blink,
+# see the is_ours check in install() below. The marker lives in ~/.overwatch,
 # the same directory the shim itself uses as transient scratch space
 # (statusline.json), so it is plausible for a user or a cleanup script to
 # wipe the whole directory independently of settings.json. A design that
@@ -34,9 +34,9 @@ CHAIN_PATH = "~/.blink/statusline-chain"
 # the chain file -- recreating the exact self-invocation loop this file
 # exists to prevent, just by a different route. install() therefore treats
 # a command as "ours" if it matches EITHER the marker OR the command this
-# very call would itself write, so losing ~/.blink does not resurrect the
+# very call would itself write, so losing ~/.overwatch does not resurrect the
 # bug for the common case (reinstalling at an unchanged shim_path).
-INSTALLED_MARKER_PATH = "~/.blink/statusline-installed-command"
+INSTALLED_MARKER_PATH = "~/.overwatch/statusline-installed-command"
 
 
 def statusline_command(shim_path: str) -> str:
@@ -49,7 +49,7 @@ def statusline_command(shim_path: str) -> str:
         if (D && !f && v.trim().match(/\.sh(\s|$|")/))
             if (!v.trim().startsWith("bash ")) v = `bash ${v}`
 
-    So `sh C:/.../blink-statusline.sh` becomes `bash sh C:/.../...`, and bash
+    So `sh C:/.../overwatch-statusline.sh` becomes `bash sh C:/.../...`, and bash
     then looks for a script named literally "sh" and fails on every render.
     Starting with "bash " opts out of that rewrite.
 
@@ -68,7 +68,7 @@ def windows_bash_path(path: str) -> str:
     Claude Code hands hook and status line commands to Git Bash. A command
     with a character outside ASCII in it does not survive the hand-over: on
     a Windows 10 machine whose user name is Hebrew (2026-08-29), bash was
-    given the whole of `bash 'C:/Users/משתמש/.blink/blink-hook.sh' SessionEnd`
+    given the whole of `bash 'C:/Users/משתמש/.overwatch/overwatch-hook.sh' SessionEnd`
     as ONE argument -- a script name -- and reported no such file, on every
     hook and every status line render. The identical command with an ASCII
     path ran. So no hook fired and no usage figure was ever written, and a
@@ -78,7 +78,7 @@ def windows_bash_path(path: str) -> str:
     pure ASCII on the wire, expanded by bash itself after the hand-over,
     and it was seen to run on that machine. Forward slashes throughout,
     since a backslash is an escape under bash; bash on Windows takes the
-    mixed C:\Users\...\/.blink/x.sh that the expansion produces.
+    mixed C:\Users\...\/.overwatch/x.sh that the expansion produces.
     """
     p = path.replace(chr(92), "/")
     home = os.path.expanduser("~").replace(chr(92), "/").rstrip("/")
@@ -201,7 +201,7 @@ def _save(settings_path: str, data: dict, indent, trailing_newline: bool) -> Non
     if os.path.islink(settings_path):
         settings_path = os.path.realpath(settings_path)
 
-    tmp = settings_path + ".blink-tmp"
+    tmp = settings_path + ".overwatch-tmp"
     # The temp file is a sibling of the target (it has to be, for os.replace to
     # be atomic), so an absent parent directory fails the write rather than the
     # read that came before it. ~/.claude is absent on a machine where Claude
@@ -258,7 +258,7 @@ def _is_ours(current: str, expected: str = None) -> bool:
         install wrote. Survives a shim path that has since changed, which the
         text comparison alone cannot.
       - it matches what we WOULD write for this shim path. Survives a marker
-        file that was lost -- deleted ~/.blink, a restore from backup.
+        file that was lost -- deleted ~/.overwatch, a restore from backup.
 
     A foreign command can equal neither, short of a customer literally choosing
     our exact former command text, which is the irreducible edge in any
@@ -285,7 +285,7 @@ def install(settings_path: str, shim_path: str) -> str:
     # unquoted `sh /a b/c` splits into three argv words and does nothing.
     # The shim's own self-invocation guard (`[ "$chain_cmd" != "sh $0" ]`)
     # has to keep agreeing with whatever quoting we do here -- see
-    # tools/blink-statusline.sh, which mirrors shlex.quote's exact rule in
+    # tools/overwatch-statusline.sh, which mirrors shlex.quote's exact rule in
     # shell so the two sides never drift apart.
     new_command = statusline_command(shim_path)
 
@@ -294,7 +294,7 @@ def install(settings_path: str, shim_path: str) -> str:
     # if EITHER check holds, never by pattern-matching the text:
     #   - stateless: it equals the command THIS call is about to write.
     #     Needs no file to have survived, so a same-path reinstall is still
-    #     recognized correctly even if ~/.blink (and the marker in it) was
+    #     recognized correctly even if ~/.overwatch (and the marker in it) was
     #     wiped since the last install.
     #   - persisted: it equals the marker recorded by the last install().
     #     This is what recognizes a reinstall at a *different* shim_path as
@@ -310,7 +310,7 @@ def install(settings_path: str, shim_path: str) -> str:
         chained = f"chained previous statusline: {previous}"
     elif not previous and not marker:
         # Absent statusLine key AND no marker from any earlier install --
-        # nothing ties a chain file to a still-live Blink install, so if
+        # nothing ties a chain file to a still-live Overwatch install, so if
         # one exists here it is a ghost from something else entirely (a
         # hand-placed file, leftovers from an unrelated flow). Clear it --
         # otherwise a later uninstall() would "restore" that ghost command
@@ -318,7 +318,7 @@ def install(settings_path: str, shim_path: str) -> str:
         #
         # Checking the marker (not just "statusLine is absent") matters: a
         # marker surviving from an earlier install means that install's
-        # chain content, if any, may still hold the real pre-Blink
+        # chain content, if any, may still hold the real pre-Overwatch
         # original even though statusLine was since cleared by some other
         # means (hand edit, settings migration). Treating "no statusLine"
         # alone as proof of "nothing to protect" deleted exactly that
@@ -332,13 +332,13 @@ def install(settings_path: str, shim_path: str) -> str:
         # Either previous is ours (a reinstall over our own shim), or
         # statusLine is currently absent but a marker survives from an
         # earlier install. Either way the chain file, if any, may still
-        # hold the real pre-Blink original and must not be touched.
+        # hold the real pre-Overwatch original and must not be touched.
         chained = "no previous statusline to chain"
 
     data["statusLine"] = {"type": "command", "command": new_command}
     _save(settings_path, data, indent, trailing_newline)
     _write_marker(new_command)
-    return f"Blink statusline installed ({chained})."
+    return f"Overwatch statusline installed ({chained})."
 
 
 def uninstall(settings_path: str, shim_path: str = None) -> str:
@@ -347,13 +347,13 @@ def uninstall(settings_path: str, shim_path: str = None) -> str:
     install() has an is_ours guard before it touches statusLine; uninstall()
     needs the exact same guard, or symmetrically. Two ways this goes wrong
     without one:
-      - the customer installs Blink, later points statusLine at a NEW
+      - the customer installs Overwatch, later points statusLine at a NEW
         command of their own (editing settings.json directly, bypassing
         uninstall), then runs uninstall -- which must leave their new
         command alone, not clobber it with stale chain-file content that
         predates it.
-      - ~/.blink is wiped, or uninstall runs having never installed --
-        data.pop("statusLine") would then delete a command Blink never
+      - ~/.overwatch is wiped, or uninstall runs having never installed --
+        data.pop("statusLine") would then delete a command Overwatch never
         wrote, with no way to recover it.
     So: only touch statusLine when the command currently sitting there is
     recognisably ours -- it matches the marker install() recorded, or (when
@@ -366,14 +366,14 @@ def uninstall(settings_path: str, shim_path: str = None) -> str:
     current = _current_command(data)
 
     if not current:
-        return "No Blink statusline installed; nothing to do."
+        return "No Overwatch statusline installed; nothing to do."
 
     expected = statusline_command(shim_path) if shim_path else None
     if not _is_ours(current, expected):
         # Do not touch settings.json, the chain file, or the marker: we
         # cannot tell what this command is, and guessing wrong here is the
         # unrecoverable failure mode this function exists to avoid.
-        return ("Current statusline isn't Blink's (changed since install); "
+        return ("Current statusline isn't Overwatch's (changed since install); "
                 "leaving it alone.")
 
     previous = ""
@@ -388,7 +388,7 @@ def uninstall(settings_path: str, shim_path: str = None) -> str:
         msg = f"Restored previous statusline: {previous}"
     else:
         data.pop("statusLine", None)
-        msg = "Removed the Blink statusline."
+        msg = "Removed the Overwatch statusline."
 
     _save(settings_path, data, indent, trailing_newline)
     try:
@@ -420,7 +420,7 @@ def _announce(settings_path: str, shim_path: str, undo_hint: str = None) -> None
     # worse than no disclosure: it is the one thing here nobody can verify
     # afterwards.
     is_ours = _is_ours(previous, new_command)
-    print("Blink is about to change one setting in Claude Code.")
+    print("Overwatch is about to change one setting in Claude Code.")
     print()
     print(f"  File     {settings_path}")
     print("  Key      statusLine.command  (plus the hooks entries listed above;")
@@ -435,7 +435,7 @@ def _announce(settings_path: str, shim_path: str, undo_hint: str = None) -> None
         print(f"  Was      {previous}")
         print(f"  Now      {new_command}")
         print()
-        print("  That is Blink's own shim from an earlier install, so this")
+        print("  That is Overwatch's own shim from an earlier install, so this")
         print("  updates it in place rather than recording it.")
         if chained:
             print("  The status line it runs after capturing usage is unchanged:")
@@ -444,7 +444,7 @@ def _announce(settings_path: str, shim_path: str, undo_hint: str = None) -> None
         print(f"  Was      {previous}")
         print(f"  Now      {new_command}")
         print()
-        print("  Your existing status line keeps working -- Blink records the")
+        print("  Your existing status line keeps working -- Overwatch records the")
         print("  command above and runs it after capturing usage, so your bar")
         print("  renders exactly as before.")
     else:
@@ -490,7 +490,7 @@ if __name__ == "__main__":
 # the machine ends in a log line rather than an endless write fight.
 MAX_REINSTATEMENTS = 3
 
-WATCHDOG_DISABLE_ENV = "BLINK_NO_WATCHDOG"
+WATCHDOG_DISABLE_ENV = "OVERWATCH_NO_WATCHDOG"
 
 
 def drift_check(settings_path: str, shim_path: str):
@@ -551,12 +551,12 @@ def shim_content_check(shims):
 
     A different fault from drift_check above, and the one that shipped.
     drift_check asks whether settings.json still points at us; this asks
-    whether the file it points at is still the file we would write. `blink
+    whether the file it points at is still the file we would write. `overwatch
     update` swaps the program directory and restarts the service -- it has
     never rewritten a shim -- so every install that arrived by the documented
     upgrade path ran a new daemon against whatever shim its original install
     left behind. The symptom is not an error: the hook runs, the path exists,
-    `blink status` reports ten of ten events, and the only thing missing is
+    `overwatch status` reports ten of ten events, and the only thing missing is
     the field the new daemon came to read.
 
     `shims` is a sequence of (path, name) pairs. Returns a description of what
@@ -568,7 +568,7 @@ def shim_content_check(shims):
 
     # Same rule as drift_check: a missing marker means the user uninstalled,
     # and that is never overridden. Without it a daemon still winding down
-    # would put back the shims `blink uninstall` had just removed.
+    # would put back the shims `overwatch uninstall` had just removed.
     if not _read_marker():
         return None
 
@@ -640,8 +640,8 @@ class DriftWatchdog:
                 if self._reinstatements >= MAX_REINSTATEMENTS:
                     self._gave_up = True
                     msg = (f"{msg}. That is {self._reinstatements} times now --"
-                           " something on this machine keeps removing it, so Blink"
-                           " will stop putting it back. Run `blink install` once"
+                           " something on this machine keeps removing it, so Overwatch"
+                           " will stop putting it back. Run `overwatch install` once"
                            " the conflict is resolved.")
                 found.append(msg)
 

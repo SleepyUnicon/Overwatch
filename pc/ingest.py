@@ -100,7 +100,7 @@ class IngestionBus:
         """Which providers this bus is polling, by id.
 
         A public accessor so a caller that needs to know -- the fleet tests
-        checking that BLINK_SCENARIO really did replace the real sources --
+        checking that OVERWATCH_SCENARIO really did replace the real sources --
         does not have to reach into _providers and freeze that name in place.
         """
         return [p.get_provider_id() for p in self._providers]

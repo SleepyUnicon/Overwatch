@@ -58,7 +58,7 @@ class _Runs:
             # a CSV row naming the pid; a miss is a sentence with no digits
             # in it -- and on a localised Windows, not an English one.
             pid = argv[argv.index("/fi") + 1].split()[-1]
-            out = (f'"blink.exe","{pid}","Console","1","41,904 K"\n'
+            out = (f'"overwatch.exe","{pid}","Console","1","41,904 K"\n'
                    if self._running else
                    "INFO: No tasks are running which match the specified criteria.\n")
         return subprocess.CompletedProcess(argv, code, stdout=out,
@@ -96,13 +96,13 @@ def _runs(monkeypatch, codes=None, stderr="", running=True, dump=None):
 
 
 def _recorded_pid(pid=4242):
-    """The pid the daemon writes for itself at startup, ~/.blink/bridge.pid.
+    """The pid the daemon writes for itself at startup, ~/.overwatch/bridge.pid.
 
     Windows health is read from this file (see _SchtasksBackend._is_running),
     so a test that wants a live daemon has to leave one the way a live daemon
     would -- and a test that wants a dead one simply does not.
     """
-    os.makedirs(cli.blink_home(), exist_ok=True)
+    os.makedirs(cli.overwatch_home(), exist_ok=True)
     with open(cli.pid_path(), "w", encoding="utf-8") as f:
         f.write(str(pid))
     return pid
@@ -146,7 +146,7 @@ def test_launchd_install_writes_the_plist_and_bootstraps(home, monkeypatch):
     assert cli.backend().install() == "running (launchd)"
 
     plist = open(cli.plist_path()).read()
-    assert "<key>Label</key><string>com.blink.bridge</string>" in plist
+    assert "<key>Label</key><string>com.overwatch.bridge</string>" in plist
     assert "<key>KeepAlive</key><true/>" in plist
     assert cli.log_path() in plist
     # bootout must come first, or bootstrap fails on "already loaded".
@@ -155,7 +155,7 @@ def test_launchd_install_writes_the_plist_and_bootstraps(home, monkeypatch):
     assert r.calls[1][2] == "gui/501"
     # And STARTED, not merely registered. bootstrap accepts the job; it does
     # not run it, and on a bootout/bootstrap cycle it routinely does not.
-    assert r.ran("launchctl", "kickstart", "gui/501/com.blink.bridge")
+    assert r.ran("launchctl", "kickstart", "gui/501/com.overwatch.bridge")
 
 
 def test_launchd_install_retries_bootstrap(home, monkeypatch):
@@ -204,7 +204,7 @@ def test_launchd_install_will_not_claim_running_when_it_is_not(home, monkeypatch
     assert "running (launchd)" != msg
     assert "not running" in msg
     # And it has to be a command someone can paste, like its sibling above.
-    assert "launchctl kickstart -k gui/501/com.blink.bridge" in msg
+    assert "launchctl kickstart -k gui/501/com.overwatch.bridge" in msg
 
 
 def test_launchd_remove_boots_out_and_deletes_the_plist(home, monkeypatch):
@@ -214,7 +214,7 @@ def test_launchd_remove_boots_out_and_deletes_the_plist(home, monkeypatch):
     r = _runs(monkeypatch)
 
     assert cli.backend().remove() == "removed"
-    assert r.ran("launchctl", "bootout", "gui/501/com.blink.bridge")
+    assert r.ran("launchctl", "bootout", "gui/501/com.overwatch.bridge")
     assert not os.path.exists(cli.plist_path())
 
 
@@ -234,7 +234,7 @@ def test_launchd_status_names_a_running_pid(home, monkeypatch):
 
 def test_launchd_status_calls_a_crash_loop_a_crash_loop(home, monkeypatch):
     """The row exists because a job that had crash-looped 59 times read as
-    healthy on the author's own machine, while every other line of `blink
+    healthy on the author's own machine, while every other line of `overwatch
     status` looked fine. launchctl knew all along -- it reports the run count
     and the last exit code -- so the only thing that was missing was asking.
 
@@ -278,13 +278,13 @@ def test_launchd_restart_asks_launchd_rather_than_trusting_kickstart(home, monke
 
     assert cli.backend().restart() == "restarted"
     assert r.calls[0][:2] == ["launchctl", "kickstart"]
-    assert r.ran("launchctl", "print", "gui/501/com.blink.bridge")
+    assert r.ran("launchctl", "print", "gui/501/com.overwatch.bridge")
 
 
 def test_launchd_restart_will_not_claim_restarted_when_it_is_not(home, monkeypatch):
     """kickstart exits 0, launchd says not running: say so, and where to look.
 
-    This is the `blink update` path -- the binary was just replaced. If the
+    This is the `overwatch update` path -- the binary was just replaced. If the
     new one cannot start, launchd respawns it and it dies again, and the log
     is the only thing that explains why.
     """
@@ -338,7 +338,7 @@ def test_schtasks_install_registers_at_logon_then_starts_it(home, monkeypatch):
     # with the image name as a filter so a recycled pid cannot answer for it.
     ask = [c for c in r.calls if c[0] == "tasklist"]
     assert ask and f"PID eq {pid}" in ask[0]
-    assert "IMAGENAME eq blink.exe" in ask[0]
+    assert "IMAGENAME eq overwatch.exe" in ask[0]
     # NOT the task's own state. Its action is wscript, which starts the
     # bridge without waiting and exits, so a healthy install reads "Ready"
     # within a second of /run -- and its status word is translated on a
@@ -353,7 +353,7 @@ def test_schtasks_install_will_not_claim_running_when_it_is_not(home, monkeypatc
     -- and nothing is running. `/run` triggers a task; a triggered task is
     not a live daemon, exactly as a successful `launchctl bootstrap` was not.
 
-    Nothing writes ~/.blink/bridge.pid in this test, which is what a daemon
+    Nothing writes ~/.overwatch/bridge.pid in this test, which is what a daemon
     that never started looks like from the outside.
     """
     _platform(monkeypatch, "win32")
@@ -491,7 +491,7 @@ def test_schtasks_remove_clears_the_run_key_too(home, monkeypatch):
 
 def test_schtasks_restart_starts_the_launcher_when_there_is_no_task(
         home, monkeypatch):
-    """`blink update` on a Run-key install must not leave nothing running."""
+    """`overwatch update` on a Run-key install must not leave nothing running."""
     _platform(monkeypatch, "win32")
     _runs(monkeypatch, codes=[0, 1])       # /end ok, /run fails: no such task
     written = _autostart(monkeypatch, present=True)
@@ -562,7 +562,7 @@ def test_schtasks_restart_kills_the_detached_successor(home, monkeypatch):
 
 
 def test_schtasks_restart_will_not_claim_restarted_when_it_is_not(home, monkeypatch):
-    """The `blink update` path: the .exe under the task was just replaced.
+    """The `overwatch update` path: the .exe under the task was just replaced.
 
     `schtasks /run` exits zero over a binary that cannot start -- a bad
     download, a missing DLL, a scanner holding the file -- and unlike an
@@ -592,7 +592,7 @@ def test_schtasks_restart_reports_a_run_that_failed(home, monkeypatch):
 def test_schtasks_status_tells_registered_from_not_installed(home, monkeypatch):
     """`schtasks /query /tn` exits 0 when the task exists and nonzero when it
     does not, and the two answers had never been told apart by a test -- so
-    swapping them changed nothing that anybody checked. `blink status` prints
+    swapping them changed nothing that anybody checked. `overwatch status` prints
     this line straight to the user.
 
     It reports REGISTRATION, deliberately and not health: the task is Ready,
@@ -624,7 +624,7 @@ def test_systemd_install_writes_the_unit_and_enables_it(home, monkeypatch):
     assert r.ran("systemctl", "--user", "enable", "--now")
     # ...and then asked systemd, which is the only thing that knows. Without
     # --quiet, so there is a word to read rather than a code to trust.
-    assert r.ran("systemctl", "--user", "is-active", "blink-bridge.service")
+    assert r.ran("systemctl", "--user", "is-active", "overwatch-bridge.service")
     assert not r.ran("is-active", "--quiet")
 
 
@@ -634,7 +634,7 @@ def test_systemd_install_will_not_claim_running_when_it_is_not(home, monkeypatch
     `enable --now` exits zero here and systemd says "inactive". That pairing
     is not contrived: it is what a unit whose ExecStart cannot be resolved
     does, and this file has seen it -- _systemd_exec() records an unquoted
-    ExecStart failing with "Failed to locate executable" while `blink
+    ExecStart failing with "Failed to locate executable" while `overwatch
     install` still printed "running (systemd)". Nothing caught it then
     because the only evidence anybody read was an exit code.
     """
@@ -646,7 +646,7 @@ def test_systemd_install_will_not_claim_running_when_it_is_not(home, monkeypatch
     assert msg != "running (systemd)"
     assert "not running" in msg
     # Somewhere to look, and it is a command that can be pasted.
-    assert "systemctl --user status blink-bridge.service" in msg
+    assert "systemctl --user status overwatch-bridge.service" in msg
     assert r.ran("systemctl", "--user", "is-active")
 
 
@@ -667,12 +667,12 @@ def test_systemd_restart_asks_systemd_rather_than_trusting_the_exit_code(home, m
 
     assert cli.backend().restart() == "restarted"
     assert r.calls[0][:4] == ["systemctl", "--user", "restart",
-                              "blink-bridge.service"]
+                              "overwatch-bridge.service"]
     assert r.ran("systemctl", "--user", "is-active")
 
 
 def test_systemd_restart_will_not_claim_restarted_when_it_is_not(home, monkeypatch):
-    """`blink update` swapped the binary underneath the unit. `restart` exits
+    """`overwatch update` swapped the binary underneath the unit. `restart` exits
     zero over a binary that cannot start; Restart=always then respawns it and
     it dies again, forever, and the journal is the only thing that says why.
     """
@@ -683,7 +683,7 @@ def test_systemd_restart_will_not_claim_restarted_when_it_is_not(home, monkeypat
     msg = cli.backend().restart()
     assert msg != "restarted"
     assert "not running" in msg
-    assert "systemctl --user status blink-bridge.service" in msg
+    assert "systemctl --user status overwatch-bridge.service" in msg
 
 
 def test_systemd_restart_reports_a_restart_that_failed(home, monkeypatch):
@@ -791,7 +791,7 @@ class TestLinuxWithoutSystemd:
 ])
 def test_creates_names_the_thing_install_will_make(home, monkeypatch,
                                                    platform, needle):
-    """`blink install` prints this before it does anything."""
+    """`overwatch install` prints this before it does anything."""
     _platform(monkeypatch, platform)
     assert needle in cli.backend().creates()
 
@@ -804,10 +804,10 @@ def test_skip_service_short_circuits_every_entry_point(home, monkeypatch, fn):
     """The tests' own guard. If one of these forgot it, a unit test under a
     temporary HOME would boot out the agent of whoever is logged in."""
     _platform(monkeypatch, "darwin")
-    monkeypatch.setenv("BLINK_SKIP_SERVICE", "1")
+    monkeypatch.setenv("OVERWATCH_SKIP_SERVICE", "1")
     r = _runs(monkeypatch)
 
-    assert getattr(cli, fn)() == "skipped (BLINK_SKIP_SERVICE=1)"
+    assert getattr(cli, fn)() == "skipped (OVERWATCH_SKIP_SERVICE=1)"
     assert r.calls == []
 
 
@@ -815,7 +815,7 @@ def test_kill_recorded_daemon_reads_the_legacy_pid_beside_the_old_program(home, 
     """Before 1.1.0 the daemon kept its pid beside its executable, and the
     1.1.0 install rotates that directory to bin.old. The first upgrade on a
     real PC left the 1.0.4 daemon alive on the serial port because only the
-    new location, ~/.blink/bridge.pid, was read (2026-08-29)."""
+    new location, ~/.overwatch/bridge.pid, was read (2026-08-29)."""
     _platform(monkeypatch, "win32")
     r = _runs(monkeypatch)
     os.makedirs(cli.bin_dir() + ".old")
@@ -829,11 +829,11 @@ def test_kill_recorded_daemon_reads_the_legacy_pid_beside_the_old_program(home, 
 
 def test_schtasks_halt_stops_the_daemon_but_keeps_the_registration(
         home, monkeypatch):
-    """Windows will not rename <bin> while the daemon holds blink.exe open.
+    """Windows will not rename <bin> while the daemon holds overwatch.exe open.
 
     halt() exists to let go of it just before the update swap. What it must
     NOT do is unregister: a failed update that also deleted the task would
-    leave a machine that never starts Blink again.
+    leave a machine that never starts Overwatch again.
     """
     _platform(monkeypatch, "win32")
     r = _runs(monkeypatch)
@@ -868,7 +868,7 @@ def test_halt_service_never_raises(home, monkeypatch):
     turning a working update into a traceback."""
     _platform(monkeypatch, "win32")
 
-    monkeypatch.delenv("BLINK_SKIP_SERVICE", raising=False)
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE", raising=False)
     reached = []
 
     class Boom:

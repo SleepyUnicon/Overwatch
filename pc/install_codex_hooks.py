@@ -1,4 +1,4 @@
-"""Register Blink's hook shim with Codex's own lifecycle hooks.
+"""Register Overwatch's hook shim with Codex's own lifecycle hooks.
 
 Same two rules as pc/install_hooks and pc/install_statusline: never lose
 anything the user put there, and never rewrite a key that is not ours. What
@@ -10,7 +10,7 @@ is anything but exactly what we understand. Merge, never clobber; refuse
 rather than repair; and every write goes through install_statusline._save,
 which writes a sibling temp file and os.replace()s it, so a machine that dies
 mid-install leaves Codex a whole hooks file rather than half of one. A
-truncated hooks.json would break Codex itself, not merely Blink.
+truncated hooks.json would break Codex itself, not merely Overwatch.
 
 The shape below is pinned in docs/research/codex-hook-contract.md against
 codex-cli 0.150.0, where it was established by firing real hooks rather than
@@ -20,10 +20,10 @@ upgrade rather than discovering a change from a support ticket.
 
 TRUST: Codex requires persisted trust for hook sources and prompts once in its
 TUI, recording a `trusted_hash` in the user config.toml. Nothing here can
-answer that prompt and nothing here should try -- `blink install` says it is
+answer that prompt and nothing here should try -- `overwatch install` says it is
 coming (pc/cli.cmd_install) and the person answers it. The hash covers the
 declared COMMAND STRING, not the script's contents (VERIFIED), so shipping new
-shim contents at the same path keeps working while a `blink update` that MOVES
+shim contents at the same path keeps working while a `overwatch update` that MOVES
 the shim invalidates trust and prompts again. That is why the caller must hand
 this a stable entry-point path: under `codex exec` a distrusted hook is skipped
 silently, with no prompt and no output, which looks exactly like a hook that
@@ -36,7 +36,7 @@ import sys
 from pc.install_statusline import (SettingsUnreadable, _load, _save,
                                    _sniff_format, windows_bash_path)
 
-INSTALLED_MARKER_PATH = "~/.blink/codex-hooks-installed-commands"
+INSTALLED_MARKER_PATH = "~/.overwatch/codex-hooks-installed-commands"
 
 # F1: where Codex reads its hooks file from, under CODEX_HOME. Directly in
 # CODEX_HOME -- NOT in a `hooks/` subdirectory. Verified in both directions:
@@ -122,7 +122,7 @@ def hook_command(shim_path: str, event: str) -> str:
     parse out of the payload: the shim is POSIX sh with no JSON parser, and
     this runs on every tool call.
 
-    The trailing `codex` is what sends the slots to ~/.blink/state-codex. It is
+    The trailing `codex` is what sends the slots to ~/.overwatch/state-codex. It is
     the whole difference between this registration and the Claude one, and
     without it every Codex session on the machine is reported to the board as a
     Claude session against a Claude account's limits.
@@ -172,7 +172,7 @@ def _ours(command: str, expected: set, marker: set) -> bool:
     """Ours if the marker recorded it, or if it is what we would write now.
 
     Both checks: the marker survives a shim path that has since changed, and
-    the computed form survives a marker file lost with the rest of ~/.blink.
+    the computed form survives a marker file lost with the rest of ~/.overwatch.
     Never a substring match on the command text -- a customer hook that merely
     mentions our filename would then be repointed or, in Task 9, deleted.
     """
@@ -188,7 +188,7 @@ def _read_hooks_file(hooks_path: str):
     already converts absent (-> {}), unparseable and not-an-object; what it
     does not convert is the rest of OSError -- a hooks.json that is a
     directory, one owned by another user, one on a filesystem that went away
-    mid-install. Left raw, those escape `blink install` as a traceback about
+    mid-install. Left raw, those escape `overwatch install` as a traceback about
     someone else's file.
     """
     try:
@@ -208,7 +208,7 @@ def _write_hooks_file(hooks_path, data, indent, trailing_newline) -> None:
     os.open / os.fdopen / os.replace that do the actual work are bare. So a
     CODEX_HOME that is readable but not WRITABLE -- a hooks.json laid down
     under sudo, a read-only dotfiles mount, a full volume -- came back out of
-    here as a raw PermissionError naming hooks.json.blink-tmp, a temp file the
+    here as a raw PermissionError naming hooks.json.overwatch-tmp, a temp file the
     user has never heard of, from the middle of two functions that promise
     otherwise: install says it raises SettingsUnreadable, and uninstall says it
     never raises at all.
@@ -284,7 +284,7 @@ def install(hooks_path: str, shim_path: str) -> str:
         # Already present, in any group -- a reinstall must not stack a second
         # copy that then fires twice per tool call forever. But "present" is
         # not "correct": an entry that matches only via the MARKER names an
-        # older shim path, which is what `blink update` produces every time it
+        # older shim path, which is what `overwatch update` produces every time it
         # moves the binary. Left as-is those entries are orphaned instantly,
         # invisible to uninstall, and a third install appends a duplicate.
         ours = ours_group = None
@@ -380,9 +380,9 @@ def uninstall(hooks_path: str, shim_path: str = None) -> str:
     every other entry in place. An empty group left behind by that removal is
     dropped too, and an event whose list ends up empty loses its key -- so a
     machine that has uninstalled has a hooks file shaped the way it was before
-    Blink ever ran, rather than a skeleton of empty lists.
+    Overwatch ever ran, rather than a skeleton of empty lists.
 
-    Never raises. `blink uninstall` runs this on every machine, including the
+    Never raises. `overwatch uninstall` runs this on every machine, including the
     many that never had a Codex hook, and a removal step that can abort the
     uninstall over someone else's config is worse than one that reports what
     it could not do. Every failure comes back as a sentence and an unchanged
@@ -391,7 +391,7 @@ def uninstall(hooks_path: str, shim_path: str = None) -> str:
     cannot write back, and a file with nothing of ours in it.
 
     That fourth case is the one that made this docstring a lie for a while.
-    `blink uninstall` removes the login service at step [1/5] and calls this at
+    `overwatch uninstall` removes the login service at step [1/5] and calls this at
     [4/5]; a raw PermissionError escaping here took step [5/5] with it and left
     a machine with no service and every file still installed -- the half-undone
     state this whole design exists to avoid. The person asked to be
@@ -399,9 +399,9 @@ def uninstall(hooks_path: str, shim_path: str = None) -> str:
     a reason to stop.
 
     shim_path is optional because the caller does not always still know it --
-    `blink uninstall` may run after the shim has been deleted. The marker
+    `overwatch uninstall` may run after the shim has been deleted. The marker
     alone is enough to identify what we wrote; the computed commands are the
-    belt to its braces, for a ~/.blink that was removed first.
+    belt to its braces, for a ~/.overwatch that was removed first.
     """
     try:
         indent, trailing_newline, data = _read_hooks_file(hooks_path)
@@ -476,7 +476,7 @@ def uninstall(hooks_path: str, shim_path: str = None) -> str:
             events.pop(event, None)
 
     if removed == 0:
-        # Not a failure: `blink uninstall` calls this on machines that never
+        # Not a failure: `overwatch uninstall` calls this on machines that never
         # installed the Codex hook, and on machines where someone already took
         # the entries out by hand. The file is not rewritten at all -- not even
         # re-serialised -- so a hooks file we have nothing in comes out of an
@@ -493,7 +493,7 @@ def uninstall(hooks_path: str, shim_path: str = None) -> str:
 
     # _save writes a sibling temp file and os.replace()s it, so an uninstall
     # that dies mid-write leaves Codex a whole hooks file rather than half of
-    # one. A truncated hooks.json breaks Codex itself, not merely Blink.
+    # one. A truncated hooks.json breaks Codex itself, not merely Overwatch.
     try:
         _write_hooks_file(hooks_path, data, indent, trailing_newline)
     except SettingsUnreadable as e:

@@ -229,7 +229,7 @@ static const char *page_tag(int i)
  * A provider tag as a NAME: "codex" -> "Codex".
  *
  * The tags arrive lowercase from the daemon, which is right for a wire
- * protocol and wrong for a panel -- BLINK is the only all-caps thing in the
+ * protocol and wrong for a panel -- OVERWATCH is the only all-caps thing in the
  * header, and everything beneath it is sentence case. Two places need this
  * now, the name under the brand and the line that says where the other page
  * is, and they were drifting apart the moment there were two of them.
@@ -274,7 +274,7 @@ static enum usage_status last_status = USAGE_STATUS_DISCONNECTED;
  * with no route back that anyone would find. Compiled out rather than
  * disabled: a control that cannot do anything is worse than no control.
  */
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 #define HAVE_PER_MODEL 1
 
 /* Long-press peek: a card of per-model weekly numbers that STAYS up -- tap
@@ -772,7 +772,7 @@ void usage_view_init(void)
 	 *
 	 * 6540287 removed a pip from the top-left corner and gave two reasons.
 	 * One was that the corner was occupied by the clock -- it still is, and
-	 * this row never asks for it: the 75 px between the clock and BLINK was
+	 * this row never asks for it: the 75 px between the clock and OVERWATCH was
 	 * empty the whole time. The other was two unlabelled circles in one
 	 * colour vocabulary, and the hint line below now names whichever
 	 * condition fired. This is not that pip coming back, and it is not one
@@ -2201,7 +2201,7 @@ static void refresh_dots(void)
 		 * Three single-digit groups end at 128 and fit by 2 px, which
 		 * is the budget the layout constants were chosen against --
 		 * but a tally is not always one digit, and three wide ones
-		 * would reach past BLINK. Hiding this group and every group
+		 * would reach past OVERWATCH. Hiding this group and every group
 		 * after it (n = i does that on the next pass) drops the least
 		 * urgent first, which is the order fmt_pips already put them
 		 * in, so the marks that survive are the ones that need a

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Flash a Blink CYD **whose flash-encryption eFuses are burned** (the original
+# Flash an Overwatch CYD **whose flash-encryption eFuses are burned** (the original
 # unit, fused 2026-07-17). Such a chip boots only images encrypted with its
 # device key: a plain `west flash` writes plaintext the ROM cannot read and the
 # board sits dead until re-flashed with THIS script. (The board still works;
@@ -11,7 +11,7 @@
 # bricked and no eFuse is burned by the mistake, but a flashing cycle is lost,
 # so the script now reads FLASH_CRYPT_CNT and refuses a chip that is not fused.
 #
-# Key: ~/.blink/flash_key.bin (override with BLINK_FLASH_KEY). The eFuse
+# Key: ~/.overwatch/flash_key.bin (override with OVERWATCH_FLASH_KEY). The eFuse
 # copy is sealed inside the chip and unreadable -- the file is the only usable
 # copy in the world. KEEP A BACKUP OFF THIS DISK. No key file = no future
 # updates, ever.
@@ -45,13 +45,13 @@ LOGO_OFF=0x330000
 LOGO_SIZE=0x80000
 
 PORT="${1:-$(ls /dev/cu.usbserial* 2>/dev/null | head -1 || true)}"
-KEY="${BLINK_FLASH_KEY:-$HOME/.blink/flash_key.bin}"
+KEY="${OVERWATCH_FLASH_KEY:-$HOME/.overwatch/flash_key.bin}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # Overridable so a diagnostic image (build-trace) can be flashed without
 # overwriting the release artifacts in build-sb -- which are what a restore
 # flashes back. Unset behaves exactly as before.
-BUILD="${BLINK_BUILD_DIR:-$(cd "$HERE/.." && pwd)/firmware/build-sb}"
-ETOOLS="${BLINK_ETOOLS:-/Library/Frameworks/Python.framework/Versions/3.10/bin}"
+BUILD="${OVERWATCH_BUILD_DIR:-$(cd "$HERE/.." && pwd)/firmware/build-sb}"
+ETOOLS="${OVERWATCH_ETOOLS:-/Library/Frameworks/Python.framework/Versions/3.10/bin}"
 
 [ -f "$KEY" ] || { echo "FATAL: flash key missing at $KEY -- no key, no flashing (see firmware/README security section)"; exit 1; }
 [ -n "${PORT}" ] || { echo "FATAL: no /dev/cu.usbserial* port found"; exit 1; }
@@ -60,7 +60,7 @@ ETOOLS="${BLINK_ETOOLS:-/Library/Frameworks/Python.framework/Versions/3.10/bin}"
 
 # Refuse a chip that cannot boot what we are about to write. Detection is
 # shared with tools/dev.sh, which needs the mirror check.
-if [ "${BLINK_SKIP_EFUSE_CHECK:-0}" != "1" ]; then
+if [ "${OVERWATCH_SKIP_EFUSE_CHECK:-0}" != "1" ]; then
 	# shellcheck source=lib_efuse.sh
 	. "$HERE/lib_efuse.sh"
 	efuse_probe "$PORT" "$ETOOLS"
@@ -77,13 +77,13 @@ if [ "${BLINK_SKIP_EFUSE_CHECK:-0}" != "1" ]; then
 			echo "         west flash -d $BUILD --esp-device $PORT --esp-baud-rate 115200"
 			echo "         $ETOOLS/esptool.py --port $PORT --baud 115200 write_flash \\"
 			echo "             0x1000 $BUILD/mcuboot/zephyr/zephyr.bin"
-			echo "       Override with BLINK_SKIP_EFUSE_CHECK=1 if you are certain."
+			echo "       Override with OVERWATCH_SKIP_EFUSE_CHECK=1 if you are certain."
 		} >&2
 		exit 1
 		;;
 	*)
 		echo "FATAL: cannot tell whether this chip is fused -- $EFUSE_REASON" >&2
-		echo "       Refusing to flash blind. BLINK_SKIP_EFUSE_CHECK=1 overrides." >&2
+		echo "       Refusing to flash blind. OVERWATCH_SKIP_EFUSE_CHECK=1 overrides." >&2
 		exit 1
 		;;
 	esac
@@ -104,7 +104,7 @@ enc() { # address, plaintext-in, encrypted-out
 # tools/sign_confirmed.py.
 APP_CONFIRMED="$BUILD/firmware/zephyr/zephyr.confirmed.bin"
 rm -f "$APP_CONFIRMED"
-"${BLINK_PYTHON:-python3}" "$HERE/sign_confirmed.py" \
+"${OVERWATCH_PYTHON:-python3}" "$HERE/sign_confirmed.py" \
 	--build-dir "$BUILD" --out "$APP_CONFIRMED" || {
 	echo "FATAL: could not sign a confirmed image. Flashing the unconfirmed" >&2
 	echo "       one produces a unit that reverts 90 s after it boots." >&2

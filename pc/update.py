@@ -46,7 +46,7 @@ from pc.version import RELEASE_VERSION
 MANIFEST_URL = ota.RELEASE_BASE + "manifest.json"
 SIG_URL = ota.RELEASE_BASE + "manifest.json.sig"
 
-# The public half of ~/.blink/release_signing_key_p256.pem. Signing happens in
+# The public half of ~/.overwatch/release_signing_key_p256.pem. Signing happens in
 # tools/release.sh. Losing the private half costs nothing today and everything
 # after launch: from the first customer onwards, no installed app would ever
 # accept another update, and there is no way to reach one that will not. Back
@@ -60,7 +60,7 @@ JK1K9T7tpqx6hxXWLKxorhWH6Pkxs8Bd/jzv4Zsk2yTOhaUE+dZmSt24Yw==
 # Opt out regardless of what the manifest says. A file rather than only an
 # environment variable because the daemon is started by launchd/systemd, where
 # nobody's shell exports anything.
-NO_AUTO_ENV = "BLINK_NO_AUTO_UPDATE"
+NO_AUTO_ENV = "OVERWATCH_NO_AUTO_UPDATE"
 
 # Verify against a different public key. This exists so the update path can be
 # exercised end to end against a local feed -- tests/ci/check_update.sh signs a
@@ -72,7 +72,7 @@ NO_AUTO_ENV = "BLINK_NO_AUTO_UPDATE"
 # is writable. What it must never become is a way to skip verification, so an
 # unreadable file falls back to the embedded key rather than to trusting
 # whatever arrived.
-PUBKEY_ENV = "BLINK_RELEASE_PUBKEY_FILE"
+PUBKEY_ENV = "OVERWATCH_RELEASE_PUBKEY_FILE"
 
 
 def _pubkey():
@@ -87,10 +87,10 @@ def _pubkey():
     return RELEASE_PUBKEY_PEM
 
 
-def auto_update_allowed(blink_home) -> bool:
+def auto_update_allowed(overwatch_home) -> bool:
     if os.environ.get(NO_AUTO_ENV) == "1":
         return False
-    return not os.path.exists(os.path.join(blink_home, "no-auto-update"))
+    return not os.path.exists(os.path.join(overwatch_home, "no-auto-update"))
 
 
 def platform_key():
@@ -117,16 +117,16 @@ def archive_name(key):
     directory (the executable and its _internal/ support files) so that it
     starts in a fraction of a second instead of unpacking 50 MB into a temp
     directory on every run -- 5 to 11 s on an Intel Mac before the first
-    line of Python, on `blink status` and every other command. Zip on
+    line of Python, on `overwatch status` and every other command. Zip on
     Windows, where `tar` reads it but nothing native writes one; tar.gz
     elsewhere, where it keeps the executable bit and one `curl | tar xz`
     installs it.
     """
-    return "blink-" + key + (".zip" if key.startswith("windows") else ".tar.gz")
+    return "overwatch-" + key + (".zip" if key.startswith("windows") else ".tar.gz")
 
 
 # The directory that holds the executable, its rollback and its staging copy:
-#   <bin>          what runs            ~/.blink/bin/blink[.exe] + _internal/
+#   <bin>          what runs            ~/.overwatch/bin/overwatch[.exe] + _internal/
 #   <bin>.old      the previous one, kept until the new one has proven itself
 #   <bin>.new      the download, unpacked and self-tested before it moves in
 def _dirs(target):
@@ -162,7 +162,7 @@ def _verify_with_openssl(raw, sig, pubkey_pem):
     import tempfile
     if not shutil.which("openssl"):
         return False
-    d = tempfile.mkdtemp(prefix="blink-verify-")
+    d = tempfile.mkdtemp(prefix="overwatch-verify-")
     try:
         paths = {}
         for name, data in (("pub.pem", pubkey_pem.encode()),
@@ -258,7 +258,7 @@ def _self_test(path, expect_version, run=subprocess.run) -> bool:
 def unpack(blob, into):
     """Unpack a release archive so that `into` holds the executable directly.
 
-    The archive carries one top-level directory, `blink/`, so that a person
+    The archive carries one top-level directory, `overwatch/`, so that a person
     who runs `tar xz` gets a folder rather than a spill of files. Here that
     level is stripped. Every member is checked to land inside `into`: the
     bytes were hash-checked against a signed manifest, so this is belt and
@@ -268,7 +268,7 @@ def unpack(blob, into):
         parts = [p for p in name.replace("\\", "/").split("/") if p not in ("", ".")]
         if not parts or ".." in parts:
             raise ValueError(f"refusing archive member {name!r}")
-        if parts[0] == "blink":
+        if parts[0] == "overwatch":
             parts = parts[1:]
         if not parts:
             return None
@@ -331,7 +331,7 @@ def swap_in(new_dir, target, version, run=subprocess.run):
 
     That is where the ease ends on Windows, which refuses to rename a
     directory while any process holds a file open inside it -- and the daemon
-    holds bin\\blink.exe. The renames go through _replace(), which waits for
+    holds bin\\overwatch.exe. The renames go through _replace(), which waits for
     the handle instead of reporting failure on the first refusal. Callers that
     can stop the daemon first should (see cli.halt_service); the retry is the
     net under them, not a substitute.
@@ -580,12 +580,12 @@ def _replace(src, dst, sleep=time.sleep, tries=REPLACE_TRIES):
 
     POSIX renames a directory whatever is open inside it. WINDOWS DOES NOT:
     while any process holds a file open under <bin>, renaming <bin> fails with
-    WinError 5. The daemon runs from bin\\blink.exe, so `blink update` races
+    WinError 5. The daemon runs from bin\\overwatch.exe, so `overwatch update` races
     its own background service letting go of it -- and the race was not even
     run, because a single os.replace either won on the first try or reported
     failure to the customer.
 
-    Which is what a Windows desk showed: "could not replace ...\\.blink\\bin:
+    Which is what a Windows desk showed: "could not replace ...\\.overwatch\\bin:
     [WinError 5] Access is denied" printed, and the app was on the new version
     anyway. The update worked; the person running it was told it had not.
 

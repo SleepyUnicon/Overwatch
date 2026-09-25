@@ -10,7 +10,7 @@ the failure this whole path exists to catch.
 import os
 import sys
 
-MARK = b"BLINK-FAKE-CONFIRMED"
+MARK = b"OVERWATCH-FAKE-CONFIRMED"
 
 
 def main(argv):

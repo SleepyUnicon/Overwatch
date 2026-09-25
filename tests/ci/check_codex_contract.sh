@@ -29,7 +29,7 @@ set -eu
 REF="${1:-main}"
 ci_label "$REF"
 RAW="https://raw.githubusercontent.com/openai/codex/$REF"
-WORK="${TMPDIR:-/tmp}/blink-codex-contract"
+WORK="${TMPDIR:-/tmp}/overwatch-codex-contract"
 mkdir -p "$WORK"
 
 # fetch <repo path> -> prints the local file holding it.

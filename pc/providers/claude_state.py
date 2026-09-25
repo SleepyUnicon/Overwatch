@@ -53,10 +53,10 @@ measured yet.
 
 ON DISK
 -------
-    ~/.blink/state/<session_id>.state   one JSON slot, newest event wins
-    ~/.blink/state/<session_id>.waiting  present while a human is being asked
-    ~/.blink/state/<session_id>.ended    left by SessionEnd where the slot was
-    ~/.blink/state/<session_id>/<agent_id>   one empty file per live agent
+    ~/.overwatch/state/<session_id>.state   one JSON slot, newest event wins
+    ~/.overwatch/state/<session_id>.waiting  present while a human is being asked
+    ~/.overwatch/state/<session_id>.ended    left by SessionEnd where the slot was
+    ~/.overwatch/state/<session_id>/<agent_id>   one empty file per live agent
 
 One file per session because a single global slot silently misreports the
 moment a second terminal exists. One file per AGENT because that makes the
@@ -96,7 +96,7 @@ SRC_ID = "cli"
 # Expanded when a provider is built, not here: a module-level expanduser is
 # evaluated at import, before a test can move HOME, and this provider DELETES
 # files under it. See tests/conftest.py and the note that names this constant.
-STATE_DIR = "~/.blink/state"
+STATE_DIR = "~/.overwatch/state"
 
 # Past this, assume the session is gone rather than that it has been idle
 # since. Also the sweep threshold: a session that ended without SessionEnd
@@ -142,10 +142,10 @@ T_EPOCH_MAX = 4_102_444_800.0
 # says, and it is dropped at once rather than held for ABANDONED_AFTER_S.
 #
 # A pid only means something in the namespace that issued it, and the hook
-# writes into the same ~/.blink/state the daemon reads. That was read as "both
+# writes into the same ~/.overwatch/state the daemon reads. That was read as "both
 # under one HOME on one host, so there is no remote case to defend against",
 # and one shared HOME is not one pid namespace: Claude Code running in a
-# devcontainer with ~/.blink bind-mounted writes a CONTAINER pid, which the
+# devcontainer with ~/.overwatch bind-mounted writes a CONTAINER pid, which the
 # daemon on the host resolves against the host's table. Nothing was copied
 # between machines -- the file never moved -- and the number in it still does
 # not name the process that wrote it.
@@ -163,7 +163,7 @@ T_EPOCH_MAX = 4_102_444_800.0
 # container sessions at once -- where a live host pid keeps re-arming the check
 # that the container sessions then fail. Closing that needs a marker in the
 # slot itself (the hook writing a boot id or nodename, and the daemon ignoring
-# a pid from another one), which is a change to tools/blink-hook.sh and to
+# a pid from another one), which is a change to tools/overwatch-hook.sh and to
 # every shim already installed; noted, not done.
 #
 # PID REUSE is the one wrong answer available: the kernel eventually hands a
@@ -197,7 +197,7 @@ FRESH_SLOT_S = 10.0
 # or a short-lived shell Claude Code spawned to run the hook. If it is the
 # latter, the pid is dead within milliseconds of being written and the naive
 # reading of this feature would drop EVERY live session -- a blank panel, far
-# worse than an hour-stale one. A bind-mounted ~/.blink (see LIVENESS above)
+# worse than an hour-stale one. A bind-mounted ~/.overwatch (see LIVENESS above)
 # produces the same symptom for a different reason and needs the same answer.
 #
 # So the feature tests its own premise on real data, in both directions:
@@ -225,7 +225,7 @@ FRESH_SLOT_S = 10.0
 # exactly as the daemon did before this feature existed", never "guess".
 #
 # Process-wide rather than per-provider because what a slot's pid means is a
-# fact about this machine, not about a directory: `blink status` builds its
+# fact about this machine, not about a directory: `overwatch status` builds its
 # own short-lived provider and should inherit the conclusion rather than
 # re-derive it. The message is printed at most once per process for the same
 # reason it always was -- a two-second poll would otherwise turn a real
@@ -426,7 +426,7 @@ def _pid_says_ended(pid, age_s, slot_path=""):
         #
         # Three things look like this and only one of them is ordinary: the
         # hook's pid may be a wrapper the session outlives, the pid may belong
-        # to another namespace (a bind-mounted ~/.blink), or the session may
+        # to another namespace (a bind-mounted ~/.overwatch), or the session may
         # simply have been closed inside FRESH_SLOT_S of its last event, which
         # fires no SessionEnd. Keep the session either way. Whether this also
         # suspends the feature is settle_pid_trust's call, not this one's --
@@ -642,7 +642,7 @@ class ClaudeStateProvider(base.ProviderParser):
         forever, since nothing else would ever look at these names.
 
         Sweeping is the caller's decision for the same reason the slot sweep
-        is: `blink status` must be able to look at this directory without
+        is: `overwatch status` must be able to look at this directory without
         deleting what somebody ran it to see.
         """
         try:

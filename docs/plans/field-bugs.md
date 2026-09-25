@@ -27,12 +27,12 @@
 - **No wire change without proving the budget.** The `usage` message measures ~510 of `protocol.MAX_LINE_BYTES = 512`, and `proto.c` drops an over-long line WHOLE — a silent panel freeze with no error. No task in this plan adds a wire field; if one is proposed, it must measure the worst case first.
 - Firmware is C99, kernel style: tabs, `/* */` comments, braces on every `if` body. Every Y in `usage_layout.h` sits on a 4 px rhythm.
 - **`usage_view.c` cannot be compiled on a laptop** (needs LVGL, no automated coverage). `tools/panel_render/render.sh` compiles it unchanged against real LVGL and writes a framebuffer; scenes live in `tools/panel_render/render_main.c`. Pure logic belongs in `fmt.c`, `usage_state.c`, `sleep_gate.c` or a new sibling — those are host-tested.
-- **Firmware is not done until flashed and boot-verified.** The board is at `/dev/cu.usbserial-14240`; the port re-enumerates on reset. The production daemon holds it under launchd as `com.blink.bridge`. Freeing it: `launchctl bootout gui/502/com.blink.bridge`. Restoring it needs **both** `launchctl bootstrap` AND `launchctl kickstart` — bootstrap registers without starting.
+- **Firmware is not done until flashed and boot-verified.** The board is at `/dev/cu.usbserial-14240`; the port re-enumerates on reset. The production daemon holds it under launchd as `com.overwatch.bridge`. Freeing it: `launchctl bootout gui/502/com.overwatch.bridge`. Restoring it needs **both** `launchctl bootstrap` AND `launchctl kickstart` — bootstrap registers without starting.
 - Python 3.10+, matching `pc/` style. `pytest tests -q` passes 530 today; `sh tests/ci/check_host_tests.sh` runs 14 suites. Both green at every commit.
 - Comments explain WHY, in prose, at the density of the surrounding file.
 - **A test that cannot fail is worse than no test.** This branch has found five. Every task below carries an explicit "prove it bites" step: build the broken variant, watch the test reject it, put the code back.
 - UI copy is sentence case: every on-screen sentence starts with a capital letter.
-- Do not touch anything under `~/.blink` except by the launchctl commands above. The daemon and board are live on this machine.
+- Do not touch anything under `~/.overwatch` except by the launchctl commands above. The daemon and board are live on this machine.
 
 ---
 
@@ -41,7 +41,7 @@
 **Bug B — "I used Claude Code 6 hours ago but it says 56 hours."**
 Decision: **remember the last CLI reading.** `pc/normalizer.py::merge` is strict field-by-field recency and desktop is not preferred; desktop won only because the CLI reading *ceased to exist* as a candidate (`session_pct == -1` once the five-hour window expired and Claude Code stopped rendering), leaving `age_s` describing the desktop sample. The daemon re-reads statelessly (`ClaudeCliProvider.poll`) and remembers nothing. Give it memory.
 
-**Bug A — "the computer slept but BLINK stayed awake all night showing 'Reading is old'."**
+**Bug A — "the computer slept but OVERWATCH stayed awake all night showing 'Reading is old'."**
 Decision: **firmware sleeps on a stale reading too.** `sleep_gate.c` requires `host_lost && had_usage && !ota_busy`, and `proto.c:262-265` clears `host_lost` on every protocol line, pings included. The daemon pinged all night. Extend the gate with an age-based rule; keep the daemon dumb so boards fix themselves against any daemon version.
 
 **Bug C — "no daemon running: it sits on 1/2, then resets after a few minutes."**
@@ -341,7 +341,7 @@ The memory dies with the process, deliberately. It answers "since this
 daemon started, when did you last use Claude Code", and a daemon restart is
 almost always an app update or a login -- after which the desktop cache is
 as good an answer as we have. Persisting it would put a second copy of a
-file that already exists on disk into ~/.blink, with its own invalidation
+file that already exists on disk into ~/.overwatch, with its own invalidation
 and corruption paths, for a case the field report does not contain.
 ```
 
@@ -1313,7 +1313,7 @@ git commit -m "fix: a chatty daemon with nothing to say kept the panel awake all
 
 - [ ] **Step 1: Remove the fallback probe**
 
-Replace lines 1376-1386 of `firmware/src/main.c` (the `can_fall_back` block, both arms of the `#if`) with nothing, and delete the `#include <zephyr/sys/reboot.h>`-dependent `sys_reboot` use in Step 2. The `ssid`/`psk`/`tok` buffers were declared only for this probe; removing them removes the `#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)` block from `run_usb` entirely. Leave `sys_reboot`'s include alone — `main.c` uses it elsewhere; confirm with `grep -n "sys_reboot" firmware/src/main.c` and only remove the include if that grep comes back empty.
+Replace lines 1376-1386 of `firmware/src/main.c` (the `can_fall_back` block, both arms of the `#if`) with nothing, and delete the `#include <zephyr/sys/reboot.h>`-dependent `sys_reboot` use in Step 2. The `ssid`/`psk`/`tok` buffers were declared only for this probe; removing them removes the `#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)` block from `run_usb` entirely. Leave `sys_reboot`'s include alone — `main.c` uses it elsewhere; confirm with `grep -n "sys_reboot" firmware/src/main.c` and only remove the include if that grep comes back empty.
 
 - [ ] **Step 2: Replace the reboot with a doze**
 
@@ -1405,8 +1405,8 @@ Expected: `PASS [host tests]`, 15 rows, none FAILED.
 
 - [ ] **Step 2: Take the port**
 
-Run: `launchctl bootout gui/502/com.blink.bridge`
-Expected: returns without output; `launchctl print gui/502/com.blink.bridge` then reports the service is not found. Confirm the port is free: `ls /dev/cu.usbserial-*`.
+Run: `launchctl bootout gui/502/com.overwatch.bridge`
+Expected: returns without output; `launchctl print gui/502/com.overwatch.bridge` then reports the service is not found. Confirm the port is free: `ls /dev/cu.usbserial-*`.
 
 - [ ] **Step 3: Flash and watch it boot**
 
@@ -1420,12 +1420,12 @@ Expected: at ~60 s the console prints `[usage] no app after 60 s; dozing until o
 
 - [ ] **Step 5: Restore the daemon and verify it wakes**
 
-Run: `launchctl bootstrap gui/502 ~/Library/LaunchAgents/com.blink.bridge.plist` then `launchctl kickstart -k gui/502/com.blink.bridge`. Both are required — bootstrap registers without starting.
+Run: `launchctl bootstrap gui/502 ~/Library/LaunchAgents/com.overwatch.bridge.plist` then `launchctl kickstart -k gui/502/com.overwatch.bridge`. Both are required — bootstrap registers without starting.
 Expected: within seconds the eyes open, the dashboard appears with real figures, and the health dot is green.
 
 - [ ] **Step 6: Verify Bug B against the live daemon**
 
-Run: `blink status` and check the Reading line, then compare against the daemon's own log (read-only) for the `src` of the frames it is sending: `tail -5 ~/.blink/bridge.log`.
+Run: `overwatch status` and check the Reading line, then compare against the daemon's own log (read-only) for the `src` of the frames it is sending: `tail -5 ~/.overwatch/bridge.log`.
 Expected: while Claude Code has an active five-hour window, `src: 'cli'` with a small `age_s` — unchanged from today. The remembered-reading path only shows itself once the window expires with nobody rendering, so record the current `age_s` and re-check after the next expiry; the behaviour under test is already pinned by Tasks 2 and 3, and this step is confirming the shipped bundle does what the worktree does.
 
 - [ ] **Step 7: Verify Bug A without waiting four hours**
@@ -1436,8 +1436,8 @@ Then **restore `SLEEP_ABSENT_AFTER_S` to 14400, rebuild, reflash, and re-verify 
 
 - [ ] **Step 8: Leave the desk as it was**
 
-Run: `launchctl print gui/502/com.blink.bridge | head -20`
-Expected: the service is loaded and running, the board shows live figures with a green dot. Nothing under `~/.blink` was written by hand.
+Run: `launchctl print gui/502/com.overwatch.bridge | head -20`
+Expected: the service is loaded and running, the board shows live figures with a green dot. Nothing under `~/.overwatch` was written by hand.
 
 - [ ] **Step 9: Commit the evidence**
 

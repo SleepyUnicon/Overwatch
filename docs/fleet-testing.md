@@ -75,9 +75,9 @@ python3 tools/fleet/run.py --dry-run
 
 ```
 galit-win10 (windows, galit@lenovo-r90r7u44.lan):
-  push: ['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', 'galit@lenovo-r90r7u44.lan', 'mkdir "%USERPROFILE%\\blink-fleet" 2>nul & del /q "%USERPROFILE%\\blink-fleet\\result.json" 2>nul & tar -x -f - -C "%USERPROFILE%\\blink-fleet"']
-  run : ['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', 'galit@lenovo-r90r7u44.lan', 'cd /d "%USERPROFILE%\\blink-fleet" && python -m tests.fleet.agent --board codex --out result.json --real-account']
-  pull: ['scp', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', 'galit@lenovo-r90r7u44.lan:blink-fleet/result.json', '<temporary file>']
+  push: ['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', 'galit@lenovo-r90r7u44.lan', 'mkdir "%USERPROFILE%\\overwatch-fleet" 2>nul & del /q "%USERPROFILE%\\overwatch-fleet\\result.json" 2>nul & tar -x -f - -C "%USERPROFILE%\\overwatch-fleet"']
+  run : ['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', 'galit@lenovo-r90r7u44.lan', 'cd /d "%USERPROFILE%\\overwatch-fleet" && python -m tests.fleet.agent --board codex --out result.json --real-account']
+  pull: ['scp', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', 'galit@lenovo-r90r7u44.lan:overwatch-fleet/result.json', '<temporary file>']
 ...
 Nothing was run and no desk was contacted.
 ```
@@ -112,10 +112,10 @@ Only `result.json` comes home. Everything else stays on the desk that produced
 it, under the workdir named in the inventory:
 
 ```
-~/blink-fleet/result.json                      # the verdict, copied back
-~/blink-fleet/fleet-work/overage/tap.jsonl     # every message on the wire
-~/blink-fleet/fleet-work/overage/tap.jsonl.log # the daemon's own output
-~/blink-fleet/fleet-work/preflight/            # the settle attempts
+~/overwatch-fleet/result.json                      # the verdict, copied back
+~/overwatch-fleet/fleet-work/overage/tap.jsonl     # every message on the wire
+~/overwatch-fleet/fleet-work/overage/tap.jsonl.log # the daemon's own output
+~/overwatch-fleet/fleet-work/preflight/            # the settle attempts
 ```
 
 When a desk goes red and its sentence is not enough, those two files beside
@@ -195,7 +195,7 @@ desk, which is also why the panels are worth watching while a run goes by.
 
 A scenario is a JSON file in `tests/fleet/scenarios/`. Its file stem is its
 name everywhere: in `--scenarios`, in the result table, and in the problem
-sentences. `BLINK_SCENARIO` replaces the daemon's entire provider set with the
+sentences. `OVERWATCH_SCENARIO` replaces the daemon's entire provider set with the
 one that replays the file, so a real Claude install on the desk cannot merge
 its own readings into the timeline and change what the assertion means.
 
@@ -316,7 +316,7 @@ It asserts three things:
 2. At least one frame sent and at least one `[usage] session ` line back from
    the board.
 3. Afterwards -- not alongside, so it is not competing for the serial port --
-   `blink status --wire` prints one line that parses as a JSON object. That is
+   `overwatch status --wire` prints one line that parses as a JSON object. That is
    the command a support conversation starts with, and on the Windows desk its
    message carries a path through a non-ASCII profile name, which is the
    decode error that once left a whole machine with no figure on its board.
@@ -333,12 +333,12 @@ lights up, and the part no amount of running from a source checkout exercises.
 
 - **`fresh_install`** -- unpack the release archive with the machine's own tar
   or unzip, check the unpacked program reports the expected version, run
-  `blink install` into a sandbox home, and check the copy it left at
-  `~/.blink/bin` runs and reports the same version. The third question is the
+  `overwatch install` into a sandbox home, and check the copy it left at
+  `~/.overwatch/bin` runs and reports the same version. The third question is the
   reason the scenario exists: an installer that prints its way to a cheerful
   ending while leaving a program that will not start is not hypothetical here.
 - **`update_path`** -- install the **previous** release, then have the
-  **installed** copy run `blink update` against a local feed, and check the
+  **installed** copy run `overwatch update` against a local feed, and check the
   installed program afterwards reports the candidate version. Running the
   update from the installed copy is the whole point: `update.apply` renames the
   directory the running executable is inside of, and run from an unpacked
@@ -346,8 +346,8 @@ lights up, and the part no amount of running from a source checkout exercises.
   fail the way Windows fails.
 
 Both run in a sandbox with `HOME` **and** `USERPROFILE` redirected, with every
-inherited `BLINK_*` variable swept out of the environment, and with
-`BLINK_SKIP_SERVICE` set in the child so that nothing registers a login agent
+inherited `OVERWATCH_*` variable swept out of the environment, and with
+`OVERWATCH_SKIP_SERVICE` set in the child so that nothing registers a login agent
 on somebody's desk.
 
 ### Where the bundles come from
@@ -355,7 +355,7 @@ on somebody's desk.
 **A fabricated manifest cannot drive the update.** `fetch_signed_manifest`
 verifies the manifest's signature against the public key compiled into the
 shipped binaries (`pc/update.py:196-198`) and returns `None` when it does not
-verify. Handed a hand-written `manifest.json`, `blink update` therefore prints
+verify. Handed a hand-written `manifest.json`, `overwatch update` therefore prints
 "Could not read the release feed, or it is not properly signed. Nothing was
 changed." and exits 1 -- which the scenario reports as it stands, so a red run
 says what was wrong with the feed rather than leaving somebody to guess. The
@@ -364,24 +364,24 @@ feed has to come from a genuinely signed release.
 `tools/release.sh` produces one without publishing anything:
 
 ```bash
-BLINK_RELEASE_DRAFT=1 tools/release.sh
+OVERWATCH_RELEASE_DRAFT=1 tools/release.sh
 ```
 
 That builds and signs everything, attaches it to a **draft** release, and
 stops. Then, on each desk, fetch that platform's files into the workdir:
 
 ```bash
-cd ~/blink-fleet
+cd ~/overwatch-fleet
 gh release download v1.2.6 --repo KfirLevy258/Blink -D feed \
-    -p manifest.json -p manifest.json.sig -p blink-macos-arm64.tar.gz
+    -p manifest.json -p manifest.json.sig -p overwatch-macos-arm64.tar.gz
 gh release download v1.2.5 --repo KfirLevy258/Blink -D bundles/previous \
-    -p blink-macos-arm64.tar.gz
+    -p overwatch-macos-arm64.tar.gz
 ```
 
 The feed directory has to hold all three of `manifest.json`,
 `manifest.json.sig` and this platform's archive; the agent checks that before
 it runs anything, because the far more common mistake is a directory with the
-archive but no `.sig`, where `blink update` quietly refuses the feed and the
+archive but no `.sig`, where `overwatch update` quietly refuses the feed and the
 run reads as a broken update path.
 
 ### Running them
@@ -389,13 +389,13 @@ run reads as a broken update path.
 | Flag | Means |
 |---|---|
 | `--bundle` | The candidate release's archive for that desk's platform. |
-| `--prev-bundle` | The release before it. Refused if it already reports the expected version, because `blink update` answers "Already up to date." with exit 0 and the scenario would pass without updating anything. |
+| `--prev-bundle` | The release before it. Refused if it already reports the expected version, because `overwatch update` answers "Already up to date." with exit 0 and the scenario would pass without updating anything. |
 | `--ota-dir` | The feed directory. Required with `--prev-bundle`. |
 | `--expect-version` | The version both scenarios must end at. Required with either bundle flag -- the version is the entire claim. |
 
 These three paths are forwarded **verbatim and interpreted on the target
-desk**, and release archives are per-platform: `blink-macos-arm64.tar.gz`,
-`blink-linux-x86_64.tar.gz`, `blink-windows-x86_64.zip`. One `--bundle` string
+desk**, and release archives are per-platform: `overwatch-macos-arm64.tar.gz`,
+`overwatch-linux-x86_64.tar.gz`, `overwatch-windows-x86_64.zip`. One `--bundle` string
 therefore cannot name the right file on all three machines. A *directory* name
 can be shared (relative paths resolve against each desk's workdir, so
 `--ota-dir feed` works everywhere), but an archive name cannot, so the
@@ -403,8 +403,8 @@ customer-path scenarios are run one desk at a time:
 
 ```bash
 python3 tools/fleet/run.py --only galit-win10 --state .fleet/galit-bundles.json \
-    --bundle bundles/candidate/blink-windows-x86_64.zip \
-    --prev-bundle bundles/previous/blink-windows-x86_64.zip \
+    --bundle bundles/candidate/overwatch-windows-x86_64.zip \
+    --prev-bundle bundles/previous/overwatch-windows-x86_64.zip \
     --ota-dir feed --expect-version 1.2.6
 ```
 
@@ -455,13 +455,13 @@ a gate must never read as approval.
 ### Releasing without it
 
 ```bash
-BLINK_SKIP_FLEET=1 tools/release.sh
+OVERWATCH_SKIP_FLEET=1 tools/release.sh
 ```
 
 prints, and means:
 
 ```
-WARNING: BLINK_SKIP_FLEET=1 -- v1.2.6 is being built with no proof
+WARNING: OVERWATCH_SKIP_FLEET=1 -- v1.2.6 is being built with no proof
          that it runs on any board. Nothing below checks that.
 ```
 
@@ -475,7 +475,7 @@ the last thing between a bad build and all of them.
 |---|---|---|
 | `PermissionError 13` opening `/dev/ttyUSB0`, every scenario red on `kfir-ubuntu` | That user is not in the `dialout` group, and the device is `crw-rw---- root dialout`. A healthy board looks broken. | `sudo usermod -aG dialout kfir`, then re-login **on that machine**. A new ssh connection picks up the group; the desktop's own login service does not until that session restarts. |
 | `PermissionError(13, 'Access is denied.')` on COM15 | On Windows this normally means the installed daemon still holds the port -- which is why the agent stops the service first. Seeing it means the stop did not take. | Check the Scheduled Task is really stopped, and that no daemon from an earlier run survived. Do not add a port to `fleet.toml`: that desk has twelve COM ports, eleven of them Bluetooth, and the daemon finds the right one by USB vendor and product ID, not by name. |
-| The run aborts naming `BLINK_SKIP_SERVICE` | That variable is set in the operator's shell, which would make the service stop a silent no-op -- the real daemon keeps the port, ours is refused it, and a healthy board is reported as a hardware fault. | `unset BLINK_SKIP_SERVICE` and start again. Nothing was run and the service was left alone. |
+| The run aborts naming `OVERWATCH_SKIP_SERVICE` | That variable is set in the operator's shell, which would make the service stop a silent no-op -- the real daemon keeps the port, ours is refused it, and a healthy board is reported as a hardware fault. | `unset OVERWATCH_SKIP_SERVICE` and start again. Nothing was run and the service was left alone. |
 | "No board message arrived within 15s on any of 3 attempts" | Either the port is still held by the service that was just stopped, or no board is attached. The message deliberately does not guess: those two look identical from here. | Look at the desk. |
 | "the daemon's first traffic came 7.2s after it was started" | The timeline was shifted by that much, so its last steps may not have been reached before the daemon was stopped. The run is reported as *inconclusive*, not as a failed board. | Run it again rather than reading anything into it. |
 | "Nothing was collected from `<desk>`" | The run was cut off from this end, which says nothing about what it left behind on that end. | Check that desk by hand before trusting it: a run cut off mid-scenario can leave the installed service stopped and that board dark. |
@@ -495,7 +495,7 @@ daemon says so. It is harmless: with a single provider reporting,
 still the one on the big number. On a `codex` desk the same line names
 `'codex'`.
 
-**Probes of devices that are not boards.** Under `BLINK_TAP` on a multi-port
+**Probes of devices that are not boards.** Under `OVERWATCH_TAP` on a multi-port
 host the transcript records the daemon walking its candidate list, so the first
 records of a pass are routinely a foreign device being greeted seconds before
 the real board answers. The agent knows this and measures its connect delay
@@ -520,7 +520,7 @@ instead of once per scenario.
 - On that operating system, the archive we publish unpacks, installs, and the
   installed copy runs; and the previous release can replace itself off a
   properly signed feed, rotating a directory it is running from.
-- That desk can read the account it actually has, and `blink status --wire`
+- That desk can read the account it actually has, and `overwatch status --wire`
   answers in something a support conversation can parse.
 
 ## What it does not prove

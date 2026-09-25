@@ -19,7 +19,7 @@ a browser instead:
 
     sh tools/makerworld_paste.sh
 
-which writes ~/Downloads/blink-makerworld-paste.html from the body below.
+which writes ~/Downloads/overwatch-makerworld-paste.html from the body below.
 Open it, select from the heading down, copy, paste. Headings, bold and bullets
 survive; MakerWorld restyles them to its own look.
 
@@ -27,7 +27,7 @@ Keeping this file as markdown is still right: it diffs, it renders on GitHub,
 and the HTML is derived from it rather than the other way round.
 -->
 
-# BLINK
+# OVERWATCH
 
 **Your Claude Code and Codex usage, as two live dials on your desk.**
 
@@ -161,7 +161,7 @@ naming the problem, the second the build. 445 characters, so there is room to
 adjust a line without a rewrite.
 
 > If you use Claude Code or Codex you have a 5-hour limit and a 7-day one, and
-> no way to see where you stand without stopping to check. BLINK shows both on
+> no way to see where you stand without stopping to check. OVERWATCH shows both on
 > your desk: two dials, green to amber to red, counting down to each reset. It
 > reads what the tools already write on your own machine, so nothing leaves it.
 >
@@ -202,7 +202,7 @@ none, and MakerWorld works its own out from the upload anyway.
 
 THE PAUSE AT 1.6 mm
 
-Metadata/custom_gcode_per_layer.xml in blink_claude_edition.3mf puts `M400 U1`
+Metadata/custom_gcode_per_layer.xml in overwatch_claude_edition.3mf puts `M400 U1`
 - a pause - at top_z 1.6 on more than one plate. A printer that stops on its
 own, with nothing on the page to explain it, reads as a fault.
 
@@ -261,7 +261,7 @@ not our paragraph, is what actually enforces it.
     all, so it contradicts "free to change".
 
 CC BY-NC-SA 4.0 remains the pick: print it, change it, re-share it, credit
-BLINK, never sell it, and pass the same terms on. It is the only one of the
+OVERWATCH, never sell it, and pass the same terms on. It is the only one of the
 four that says what the description says.
 
 This governs the MODEL FILES. The software keeps its own licence in LICENSE at

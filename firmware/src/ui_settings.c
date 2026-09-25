@@ -25,7 +25,7 @@
 #include "ui_anim.h"
 #include "ui_swipe.h"
 #include "ui_slide.h"
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 #include "net_wifi.h"
 #endif
 #include "fmt.h"
@@ -63,7 +63,7 @@
  * reboot -- bought a return to 100% brightness, which the Brightness row does
  * on the spot. See the layout note in the USB panel builder.
  */
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 enum action {
 	ACT_WIFI,	/* forget network, keep token */
 	ACT_SIGNIN,	/* forget token, keep network */
@@ -74,7 +74,7 @@ enum action {
 static lv_obj_t *panel;		/* NULL when closed */
 /* Shared with the software-update install dialog, which is in both builds. */
 static lv_obj_t *confirm;	/* NULL when no dialog is up */
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 static enum action pending;
 #endif
 
@@ -138,7 +138,7 @@ static int64_t upd_revert_at;	/* "Up to date" shows briefly, then idles */
 #define USB_DL_DEADLINE_MS 300000
 static int64_t usb_dl_deadline;
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 /* "Factory reset" is the honest name here and only here: this build's config
  * record really does hold the network credentials, the refresh token and the
  * AP password, so clearing it returns the device to the state it shipped in. */
@@ -179,7 +179,7 @@ static void confirm_yes_cb(lv_event_t *e)
 	ARG_UNUSED(e);
 	do_pending();	/* never returns */
 }
-#endif /* CONFIG_BLINK_WIFI_MODE -- destructive actions */
+#endif /* CONFIG_OVERWATCH_WIFI_MODE -- destructive actions */
 
 static void confirm_no_cb(lv_event_t *e)
 {
@@ -225,7 +225,7 @@ static void mk_line(lv_obj_t *parent, int y)
 	lv_obj_clear_flag(l, LV_OBJ_FLAG_SCROLLABLE);
 }
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 /* A raised panel-coloured card (decoration only -- not clickable, so the
  * controls sitting on top of it still get every touch). */
 static lv_obj_t *mk_card(lv_obj_t *parent, int x, int y, int w, int h)
@@ -247,7 +247,7 @@ static lv_obj_t *mk_card(lv_obj_t *parent, int x, int y, int w, int h)
 	lv_obj_clear_flag(c, LV_OBJ_FLAG_GESTURE_BUBBLE);
 	return c;
 }
-#endif /* CONFIG_BLINK_WIFI_MODE */
+#endif /* CONFIG_OVERWATCH_WIFI_MODE */
 
 /*
  * Brightness is five discrete levels -- 20/40/60/80/100, see backlight.h -- so
@@ -311,7 +311,7 @@ static void bright_refresh(void)
 }
 
 /* user_data carries the step direction (+1 / -1). */
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 /* The +/- stepper, kept for the WiFi layout only. The shipped panel picks a
  * level directly -- see show_bright() -- because stepping needed four presses
  * to cross a range with five positions. */
@@ -320,9 +320,9 @@ static void bright_step_cb(lv_event_t *e)
 	backlight_step((int)(intptr_t)lv_event_get_user_data(e));
 	bright_refresh();
 }
-#endif /* CONFIG_BLINK_WIFI_MODE */
+#endif /* CONFIG_OVERWATCH_WIFI_MODE */
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 static void show_confirm(void)
 {
 	confirm = lv_obj_create(panel);
@@ -361,7 +361,7 @@ static void act_cb(lv_event_t *e)
 	pending = (enum action)(intptr_t)lv_event_get_user_data(e);
 	show_confirm();
 }
-#endif /* CONFIG_BLINK_WIFI_MODE */
+#endif /* CONFIG_OVERWATCH_WIFI_MODE */
 
 /* --- Software update: tile state machine, confirm, progress overlay --- */
 
@@ -1245,7 +1245,7 @@ static void upd_timer_cb(lv_timer_t *t)
 	 *
 	 * That is what a customer tapped on 2026-09-09. proto.c answers every
 	 * `welcome` with a check, so the daemon restarting -- which is what
-	 * `blink update` does -- moved the board to CHECKING and cleared
+	 * `overwatch update` does -- moved the board to CHECKING and cleared
 	 * ota_staged underneath a green "Update now" button that went on
 	 * sitting there. This was first written up as a race between two
 	 * request flags on one loop turn. It is not: the button outlives the
@@ -1477,7 +1477,7 @@ static volatile bool want_close;
 static volatile int want_move;
 static volatile bool want_face;	/* the face page, played by the mode loop */
 
-#if !IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if !IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 /* The shipped panel's furniture: a back control, a list row, and the
  * brightness screen. The WiFi layout above predates all three and keeps
  * its own card-and-tiles arrangement, which is the only thing five
@@ -1774,7 +1774,7 @@ static void show_bright(lv_event_t *e)
 
 	bright_refresh();	/* paints the stops and the readout */
 }
-#endif /* !CONFIG_BLINK_WIFI_MODE */
+#endif /* !CONFIG_OVERWATCH_WIFI_MODE */
 
 static void build_panel(lv_obj_t *parent_scr);
 
@@ -2065,7 +2065,7 @@ static void build_panel(lv_obj_t *parent_scr)
 	 * screen moves under it, in ui_slide_run(). */
 	lv_obj_set_pos(panel, 0, 0);
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 	/* --- Header: green edge seam + back chevron + title + rule. The
 	 * chevron used to be a full-height LEFT_MID button that the reset tiles
 	 * kept covering; it now lives in the top bar (still a left-edge cue via
@@ -2297,7 +2297,7 @@ static void build_panel(lv_obj_t *parent_scr)
 
 		fmt_ascii(ssid, ssid_a, sizeof(ssid_a));
 		snprintf(line, sizeof(line), "Overwatch %s  |  %.20s",
-			 BLINK_FW_VERSION, ssid_a);
+			 OVERWATCH_FW_VERSION, ssid_a);
 	} else
 	{
 		/* Both halves when the daemon has introduced itself: they ship
@@ -2310,10 +2310,10 @@ static void build_panel(lv_obj_t *parent_scr)
 		 * left the USB build with an else and no if. */
 		if (proto_host_version()[0]) {
 			snprintf(line, sizeof(line), "Overwatch %s  |  App %s",
-				 BLINK_FW_VERSION, proto_host_version());
+				 OVERWATCH_FW_VERSION, proto_host_version());
 		} else {
 			snprintf(line, sizeof(line), "Overwatch %s",
-				 BLINK_FW_VERSION);
+				 OVERWATCH_FW_VERSION);
 		}
 	}
 
@@ -2439,9 +2439,9 @@ BUILD_ASSERT(FOOT_Y2 + 16 <= 240,
 
 	if (proto_host_version()[0]) {
 		snprintf(sub, sizeof(sub), "Overwatch %s  |  App %s",
-			 BLINK_FW_VERSION, proto_host_version());
+			 OVERWATCH_FW_VERSION, proto_host_version());
 	} else {
-		snprintf(sub, sizeof(sub), "Overwatch %s", BLINK_FW_VERSION);
+		snprintf(sub, sizeof(sub), "Overwatch %s", OVERWATCH_FW_VERSION);
 	}
 	lv_label_set_text(ver, sub);
 	lv_obj_set_style_text_color(ver, COL_DIM, 0);

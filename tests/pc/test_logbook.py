@@ -83,7 +83,7 @@ def _journal(**kw):
 _journal.t = [0.0]
 
 TRACEBACK = ["Traceback (most recent call last):",
-             '  File "blink_main.py", line 3',
+             '  File "overwatch_main.py", line 3',
              "ModuleNotFoundError: No module named 'pc'"]
 
 
@@ -363,7 +363,7 @@ def test_the_usage_frame_is_logged_by_its_values():
 
     Once the heartbeat stopped being logged this was 48% of the file by
     bytes. Nothing parses the log -- no test, doc or tool greps the arrow
-    lines -- and `blink status --wire` prints the whole frame on demand, so
+    lines -- and `overwatch status --wire` prints the whole frame on demand, so
     the log gets the values.
     """
     m = {"t": "usage", "v": 2, "session_pct": 12.0,

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Blink execution-state hook.
+# Overwatch execution-state hook.
 #
 # Claude Code runs this on lifecycle events and pipes the event JSON to stdin.
 # We record which event fired, for which session, and when.
@@ -46,7 +46,7 @@ event=${1:-unknown}
 # SessionEnd, SubagentStart/Stop -- and whose command hooks are handed the
 # same session_id and cwd on stdin. Everything below therefore already works
 # for it unchanged, and the only thing that has to differ is WHERE the slots
-# are written: a Codex session counted out of ~/.blink/state would be reported
+# are written: a Codex session counted out of ~/.overwatch/state would be reported
 # to the board as a Claude one, on a Claude pip, against a Claude account.
 #
 # One shim rather than a second copy of this file, because what is valuable
@@ -76,7 +76,7 @@ input=$(cat)
 #
 # The FIRST character must be alphanumeric. The class used to admit any of
 # `._-` anywhere, which let the literal names `.` and `..` through -- and
-# `$DIR/..` is ~/.blink itself, where the SubagentStart/Stop branches below
+# `$DIR/..` is ~/.overwatch itself, where the SubagentStart/Stop branches below
 # would then truncate or delete whichever file the agent id named. Reproduced
 # against the signing key before this was tightened.
 #
@@ -140,7 +140,7 @@ _projname() {
 # Private to the user. These files name the sessions someone has open, and
 # the default umask would leave them readable by every account on the machine.
 umask 077
-DIR="$HOME/.blink/$sub"
+DIR="$HOME/.overwatch/$sub"
 [ -d "$DIR" ] || mkdir -p "$DIR" 2>/dev/null
 
 case $event in
@@ -333,6 +333,6 @@ SubagentStart|SubagentStop)
 	;;
 esac
 
-# Never fail a hook. A non-zero exit is a signal to Claude Code, and Blink
+# Never fail a hook. A non-zero exit is a signal to Claude Code, and Overwatch
 # having a bad day must not become the user's bad day.
 exit 0

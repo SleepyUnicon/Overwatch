@@ -17,7 +17,7 @@ set -eu
 # shellcheck source=tests/ci/lib.sh
 . "$(dirname -- "$0")/lib.sh"
 
-WORK="${TMPDIR:-/tmp}/blink-host-tests"
+WORK="${TMPDIR:-/tmp}/overwatch-host-tests"
 rm -rf "$WORK"
 mkdir -p "$WORK"
 

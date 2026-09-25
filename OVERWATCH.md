@@ -1,6 +1,6 @@
 # Overwatch
 
-A personal fork of [BLINK](https://github.com/KfirLevy258/Blink) that adds two
+A personal fork of [Blink](https://github.com/KfirLevy258/Blink) that adds two
 widget pages beside the usage gauges: a Spotify transport and an app launcher
 for the Mac mini.
 
@@ -23,7 +23,7 @@ Nothing here has touched a board. There isn't one yet.
 
 ## The idea, in one paragraph
 
-BLINK's board already talks back to the computer -- `pref`, `ping`,
+OVERWATCH's board already talks back to the computer -- `pref`, `ping`,
 `ota_query` and `ota_flash` have gone up the cable since the first release, and
 `ota_flash` means a tap on the panel already makes the computer download a file
 and reflash the device. Launching an app is a smaller claim on the host than
@@ -112,7 +112,7 @@ way this codebase already handles the desktop cache sitting beside Codex.
    whole swipe implementation is built around its physics.
 2. Toolchain: Homebrew, then **Zephyr 4.3.x and SDK 0.17.4**. Not 4.4.0, which
    cannot build this firmware, and do not register SDK 1.0.1 alongside 0.17.4.
-3. Generate your own signing key into `~/.blink/`. Your board will then accept
+3. Generate your own signing key into `~/.overwatch/`. Your board will then accept
    updates only from you, never from his feed. Back it up off the machine.
 4. **Flash his stock firmware first, unmodified.** It separates "can I build
    and flash at all" from "does my code work", and if step 2 was miserable you

@@ -25,11 +25,11 @@ field bugs, because those are the ones being lived with daily. The Codex work
 waits.
 
 **Plan 1 first, because everything already built is invisible without it.**
-Nothing rewrites `~/.blink/blink-hook.sh` after the first install. `blink update`
+Nothing rewrites `~/.overwatch/overwatch-hook.sh` after the first install. `overwatch update`
 swaps the program directory and restarts the service; it has never touched a
 shim. So every customer who upgrades the documented way runs a new daemon that
 reads a `name` field against an old shim that never writes one. The board is
-never named, and `blink status` reports "hooks installed (10/10 events)"
+never named, and `overwatch status` reports "hooks installed (10/10 events)"
 throughout, because the path exists and still runs — only its contents are
 stale. Building more on top of a feature no customer can see is building on a
 floor that is not there.
@@ -52,7 +52,7 @@ called done until that test runs.
 ## What crosses between them
 
 **Plan 1 owns the shim watchdog. Plan 3 adds to it.** Plan 1 adds a content
-check that rewrites any shim under `~/.blink/` whose bytes have fallen behind
+check that rewrites any shim under `~/.overwatch/` whose bytes have fallen behind
 the daemon. When Plan 3 introduces a Codex shim in that directory, it must be
 added to the same `shims=` tuple. Plan 3 argues *against* a watchdog over
 Codex's own config, and that is a different thing: writing into `~/.codex`
@@ -81,7 +81,7 @@ first three segments of the session id and differs only in the last two.
 
 - **`codex exec` batch runs count as sessions** and get named.
 - **The Codex hook installs automatically when Codex is present**, as Claude's
-  hooks already do — not behind a flag. `blink install` must say plainly, before
+  hooks already do — not behind a flag. `overwatch install` must say plainly, before
   it happens, that Codex will ask the user to trust it once.
 - **`turn_aborted` stays mapped to idle.** It carries a `reason`, and pressing
   Esc is `interrupted`. The current mapping is correct; the gap is elsewhere.
@@ -92,7 +92,7 @@ Listed here because it is the honest headline for the whole programme, and
 because it all sits in Plan 3:
 
 - Whether a Codex hook executes at all. Never done, by anyone.
-- The trust prompt's wording and timing, and whether a `blink update` that moves
+- The trust prompt's wording and timing, and whether a `overwatch update` that moves
   the shim re-prompts.
 - The hooks file's path and shape, and whether `config.toml` needs a pointer.
 - Whether the hook's `session_id` matches the rollout's.

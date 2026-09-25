@@ -380,7 +380,7 @@ def test_a_broken_history_provider_does_not_cost_the_projection(tmp_path):
 def test_refutation_never_writes_to_the_anchor_file(tmp_path):
     """refuted_by only ever answers yes/no. Pin that checking it -- refuted
     or not -- leaves the stored anchor untouched; this wiring must never be
-    the thing that saves to ~/.blink/weekly-anchor.json."""
+    the thing that saves to ~/.overwatch/weekly-anchor.json."""
     p = str(tmp_path / "a.json")
     wa.save(p, WED_0600Z, WED_0600Z - WEEK)
     before = wa.load(p)

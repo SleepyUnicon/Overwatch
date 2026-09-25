@@ -611,7 +611,7 @@ class CodexCliProvider(base.ProviderParser):
         # is: a test must never be able to reach the real one, because the
         # scan behind it DELETES abandoned files. `sweep` is injectable for
         # the other half of that -- a caller that only wants to look, such as
-        # `blink status`, must be able to look without collecting, since a
+        # `overwatch status`, must be able to look without collecting, since a
         # diagnostic that deletes what it is diagnosing destroys the evidence
         # somebody ran it to see.
         self._state_dir = state_dir

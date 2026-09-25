@@ -22,7 +22,7 @@
  * release whatever its own version (pc/ota.py RELEASE_BASE ends
  * /releases/latest/), and ships with daemon.auto false so it never updates
  * itself. A board therefore overtakes the app routinely -- any customer who
- * accepts a firmware update without separately running `blink update` lands
+ * accepts a firmware update without separately running `overwatch update` lands
  * here -- and the half that is behind is the half this screen cannot reach.
  *
  * "Up to date" has to mean the PRODUCT is up to date, not one half of it.

@@ -13,10 +13,10 @@ could go green without proving anything:
   - a version check that reads the version off the bundle it started with
     rather than off the program the installer actually left behind, and
   - an update that reports success when the feed was refused as unsigned, or
-    when it held nothing newer -- `blink update` exits 0 for the second of
+    when it held nothing newer -- `overwatch update` exits 0 for the second of
     those and prints a sentence nobody reads in a passing run.
 
-Both are modelled below by a fake that only changes what ~/.blink/bin/blink
+Both are modelled below by a fake that only changes what ~/.overwatch/bin/overwatch
 reports when a command genuinely put something there.
 """
 import json
@@ -34,7 +34,7 @@ from tests.fleet import agent
 
 
 def _bin_name():
-    return "blink.exe" if sys.platform == "win32" else "blink"
+    return "overwatch.exe" if sys.platform == "win32" else "overwatch"
 
 
 def _programs(bundle_version="1.2.4", install_leaves=..., install_code=0,
@@ -51,7 +51,7 @@ def _programs(bundle_version="1.2.4", install_leaves=..., install_code=0,
     difference is the whole of fresh_install.
 
     `copies=False` is the installer that exits 0 having copied nothing --
-    what `blink install` does when handed an unfrozen build (pc/cli.py:1123),
+    what `overwatch install` does when handed an unfrozen build (pc/cli.py:1123),
     which is exactly the packaging fault this scenario is there to catch.
 
     It also stands in for `tar`, writing the program a real unpack would
@@ -73,12 +73,12 @@ def _programs(bundle_version="1.2.4", install_leaves=..., install_code=0,
             if unpacks:
                 for flag in ("-C", "-d"):
                     if flag in argv:
-                        dest = agent.Path(argv[argv.index(flag) + 1]) / "blink"
+                        dest = agent.Path(argv[argv.index(flag) + 1]) / "overwatch"
                         dest.mkdir(parents=True, exist_ok=True)
                         (dest / _bin_name()).write_text("x", encoding="utf-8")
             return types.SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
         if verb == "--version":
-            if ".blink" in prog:
+            if ".overwatch" in prog:
                 where = agent.Path(prog)
                 if not where.exists():
                     raise FileNotFoundError(prog)
@@ -86,7 +86,7 @@ def _programs(bundle_version="1.2.4", install_leaves=..., install_code=0,
             else:
                 version = bundle_version
             return types.SimpleNamespace(returncode=0,
-                                         stdout=f"blink {version}\n", stderr="")
+                                         stdout=f"overwatch {version}\n", stderr="")
         if verb == "install":
             if install_code == 0 and copies:
                 _put(kw, bundle_version if install_leaves is ...
@@ -106,7 +106,7 @@ def _programs(bundle_version="1.2.4", install_leaves=..., install_code=0,
 
 
 def _feed(tmp_path, name="feed"):
-    """A directory shaped like the release feed BLINK_OTA_DIR serves from."""
+    """A directory shaped like the release feed OVERWATCH_OTA_DIR serves from."""
     d = tmp_path / name
     d.mkdir(parents=True, exist_ok=True)
     for leaf in ("manifest.json", "manifest.json.sig",
@@ -115,7 +115,7 @@ def _feed(tmp_path, name="feed"):
     return d
 
 
-def _archive(tmp_path, name="blink-x.tar.gz"):
+def _archive(tmp_path, name="overwatch-x.tar.gz"):
     path = tmp_path / name
     path.write_bytes(b"x")
     return path
@@ -137,7 +137,7 @@ def test_unpack_of_a_zip_uses_a_tool_that_can_read_one():
 
 def test_unpack_refuses_an_archive_it_cannot_read():
     with pytest.raises(ValueError) as e:
-        agent.unpack_cmd("blink-macos-arm64.dmg", "/dest")
+        agent.unpack_cmd("overwatch-macos-arm64.dmg", "/dest")
     assert "dmg" in str(e.value)
 
 
@@ -173,7 +173,7 @@ def test_install_scenario_asserts_version(tmp_path):
 
         class R:
             returncode = 0
-            stdout = "blink 1.3.0\n"
+            stdout = "overwatch 1.3.0\n"
             stderr = ""
 
         return R()
@@ -193,12 +193,12 @@ def test_install_check_runs_the_installer_and_the_copy_it_left(tmp_path):
     assert res["ok"] is True, res["problems"]
     verbs = [c["cmd"][-1] for c in runner.calls]
     assert verbs == ["--version", "install", "--version"]
-    assert ".blink" in runner.calls[-1]["cmd"][0], \
+    assert ".overwatch" in runner.calls[-1]["cmd"][0], \
         "the last check must read the installed copy, not the bundle"
 
 
 def test_install_check_fails_when_the_installer_left_an_older_program(tmp_path):
-    """The version that matters is the one under ~/.blink/bin afterwards."""
+    """The version that matters is the one under ~/.overwatch/bin afterwards."""
     runner = _programs(bundle_version="1.3.0", install_leaves="1.2.4")
     res = agent.run_install_check(tmp_path / "bundle", expect_version="1.3.0",
                                   runner=runner, sandbox=tmp_path / "home")
@@ -231,17 +231,17 @@ def test_install_check_sandboxes_both_home_variables(tmp_path):
     for call in runner.calls:
         env = call["kw"]["env"]
         assert env["HOME"] == str(home) and env["USERPROFILE"] == str(home)
-        assert env["BLINK_SKIP_SERVICE"] == "1"
-        assert "BLINK_SCENARIO" not in env
+        assert env["OVERWATCH_SKIP_SERVICE"] == "1"
+        assert "OVERWATCH_SCENARIO" not in env
         assert env["HOME"] != os.path.expanduser("~")
 
 
 # --- what the child must not inherit ----------------------------------
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SHIPPED = [ROOT / "claude_usage_bridge.py", ROOT / "blink_main.py",
+SHIPPED = [ROOT / "claude_usage_bridge.py", ROOT / "overwatch_main.py",
            *sorted((ROOT / "pc").rglob("*.py"))]
-BLINK_VAR = re.compile(r"BLINK_[A-Z0-9_]+")
+OVERWATCH_VAR = re.compile(r"OVERWATCH_[A-Z0-9_]+")
 
 # Names matching the pattern that are not environment variables the program
 # reads. Empty, and worth keeping empty: every entry here is a name this
@@ -249,37 +249,37 @@ BLINK_VAR = re.compile(r"BLINK_[A-Z0-9_]+")
 NOT_AN_ENV_VAR = frozenset()
 
 
-def _shipped_blink_vars():
-    """Every BLINK_* variable the shipped program reads, from its own source.
+def _shipped_overwatch_vars():
+    """Every OVERWATCH_* variable the shipped program reads, from its own source.
 
     Read out of the sources rather than listed here on purpose. A hand-kept
     list is a snapshot: it was already one variable out of date when the
-    review found BLINK_RELEASE_PUBKEY_FILE in it, and it would have gone out
+    review found OVERWATCH_RELEASE_PUBKEY_FILE in it, and it would have gone out
     of date again the next time somebody added one to pc/. This cannot.
     """
     found = set()
     for path in SHIPPED:
-        found |= set(BLINK_VAR.findall(path.read_text(encoding="utf-8")))
+        found |= set(OVERWATCH_VAR.findall(path.read_text(encoding="utf-8")))
     return found - NOT_AN_ENV_VAR
 
 
-LEAKY = tuple(sorted(_shipped_blink_vars()))
+LEAKY = tuple(sorted(_shipped_overwatch_vars()))
 
 
 def test_the_variable_sweep_still_finds_the_shipped_ones():
     """If this grep ever comes back empty the contract below proves nothing."""
-    found = _shipped_blink_vars()
-    assert {"BLINK_OTA_DIR", "BLINK_RELEASE_PUBKEY_FILE", "BLINK_SKIP_SERVICE",
-            "BLINK_TAP", "BLINK_SCENARIO", "BLINK_POLL_INTERVAL_S",
-            "BLINK_NO_AUTO_UPDATE", "BLINK_NO_WATCHDOG"} <= found
+    found = _shipped_overwatch_vars()
+    assert {"OVERWATCH_OTA_DIR", "OVERWATCH_RELEASE_PUBKEY_FILE", "OVERWATCH_SKIP_SERVICE",
+            "OVERWATCH_TAP", "OVERWATCH_SCENARIO", "OVERWATCH_POLL_INTERVAL_S",
+            "OVERWATCH_NO_AUTO_UPDATE", "OVERWATCH_NO_WATCHDOG"} <= found
 
 
-def test_no_blink_variable_reaches_a_child_by_inheritance(tmp_path,
+def test_no_overwatch_variable_reaches_a_child_by_inheritance(tmp_path,
                                                           monkeypatch):
-    """Neither builder may pass on a BLINK_* variable it did not set itself.
+    """Neither builder may pass on an OVERWATCH_* variable it did not set itself.
 
     The daemon passes matter here as much as the bundle ones, and arguably
-    more: an inherited BLINK_OTA_DIR redirects the FIRMWARE feed
+    more: an inherited OVERWATCH_OTA_DIR redirects the FIRMWARE feed
     (pc/ota.py:52), and a scenario is a running daemon offering firmware to a
     real board. A stray variable in somebody's shell could put an unrelated
     local build in front of three of them.
@@ -296,7 +296,7 @@ def test_no_blink_variable_reaches_a_child_by_inheritance(tmp_path,
 
 def test_each_builder_sets_back_exactly_what_it_means_to(tmp_path,
                                                          monkeypatch):
-    """The whole BLINK_* surface of each child, named.
+    """The whole OVERWATCH_* surface of each child, named.
 
     Written as an equality rather than a list of absences so that it fails
     both ways: a variable that leaks in, and a variable the sweep took away
@@ -308,33 +308,33 @@ def test_each_builder_sets_back_exactly_what_it_means_to(tmp_path,
 
     daemon = agent.env_for_run(tmp_path, scenario=scenario, tap=tap,
                                sandbox=True, poll_interval=7.0)
-    assert {k: v for k, v in daemon.items() if k.startswith("BLINK_")} == {
-        "BLINK_SKIP_SERVICE": "1", "BLINK_TAP": str(tap),
-        "BLINK_POLL_INTERVAL_S": "7.0", "BLINK_SCENARIO": str(scenario)}
+    assert {k: v for k, v in daemon.items() if k.startswith("OVERWATCH_")} == {
+        "OVERWATCH_SKIP_SERVICE": "1", "OVERWATCH_TAP": str(tap),
+        "OVERWATCH_POLL_INTERVAL_S": "7.0", "OVERWATCH_SCENARIO": str(scenario)}
 
     quiet = agent.env_for_run(tmp_path, scenario=None, tap=tap, sandbox=False)
-    assert "BLINK_SCENARIO" not in quiet
+    assert "OVERWATCH_SCENARIO" not in quiet
 
     feed = tmp_path / "feed"
     assert {k: v for k, v in agent.bundle_env(tmp_path, ota_dir=feed).items()
-            if k.startswith("BLINK_")} == {"BLINK_SKIP_SERVICE": "1",
-                                           "BLINK_OTA_DIR": str(feed)}
+            if k.startswith("OVERWATCH_")} == {"OVERWATCH_SKIP_SERVICE": "1",
+                                           "OVERWATCH_OTA_DIR": str(feed)}
     assert {k: v for k, v in agent.bundle_env(tmp_path).items()
-            if k.startswith("BLINK_")} == {"BLINK_SKIP_SERVICE": "1"}
+            if k.startswith("OVERWATCH_")} == {"OVERWATCH_SKIP_SERVICE": "1"}
 
 
 def test_bundle_env_strips_a_signing_key_override(tmp_path, monkeypatch):
     """The one variable that could turn a fabricated feed into a green run.
 
-    BLINK_RELEASE_PUBKEY_FILE makes the update verify against a key of the
+    OVERWATCH_RELEASE_PUBKEY_FILE makes the update verify against a key of the
     operator's choosing (pc/update.py:73-85), and tests/ci/check_update.sh
     sets it by design -- so it is a variable somebody working in this
     repository plausibly has exported. Inherited, update_path would verify a
     throwaway locally signed release and report that it had proved the real
     signed update path.
     """
-    monkeypatch.setenv("BLINK_RELEASE_PUBKEY_FILE", "/tmp/throwaway.pem")
-    assert "BLINK_RELEASE_PUBKEY_FILE" not in agent.bundle_env(tmp_path)
+    monkeypatch.setenv("OVERWATCH_RELEASE_PUBKEY_FILE", "/tmp/throwaway.pem")
+    assert "OVERWATCH_RELEASE_PUBKEY_FILE" not in agent.bundle_env(tmp_path)
 
 
 def test_nothing_leaky_reaches_any_child_of_either_scenario(
@@ -351,7 +351,7 @@ def test_nothing_leaky_reaches_any_child_of_either_scenario(
     for call in runner.calls:
         env = call["kw"]["env"]
         for name in LEAKY:
-            if name == "BLINK_OTA_DIR" and call["cmd"][-1] == "update":
+            if name == "OVERWATCH_OTA_DIR" and call["cmd"][-1] == "update":
                 assert env[name] == str(tmp_path / "feed")
                 continue
             assert env.get(name) != "leaked", \
@@ -360,9 +360,9 @@ def test_nothing_leaky_reaches_any_child_of_either_scenario(
 
 def test_the_status_wire_child_is_swept_like_every_other_child(
         tmp_path, monkeypatch):
-    """`blink status --wire` is a child of this file too, so it is swept too.
+    """`overwatch status --wire` is a child of this file too, so it is swept too.
 
-    It reads only BLINK_SKIP_SERVICE today, so an inherited variable would
+    It reads only OVERWATCH_SKIP_SERVICE today, so an inherited variable would
     change nothing it does -- which is exactly why it was the one child built
     from a raw copy of os.environ. The rule _clean_env() states is that there
     is no exception anywhere in the file, because the exception is what the
@@ -379,7 +379,7 @@ def test_the_status_wire_child_is_swept_like_every_other_child(
 
     assert agent._check_status_wire(agent.Deps(runner=runner)) == []
     assert seen and {k: v for k, v in seen[0].items()
-                     if k.startswith("BLINK_")} == {"BLINK_SKIP_SERVICE": "1"}
+                     if k.startswith("OVERWATCH_")} == {"OVERWATCH_SKIP_SERVICE": "1"}
 
 
 # --- the update path --------------------------------------------------
@@ -392,7 +392,7 @@ def test_update_check_takes_the_candidate_off_the_feed(tmp_path):
     assert res["ok"] is True, res["problems"]
     update = [c for c in runner.calls if c["cmd"][-1] == "update"]
     assert len(update) == 1
-    assert update[0]["kw"]["env"]["BLINK_OTA_DIR"] == str(tmp_path / "feed")
+    assert update[0]["kw"]["env"]["OVERWATCH_OTA_DIR"] == str(tmp_path / "feed")
 
 
 def test_update_check_fails_when_the_feed_was_refused(tmp_path):
@@ -408,7 +408,7 @@ def test_update_check_fails_when_the_feed_was_refused(tmp_path):
 
 
 def test_update_check_fails_when_nothing_newer_was_taken(tmp_path):
-    """`blink update` exits 0 for "Already up to date." as well."""
+    """`overwatch update` exits 0 for "Already up to date." as well."""
     runner = _programs(bundle_version="1.2.4", update_to=None,
                        update_out="Already up to date.\n")
     res = agent.run_update_check(tmp_path / "prev", tmp_path / "feed",
@@ -441,7 +441,7 @@ def test_update_check_starts_from_an_install_of_the_previous_release(tmp_path):
 
 
 def test_the_update_is_run_from_the_installed_copy(tmp_path):
-    """A customer updates the program that is running from ~/.blink/bin.
+    """A customer updates the program that is running from ~/.overwatch/bin.
 
     That is the whole risk in an update: update.apply rotates the directory
     the running executable is inside of (pc/update.py:322-360). Run from the
@@ -455,7 +455,7 @@ def test_the_update_is_run_from_the_installed_copy(tmp_path):
                            sandbox=tmp_path / "home")
     update = [c for c in runner.calls if c["cmd"][-1] == "update"]
     assert len(update) == 1
-    assert ".blink" in update[0]["cmd"][0], \
+    assert ".overwatch" in update[0]["cmd"][0], \
         "the update must be run by the installed program, not by the bundle"
 
 
@@ -467,9 +467,9 @@ def test_update_check_sandboxes_both_home_variables(tmp_path):
     for call in runner.calls:
         env = call["kw"]["env"]
         assert env["HOME"] == str(home) and env["USERPROFILE"] == str(home)
-        assert env["BLINK_SKIP_SERVICE"] == "1"
+        assert env["OVERWATCH_SKIP_SERVICE"] == "1"
         if call["cmd"][-1] != "update":
-            assert "BLINK_OTA_DIR" not in env
+            assert "OVERWATCH_OTA_DIR" not in env
 
 
 # --- reading what a program printed -----------------------------------
@@ -577,7 +577,7 @@ def test_the_update_scenario_needs_a_feed_and_a_previous_bundle(tmp_path):
     args = agent.parse_args([
         "--scenarios", str(_scenarios(tmp_path)),
         "--out", str(tmp_path / "r.json"),
-        "--prev-bundle", str(_archive(tmp_path, "blink-prev.tar.gz")),
+        "--prev-bundle", str(_archive(tmp_path, "overwatch-prev.tar.gz")),
         "--ota-dir", str(_feed(tmp_path)),
         "--expect-version", "1.3.0"])
     out = agent.customer_path(args, tmp_path / "work", _deps(runner))
@@ -594,7 +594,7 @@ def _customer_args(tmp_path, *extra):
 def test_fresh_install_does_not_pass_on_the_last_runs_residue(tmp_path):
     """The work root is a fixed path and nothing else clears it.
 
-    So `<out>/fleet-work/fresh_install/home/.blink/bin/blink` outlives the run
+    So `<out>/fleet-work/fresh_install/home/.overwatch/bin/overwatch` outlives the run
     that made it, and the next run's version check would read a program the
     installer never wrote. An installer that exits 0 having copied nothing --
     what an unfrozen archive produces -- would then be proved correct by the
@@ -656,13 +656,13 @@ def test_even_the_unpacker_runs_with_a_redirected_home(tmp_path):
 def test_a_bundle_without_an_expected_version_is_refused(tmp_path):
     with pytest.raises(SystemExit):
         agent.parse_args(["--out", str(tmp_path / "r.json"),
-                          "--bundle", "blink.tar.gz"])
+                          "--bundle", "overwatch.tar.gz"])
 
 
 def test_a_previous_bundle_without_a_feed_is_refused(tmp_path):
     with pytest.raises(SystemExit):
         agent.parse_args(["--out", str(tmp_path / "r.json"),
-                          "--prev-bundle", "blink.tar.gz",
+                          "--prev-bundle", "overwatch.tar.gz",
                           "--expect-version", "1.3.0"])
 
 
@@ -676,7 +676,7 @@ def test_the_customer_path_does_not_need_a_board(tmp_path):
         "--bundle", str(_archive(tmp_path)),
         "--expect-version", "1.3.0"])
     result = agent.run(args, _deps(runner, stop=lambda: Outcome(
-        True, True, "skipped (BLINK_SKIP_SERVICE=1)")))
+        True, True, "skipped (OVERWATCH_SKIP_SERVICE=1)")))
     assert result["scenarios"]["fresh_install"]["ok"] is True
     assert result["ok"] is False, "the skipped service stop is still a failure"
 

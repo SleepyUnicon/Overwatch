@@ -146,7 +146,7 @@ def test_a_malformed_config_falls_back_instead_of_raising():
     old = os.environ.get("HOME")
     os.environ["HOME"] = home
     try:
-        os.makedirs(os.path.join(home, ".blink"), exist_ok=True)
+        os.makedirs(os.path.join(home, ".overwatch"), exist_ok=True)
         with open(widgets._config_path(), "w") as fh:
             fh.write("{ not json,,,")
         assert len(widgets.load_apps()) == widgets.SLOTS
@@ -173,7 +173,7 @@ def test_a_config_file_overrides_the_defaults():
     old = os.environ.get("HOME")
     os.environ["HOME"] = home
     try:
-        os.makedirs(os.path.join(home, ".blink"), exist_ok=True)
+        os.makedirs(os.path.join(home, ".overwatch"), exist_ok=True)
         with open(widgets._config_path(), "w") as fh:
             json.dump(["Ableton"], fh)
         assert widgets.load_apps()[0] == "Ableton"

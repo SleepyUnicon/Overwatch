@@ -11,8 +11,8 @@ hardware. NEXT UP: plans 2 and 3 (Codex).
 
 `worktree-hint-line`, off `main`. **Not merged.** Worktree at
 `.claude/worktrees/hint-line`. The daemon and board on this machine are LIVE
-and in use: board at `/dev/cu.usbserial-14240`, service `com.blink.bridge`
-under launchd. Freeing the port means `launchctl bootout gui/502/com.blink.bridge`;
+and in use: board at `/dev/cu.usbserial-14240`, service `com.overwatch.bridge`
+under launchd. Freeing the port means `launchctl bootout gui/502/com.overwatch.bridge`;
 restoring it needs **both** `bootstrap` AND `kickstart` — bootstrap registers
 without starting.
 
@@ -31,15 +31,15 @@ actually living with. [`README.md`](README.md) carries the sequencing argument.
 
 ## What Plan 1 actually fixed, and why it mattered
 
-Nothing had ever rewritten `~/.blink/blink-hook.sh` after the first install.
-`blink update` swaps the program directory and restarts the service; it has
+Nothing had ever rewritten `~/.overwatch/overwatch-hook.sh` after the first install.
+`overwatch update` swaps the program directory and restarts the service; it has
 never touched a shim. So every customer who upgraded the documented way ran a
 new daemon reading a `name` field that an old shim never wrote — session
-naming was silently dead — while `blink status` reported "hooks installed
+naming was silently dead — while `overwatch status` reported "hooks installed
 (10/10 events)" because the path existed and still ran.
 
 **This was live on the owner's own machine.** Task 3's end-to-end step found
-`~/.blink/blink-hook.sh` at 5076 bytes (the pre-naming version), repaired it to
+`~/.overwatch/overwatch-hook.sh` at 5076 bytes (the pre-naming version), repaired it to
 9093, and state files began carrying `"name"` for the first time. Verified
 independently.
 
@@ -73,7 +73,7 @@ Commits: `4dd5fca` detection, `1dbe4fd` repair, `1972601` wiring, `c9f567b`,
 **Plans 2 and 3 (Codex):**
 - `codex exec` batch runs count as sessions and get named.
 - The Codex hook installs automatically when Codex is detected, not behind a
-  flag — but `blink install` must say plainly that Codex will ask the user to
+  flag — but `overwatch install` must say plainly that Codex will ask the user to
   trust it once.
 - `turn_aborted` stays mapped to idle. It carries a `reason`, and Esc is
   `interrupted`; the current mapping is right. The gap is `task_complete`
@@ -98,7 +98,7 @@ that instruction; keep it.
   today because the Claude shim refuses non-ASCII; becomes reachable the moment
   a Codex `cwd` becomes a label, which is Plan 2 Task 1. Measured: switching to
   `ensure_ascii=False` is never longer on the wire.
-- `tools/blink-hook.sh` refuses names over 24 chars, with spaces, or non-ASCII.
+- `tools/overwatch-hook.sh` refuses names over 24 chars, with spaces, or non-ASCII.
   `My Project` silently gets no label. Still the owner's decision.
 - Nobody has ever executed a Codex hook — the single largest unknown in the
   programme, and all of it sits in Plan 3.
@@ -116,7 +116,7 @@ with a valid image; and the `wifi.conf` build compiling and linking clean.
 **Why the build mattered more than usual here.** `ui_sleep.c` and `main.c` need
 LVGL and Zephyr, have no host tests, and cannot be compiled by any agent on this
 laptop — so tasks 6, 7 and 8 were reviewed by reading alone until the build ran.
-The default build has `CONFIG_BLINK_WIFI_MODE` unset and compiles the `#else`
+The default build has `CONFIG_OVERWATCH_WIFI_MODE` unset and compiles the `#else`
 arm; task 8's actual edit lives in the `#if` arm, so a second build with
 `-DEXTRA_CONF_FILE=wifi.conf` was needed to compile it at all.
 
@@ -243,12 +243,12 @@ tree, both firmware configurations building.
   fixes are NOT flashed** — settings-from-doze, the `ota_busy` helper and the
   test fixes are committed but the board still runs the pre-review image.
 - **Daemon**: built from this worktree with `tools/build_binary.sh` and installed
-  by hand at `~/.blink/bin` — TWICE today, most recently WITH the review fixes.
+  by hand at `~/.overwatch/bin` — TWICE today, most recently WITH the review fixes.
   It is not a release; no release was cut and none should be from a branch this
-  unfinished. Rollbacks kept: `~/.blink/bin.prev-20260904` (the original 1.2.5)
-  and `~/.blink/bin.prev-reviewfix` (pre-review-fix build).
+  unfinished. Rollbacks kept: `~/.overwatch/bin.prev-20260904` (the original 1.2.5)
+  and `~/.overwatch/bin.prev-reviewfix` (pre-review-fix build).
 - Confirmed live after install: `src: cli`, `active_age_s: 0`, the repaired hook
-  in `~/.blink/blink-hook.sh`, and state slots carrying a real `"pid"` whose
+  in `~/.overwatch/overwatch-hook.sh`, and state slots carrying a real `"pid"` whose
   process is `claude`.
 
 **A visible change the owner has NOT yet eyeballed:** the session dial can now
@@ -470,8 +470,8 @@ above all — starts by flashing a board again.
 **The daemon is DOWN, deliberately.** The owner's instruction, given while
 customer units were on the desk: their usage must not be pushed to a board that
 ships. It stays down until the owner says otherwise, and the restore is BOTH
-`launchctl bootstrap gui/502 ~/Library/LaunchAgents/com.blink.bridge.plist` AND
-`launchctl kickstart -k gui/502/com.blink.bridge` — bootstrap alone registers the
+`launchctl bootstrap gui/502 ~/Library/LaunchAgents/com.overwatch.bridge.plist` AND
+`launchctl kickstart -k gui/502/com.overwatch.bridge` — bootstrap alone registers the
 job without starting it.
 
 I restarted that daemon twice today before learning any of this, the second time
@@ -658,17 +658,17 @@ not argued from a contract.
 | The hooks file path | `$CODEX_HOME/hooks.json` fires in 1 s; the plan's `hooks/hooks.json` never fires in 45 s; no-file control confirms the negative |
 | `PermissionRequest` | Observed for the first time by anyone, in the owner's interactive session |
 | Installer -> Codex -> shim -> slot | Real installer, real turn, real slots with the right id, event, pid and name |
-| `blink install` disclosure | Printed before touching Codex, naming the file and warning about the trust prompt |
-| The trust prompt | Seen by the owner: "10 hooks are new or changed" -- exactly BLINK's ten |
+| `overwatch install` disclosure | Printed before touching Codex, naming the file and warning about the trust prompt |
+| The trust prompt | Seen by the owner: "10 hooks are new or changed" -- exactly OVERWATCH's ten |
 | A distrusted hook is SILENT | Real turn, no bypass: zero hook lines, zero slots, zero mention of trust |
-| `blink status` | Says "registered, but it has never written anything" -- the only way to find the above |
+| `overwatch status` | Says "registered, but it has never written anything" -- the only way to find the above |
 | A Codex session on the panel | The owner saw the pip appear |
 | `SessionEnd` on an interactive quit | Slot gone immediately; closes an item this file had listed as open |
 | The tombstone | A real session end took the slot to zero and left `<sid>.ended`; the reader agrees |
 
 ## Two defects the owner found by using it, both fixed tonight
 
-1. **`blink install` said "running (launchd)" over a service it never started.**
+1. **`overwatch install` said "running (launchd)" over a service it never started.**
    Not a race: the old sequence was run five times and left the service not
    running **5/5**, with `bootstrap` returning 0 every time. RunAtLoad is
    honoured at LOGIN, so anyone who rebooted between installing and looking saw
@@ -742,7 +742,7 @@ by producing numbers that looked fine.
 
 ## THE ONE LIVE DEFECT, and it was aimed at tomorrow
 
-**`blink install` claimed a running service from an exit code on Linux AND
+**`overwatch install` claimed a running service from an exit code on Linux AND
 Windows** — the identical bug fixed for macOS hours earlier, unfixed on the two
 platforms the owner is about to test. Also: schtasks status had registered and
 not-installed **inverted**, and launchd's crash-loop branch was untested.
@@ -774,7 +774,7 @@ owner's PC is. It asks `tasklist` for the recorded pid instead.
   any by one byte writes past the caller's buffer unnoticed.
 - **`usage_state.c`** — three of four arms of the state aggregation are
   unfalsifiable.
-- **`tools/blink-hook.sh:93`** — the session-id sanitiser is a security
+- **`tools/overwatch-hook.sh:93`** — the session-id sanitiser is a security
   boundary and nothing pins it against `/`. The code is correct today; a later
   widening would pass unnoticed.
 - **`codex_cli.py:114`** — "newest first" survives being reversed; past six

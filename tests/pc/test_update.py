@@ -42,10 +42,10 @@ class TestPlatformKey(unittest.TestCase):
 
     def test_the_feed_serves_an_archive_per_key(self):
         """A directory since 1.1.0 -- a one-file build unpacked 50 MB on every
-        run, 5-11 s on an Intel Mac before `blink status` printed a line."""
-        self.assertEqual(update.archive_name("macos-arm64"), "blink-macos-arm64.tar.gz")
-        self.assertEqual(update.archive_name("linux-x86_64"), "blink-linux-x86_64.tar.gz")
-        self.assertEqual(update.archive_name("windows-x86_64"), "blink-windows-x86_64.zip")
+        run, 5-11 s on an Intel Mac before `overwatch status` printed a line."""
+        self.assertEqual(update.archive_name("macos-arm64"), "overwatch-macos-arm64.tar.gz")
+        self.assertEqual(update.archive_name("linux-x86_64"), "overwatch-linux-x86_64.tar.gz")
+        self.assertEqual(update.archive_name("windows-x86_64"), "overwatch-windows-x86_64.zip")
 
     def test_an_intel_process_under_rosetta_stays_intel(self):
         """Keyed off the running process, not the silicon. Replacing an x86_64
@@ -135,14 +135,14 @@ def fake_run(ok=True, version="0.7.0"):
     def run(cmd, **kw):
         class R:
             returncode = 0 if ok else 1
-            stdout = f"blink {version}\n" if ok else ""
+            stdout = f"overwatch {version}\n" if ok else ""
             stderr = ""
         return R()
     return run
 
 
 def archive(files, kind="tar"):
-    """A release archive in memory: {relative path: bytes} under blink/."""
+    """A release archive in memory: {relative path: bytes} under overwatch/."""
     import io
     import tarfile
     import zipfile
@@ -150,32 +150,32 @@ def archive(files, kind="tar"):
     if kind == "zip":
         with zipfile.ZipFile(buf, "w") as z:
             for name, data in files.items():
-                info = zipfile.ZipInfo("blink/" + name)
+                info = zipfile.ZipInfo("overwatch/" + name)
                 info.external_attr = (0o755 | 0o100000) << 16
                 z.writestr(info, data)
     else:
         with tarfile.open(fileobj=buf, mode="w:gz") as tf:
             for name, data in files.items():
-                info = tarfile.TarInfo("blink/" + name)
+                info = tarfile.TarInfo("overwatch/" + name)
                 info.size = len(data)
                 info.mode = 0o755
                 tf.addfile(info, io.BytesIO(data))
     return buf.getvalue()
 
 
-NEW = {"blink": b"#!/bin/sh\necho new\n", "_internal/lib.so": b"support"}
+NEW = {"overwatch": b"#!/bin/sh\necho new\n", "_internal/lib.so": b"support"}
 
 
 class TestApply(unittest.TestCase):
-    """The program is a directory: <bin>/blink plus <bin>/_internal. An
+    """The program is a directory: <bin>/overwatch plus <bin>/_internal. An
     update unpacks the archive to <bin>.new, self-tests it, and rotates
     <bin> -> <bin>.old, <bin>.new -> <bin>."""
 
     def setUp(self):
         import tempfile
-        self.d = tempfile.mkdtemp(prefix="blink-apply-")
+        self.d = tempfile.mkdtemp(prefix="overwatch-apply-")
         self.bin = os.path.join(self.d, "bin")
-        self.target = os.path.join(self.bin, "blink")
+        self.target = os.path.join(self.bin, "overwatch")
         os.makedirs(os.path.join(self.bin, "_internal"))
         with open(self.target, "wb") as f:
             f.write(b"old binary")
@@ -193,9 +193,9 @@ class TestApply(unittest.TestCase):
         ok, msg = update.apply(archive(NEW), self.target, "0.7.0",
                                run=fake_run())
         self.assertTrue(ok, msg)
-        self.assertEqual(self._read("bin", "blink"), NEW["blink"])
+        self.assertEqual(self._read("bin", "overwatch"), NEW["overwatch"])
         self.assertEqual(self._read("bin", "_internal", "lib.so"), b"support")
-        self.assertEqual(self._read("bin.old", "blink"), b"old binary")
+        self.assertEqual(self._read("bin.old", "overwatch"), b"old binary")
         self.assertEqual(self._read("bin.old", "_internal", "lib.so"), b"old support")
         self.assertFalse(os.path.exists(self.bin + ".new"))
 
@@ -217,21 +217,21 @@ class TestApply(unittest.TestCase):
                                run=fake_run(ok=False))
         self.assertFalse(ok)
         self.assertIn("did not run", msg)
-        self.assertEqual(self._read("bin", "blink"), b"old binary")
+        self.assertEqual(self._read("bin", "overwatch"), b"old binary")
         self.assertFalse(os.path.exists(self.bin + ".new"))
 
     def test_a_program_reporting_the_wrong_version_is_refused(self):
         ok, _ = update.apply(archive(NEW), self.target, "0.7.0",
                              run=fake_run(version="0.5.0"))
         self.assertFalse(ok)
-        self.assertEqual(self._read("bin", "blink"), b"old binary")
+        self.assertEqual(self._read("bin", "overwatch"), b"old binary")
 
     def test_a_download_that_is_not_an_archive_is_refused(self):
         ok, msg = update.apply(b"not an archive", self.target, "0.7.0",
                                run=fake_run())
         self.assertFalse(ok)
         self.assertIn("stage", msg)
-        self.assertEqual(self._read("bin", "blink"), b"old binary")
+        self.assertEqual(self._read("bin", "overwatch"), b"old binary")
         self.assertFalse(os.path.exists(self.bin + ".new"))
 
     def test_an_archive_without_the_program_is_refused(self):
@@ -239,7 +239,7 @@ class TestApply(unittest.TestCase):
                                "0.7.0", run=fake_run())
         self.assertFalse(ok)
         self.assertIn("does not contain", msg)
-        self.assertEqual(self._read("bin", "blink"), b"old binary")
+        self.assertEqual(self._read("bin", "overwatch"), b"old binary")
 
     def test_a_member_that_escapes_the_directory_is_refused(self):
         ok, _ = update.apply(archive({"../escape": b"x"}), self.target,
@@ -253,16 +253,16 @@ class TestApply(unittest.TestCase):
         ok, _ = update.apply(archive(NEW), self.target, "0.7.0",
                              run=fake_run())
         self.assertTrue(ok)
-        self.assertEqual(self._read("bin", "blink"), NEW["blink"])
+        self.assertEqual(self._read("bin", "overwatch"), NEW["overwatch"])
         self.assertFalse(os.path.exists(self.bin + ".old"))
 
 
 class TestRecover(unittest.TestCase):
     def setUp(self):
         import tempfile
-        self.d = tempfile.mkdtemp(prefix="blink-recover-")
+        self.d = tempfile.mkdtemp(prefix="overwatch-recover-")
         self.bin = os.path.join(self.d, "bin")
-        self.target = os.path.join(self.bin, "blink")
+        self.target = os.path.join(self.bin, "overwatch")
 
     def tearDown(self):
         import shutil
@@ -270,7 +270,7 @@ class TestRecover(unittest.TestCase):
 
     def _old(self, data=b"previous"):
         os.makedirs(self.bin + ".old", exist_ok=True)
-        with open(os.path.join(self.bin + ".old", "blink"), "wb") as f:
+        with open(os.path.join(self.bin + ".old", "overwatch"), "wb") as f:
             f.write(data)
 
     def test_a_missing_program_is_restored_from_the_rollback(self):
@@ -302,7 +302,7 @@ class TestRecover(unittest.TestCase):
 class TestOptOut(unittest.TestCase):
     def setUp(self):
         import tempfile
-        self.d = tempfile.mkdtemp(prefix="blink-optout-")
+        self.d = tempfile.mkdtemp(prefix="overwatch-optout-")
         self._env = os.environ.pop(update.NO_AUTO_ENV, None)
 
     def tearDown(self):
@@ -328,12 +328,12 @@ class TestOptOut(unittest.TestCase):
 
 
 class TestReplaceRetries(unittest.TestCase):
-    """Windows refuses to rename <bin> while the daemon holds blink.exe open.
+    """Windows refuses to rename <bin> while the daemon holds overwatch.exe open.
 
     The observed symptom was not a failed update -- it was a SUCCESSFUL one
     that told the customer it had failed:
 
-        could not replace C:\\Users\\...\\.blink\\bin: [WinError 5] Access is denied
+        could not replace C:\\Users\\...\\.overwatch\\bin: [WinError 5] Access is denied
 
     printed, with the app on the new version anyway. A single os.replace either
     won the race on its first try or reported defeat; it never waited.
@@ -341,7 +341,7 @@ class TestReplaceRetries(unittest.TestCase):
 
     def setUp(self):
         import tempfile
-        self.d = tempfile.mkdtemp(prefix="blink-replace-")
+        self.d = tempfile.mkdtemp(prefix="overwatch-replace-")
         self.src = os.path.join(self.d, "src")
         self.dst = os.path.join(self.d, "dst")
         os.makedirs(self.src)
@@ -420,9 +420,9 @@ class TestSwapWaitsForTheHandle(unittest.TestCase):
 
     def setUp(self):
         import tempfile
-        self.d = tempfile.mkdtemp(prefix="blink-swapwait-")
+        self.d = tempfile.mkdtemp(prefix="overwatch-swapwait-")
         self.bin = os.path.join(self.d, "bin")
-        self.target = os.path.join(self.bin, "blink")
+        self.target = os.path.join(self.bin, "overwatch")
         os.makedirs(os.path.join(self.bin, "_internal"))
         with open(self.target, "wb") as f:
             f.write(b"old binary")
@@ -452,8 +452,8 @@ class TestSwapWaitsForTheHandle(unittest.TestCase):
             os.replace = real
         self.assertTrue(ok, msg)
         self.assertEqual(msg, "updated to 0.7.0")
-        self.assertEqual(open(os.path.join(self.bin, "blink"), "rb").read(),
-                         NEW["blink"])
+        self.assertEqual(open(os.path.join(self.bin, "overwatch"), "rb").read(),
+                         NEW["overwatch"])
         self.assertNotIn("could not replace", msg)
 
 

@@ -166,7 +166,7 @@ def parse(buf):
     data = bytes(buf)
     try:
         pos = 0
-        # A real value carries a Blink envelope version and then V8's, both
+        # A real value carries an Overwatch envelope version and then V8's, both
         # written as \xff + varint. Skip however many are present.
         while pos < len(data) and data[pos] == 0xff:
             pos += 1

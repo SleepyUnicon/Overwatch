@@ -20,7 +20,7 @@ set -eu
 ci_label update
 ci_binary
 
-WORK="${1:-${TMPDIR:-/tmp}/blink-ci-update}"
+WORK="${1:-${TMPDIR:-/tmp}/overwatch-ci-update}"
 
 case "$(uname -s)" in
 MINGW* | MSYS* | CYGWIN*)
@@ -46,23 +46,23 @@ esac
 
 printf '== update (HOME=%s, artifact=%s)\n' "$HOME" "$KEY"
 
-BLINK_SKIP_SERVICE=1 "$BIN" >"$WORK/install.txt" 2>&1 ||
+OVERWATCH_SKIP_SERVICE=1 "$BIN" >"$WORK/install.txt" 2>&1 ||
 	{ cat "$WORK/install.txt" >&2; fail "install exited non-zero"; }
-INSTALLED="$HOME/.blink/bin/blink"
+INSTALLED="$HOME/.overwatch/bin/overwatch"
 [ -x "$INSTALLED" ] || fail "the binary did not install itself"
 
 # The stand-in for a newer release: a directory with an executable that only
 # has to satisfy the self-test -- run, and say it is the version the manifest
 # promised -- packaged the way the feed serves it (tools/package_binary.py).
-ARCHIVE="$FEED/blink-$KEY.tar.gz"
-mkdir -p "$WORK/fake/blink"
-cat >"$WORK/fake/blink/blink" <<'EOF'
+ARCHIVE="$FEED/overwatch-$KEY.tar.gz"
+mkdir -p "$WORK/fake/overwatch"
+cat >"$WORK/fake/overwatch/overwatch" <<'EOF'
 #!/bin/sh
-echo "blink 99.0.0"
+echo "overwatch 99.0.0"
 EOF
-chmod 755 "$WORK/fake/blink/blink"
-echo "support file" >"$WORK/fake/blink/_internal.txt"
-python3 "$ROOT/tools/package_binary.py" "$KEY" "$WORK/fake/blink" "$FEED" >/dev/null
+chmod 755 "$WORK/fake/overwatch/overwatch"
+echo "support file" >"$WORK/fake/overwatch/_internal.txt"
+python3 "$ROOT/tools/package_binary.py" "$KEY" "$WORK/fake/overwatch" "$FEED" >/dev/null
 
 openssl ecparam -name prime256v1 -genkey -noout -out "$WORK/test-key.pem" 2>/dev/null
 openssl ec -in "$WORK/test-key.pem" -pubout -out "$WORK/test-pub.pem" 2>/dev/null
@@ -71,7 +71,7 @@ write_manifest() {
 	FEED="$FEED" KEY="$KEY" python3 - >"$FEED/manifest.json" <<'EOF'
 import hashlib, json, os
 feed, key = os.environ["FEED"], os.environ["KEY"]
-blob = open(os.path.join(feed, "blink-" + key + ".tar.gz"), "rb").read()
+blob = open(os.path.join(feed, "overwatch-" + key + ".tar.gz"), "rb").read()
 print(json.dumps({
     "version": "0.0.1", "size": 1, "sha256": "00" * 32,   # firmware: unused here
     "schema": 2,
@@ -85,12 +85,12 @@ EOF
 }
 write_manifest
 
-export BLINK_OTA_DIR="$FEED"
+export OVERWATCH_OTA_DIR="$FEED"
 
 # --- 1. an unsigned feed must do nothing -------------------------------------
 # The first thing to prove, because it is the one that matters: if this passes
 # by accident the rest of the test is checking a door with no lock.
-BLINK_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/unsigned.txt" 2>&1 && rc=0 || rc=$?
+OVERWATCH_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/unsigned.txt" 2>&1 && rc=0 || rc=$?
 [ "$rc" -ne 0 ] || fail "update succeeded against a feed signed by an unknown key"
 grep -qi "signed" "$WORK/unsigned.txt" ||
 	fail "no explanation given: $(cat "$WORK/unsigned.txt")"
@@ -98,14 +98,14 @@ grep -qi "signed" "$WORK/unsigned.txt" ||
 ok "a manifest signed by an unknown key is refused"
 
 # --- 2. correctly signed: it replaces itself ---------------------------------
-export BLINK_RELEASE_PUBKEY_FILE="$WORK/test-pub.pem"
-BLINK_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/update.txt" 2>&1 ||
+export OVERWATCH_RELEASE_PUBKEY_FILE="$WORK/test-pub.pem"
+OVERWATCH_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/update.txt" 2>&1 ||
 	{ cat "$WORK/update.txt" >&2; fail "update exited non-zero"; }
 "$INSTALLED" --version | grep -q "99.0.0" ||
 	fail "the binary was not replaced: $("$INSTALLED" --version)"
 ok "a signed release replaces the running binary"
-BINDIR="$HOME/.blink/bin"
-[ -x "$BINDIR.old/blink" ] || fail "no rollback copy kept"
+BINDIR="$HOME/.overwatch/bin"
+[ -x "$BINDIR.old/overwatch" ] || fail "no rollback copy kept"
 ok "the previous program is kept for rollback"
 [ ! -e "$BINDIR.new" ] || fail "a staging directory was left behind"
 [ -f "$BINDIR/_internal.txt" ] || fail "the archive's support files were not unpacked beside the executable"
@@ -114,7 +114,7 @@ ok "the previous program is kept for rollback"
 rm -rf "$BINDIR" && cp -R "$BINDIR.old" "$BINDIR"      # back to the real program
 sed 's/99\.0\.0/99.0.1/' "$FEED/manifest.json" >"$FEED/manifest.tmp"
 mv "$FEED/manifest.tmp" "$FEED/manifest.json"   # signature no longer covers it
-BLINK_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/tampered.txt" 2>&1 && rc=0 || rc=$?
+OVERWATCH_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/tampered.txt" 2>&1 && rc=0 || rc=$?
 [ "$rc" -ne 0 ] || fail "update accepted a manifest that had been edited"
 "$INSTALLED" --version | grep -qv 99.0.0 || fail "a tampered manifest replaced the binary"
 ok "an edited manifest is refused"
@@ -130,7 +130,7 @@ import sys
 p = sys.argv[1]; b = bytearray(open(p, "rb").read()); b[-1] ^= 0xFF
 open(p, "wb").write(bytes(b))
 EOF
-BLINK_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/badhash.txt" 2>&1 && rc=0 || rc=$?
+OVERWATCH_SKIP_SERVICE=1 "$INSTALLED" update >"$WORK/badhash.txt" 2>&1 && rc=0 || rc=$?
 [ "$rc" -ne 0 ] || fail "update accepted a download whose hash did not match"
 grep -qi "sha256" "$WORK/badhash.txt" ||
 	fail "no explanation given: $(cat "$WORK/badhash.txt")"
@@ -177,7 +177,7 @@ ok "esptool and the efuse probe answer to -m, and espefuse stays out"
 (
 	# The real feed, the real key: the harness's throwaway key and local
 	# directory would both make this a test of something else.
-	unset BLINK_OTA_DIR BLINK_RELEASE_PUBKEY_FILE
+	unset OVERWATCH_OTA_DIR OVERWATCH_RELEASE_PUBKEY_FILE
 	SSL_CERT_FILE=/nonexistent/cert.pem SSL_CERT_DIR=/nonexistent/certs \
 		"$INSTALLED" update >"$WORK/nocerts.txt" 2>&1 || true
 )

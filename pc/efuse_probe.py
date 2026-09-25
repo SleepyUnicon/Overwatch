@@ -11,8 +11,8 @@ from the register, with nothing behind it but pyserial, so this asks there.
 
 Runs as its own process, like the flash itself: the port is handed over
 whole, and a hung probe cannot take the daemon with it. Under the frozen
-build the interpreter is the program (`blink -m pc.efuse_probe`, see
-blink_main.py).
+build the interpreter is the program (`overwatch -m pc.efuse_probe`, see
+overwatch_main.py).
 
 The chip is left reset into the application afterwards. The probe reaches
 it through the ROM download loader, and a board left there shows a black

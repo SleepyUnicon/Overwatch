@@ -1,6 +1,6 @@
 # Codex hook contract, as of codex-cli 0.150.0
 
-Everything here is what `blink install` writes into another vendor's
+Everything here is what `overwatch install` writes into another vendor's
 configuration, so each line says how it was established. Re-run the probes in
 `docs/plans/codex-hook-shim.md` Task 1 after any Codex upgrade.
 
@@ -61,9 +61,9 @@ Two related facts:
   (`[[hooks.SessionStart]]` array-of-tables with the same shape) — **VERIFIED**
   by execution in the sandbox. If both the TOML table and `hooks.json` declare
   hooks for one layer, both load and Codex warns "prefer a single
-  representation" (READ). BLINK should use `hooks.json` only.
+  representation" (READ). OVERWATCH should use `hooks.json` only.
 - `config.toml` *is* where the per-hook **state** lives (`[hooks.state."<key>"]`
-  — see F5), so `blink install` writes both files: the declaration into
+  — see F5), so `overwatch install` writes both files: the declaration into
   `hooks.json`, the trust record into `config.toml`.
 
 ## F4 — The matcher-group and handler shape
@@ -166,7 +166,7 @@ open, carried to Task 14's checklist:
   the human's answer. Verifying that no event sneaks out on the answer needs an
   interactive session with a real model.
 - **The TUI trust prompt's exact wording and write** (we hand-wrote the record
-  instead). Worth one interactive look before shipping `blink install`, since
+  instead). Worth one interactive look before shipping `overwatch install`, since
   the installer will pre-write trust the same way.
 - **`session_id` shape in interactive/app-server sessions.** In `codex exec` it
   is the rollout UUID (VERIFIED, below). `thr_…` thread ids exist in the
@@ -354,7 +354,7 @@ and verified to exist on disk — but it is now a convenience, not a rescue.
 ## Gate finding 4 — CONFIRMED useful
 
 `permission_mode` is `default` in the interactive session and
-`bypassPermissions` under `codex exec`. So BLINK really can suppress WAITING in
+`bypassPermissions` under `codex exec`. So OVERWATCH really can suppress WAITING in
 modes where an approval prompt cannot occur, as finding 4 suggested.
 
 ## `turn_id` is per turn, `session_id` per session
@@ -478,7 +478,7 @@ does not rediscover them.
 
 # RULING: uninstall leaves the trust record alone — 2026-09-04
 
-Task 9 asked whether `blink uninstall` should also remove BLINK's
+Task 9 asked whether `overwatch uninstall` should also remove OVERWATCH's
 `[hooks.state."…"]` row from `~/.codex/config.toml`, and argued it both ways
 without deciding. **Decided: leave it, and say so in one line.**
 
@@ -490,20 +490,20 @@ command string.
 TUI, and re-prompting is **not symmetric across machines**. Under `codex exec` a
 distrusted hook is skipped **silently, with zero output** — so a reinstall on a
 headless box would produce a hook that is installed, correct, registered, and
-permanently invisible, with `blink status` reporting nothing wrong. That is the
+permanently invisible, with `overwatch status` reporting nothing wrong. That is the
 worst failure shape this product has: working software that cannot be seen to be
 broken.
 
-The security argument is real but narrow. The command string names BLINK's own
+The security argument is real but narrow. The command string names OVERWATCH's own
 shim path; anyone who can write there already owns the machine. The usability
 failure is neither narrow nor visible.
 
-**So:** `uninstall` does not touch `config.toml`, and `blink uninstall` prints
+**So:** `uninstall` does not touch `config.toml`, and `overwatch uninstall` prints
 one line saying the Codex trust record was left in place and what that means for
 a future reinstall. Silence here would be the same defect one level up — a
 decision the user cannot see.
 
-`blink status` (task 13) carries the other half: **a registered hook that has
+`overwatch status` (task 13) carries the other half: **a registered hook that has
 never written a slot is exactly what declining the trust prompt looks like**, and
 that is the one Codex-specific support question nobody else has.
 
@@ -514,7 +514,7 @@ that is the one Codex-specific support question nobody else has.
 The chain has never run before: installer -> Codex -> shim -> slot. It runs now.
 
 Done in a **sandbox `CODEX_HOME`**, with the owner's real `~/.codex` and
-`~/.blink` untouched. Task 14 as written begins `python3 -m pc.cli install`,
+`~/.overwatch` untouched. Task 14 as written begins `python3 -m pc.cli install`,
 which replaces a live install and edits another vendor's configuration; that
 needs asking first, and it needs a board on the bus for the half that ends on the
 panel. Everything else can be proved without either, and was.
@@ -564,7 +564,7 @@ wrapper that recorded argv, HOME and stdin byte counts is what settled it.
 
 # The silent-skip hazard, confirmed on the live machine — 2026-09-04
 
-`blink install` registered the hook into the owner's real `~/.codex/hooks.json`
+`overwatch install` registered the hook into the owner's real `~/.codex/hooks.json`
 and wrote **no trust row** — `grep -c hooks.state ~/.codex/config.toml` returns
 0. So the hook is registered and untrusted, which is the state every customer
 is in immediately after installing.
@@ -581,7 +581,7 @@ path:
 A registered, correct, completely inert hook is indistinguishable from no hook
 at all — from inside Codex, from the shell, and from the filesystem.
 
-This is why `blink status` says:
+This is why `overwatch status` says:
 
     Codex hook  registered, but it has never written anything
                 Codex asks once whether to trust a hook. If that
@@ -615,15 +615,15 @@ The trust prompt they saw, which is what every customer will see:
       Hooks can run outside the sandbox after you trust them.
     > 1. Review hooks   2. Trust all and continue   3. Continue without trusting
 
-Ten, which is exactly BLINK's ten events and nothing else — this machine had no
-Codex hooks before. The wording matches what `blink install` promises in advance.
+Ten, which is exactly OVERWATCH's ten events and nothing else — this machine had no
+Codex hooks before. The wording matches what `overwatch install` promises in advance.
 
 ## `SessionEnd` DOES fire on an interactive quit — VERIFIED
 
 This was recorded above as open: `SessionEnd` fires under `codex exec`, but the
 earlier interactive capture ended without one, and the note said not to rely on
 it for cleanup until it had been seen. **It has now been seen.** The owner quit
-the session and `~/.blink/state-codex/` was empty immediately afterwards, with
+the session and `~/.overwatch/state-codex/` was empty immediately afterwards, with
 the daemon's next frame carrying no Codex session.
 
 So the cleanup path is real in both modes and the slot does not have to wait for

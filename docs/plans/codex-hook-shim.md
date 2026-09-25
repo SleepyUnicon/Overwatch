@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give Codex sessions the same "waiting for you" and per-session census that Claude Code sessions already have, by registering Blink's existing hook shim with Codex's own lifecycle hooks and reading the result out of a state directory of its own.
+**Goal:** Give Codex sessions the same "waiting for you" and per-session census that Claude Code sessions already have, by registering Overwatch's existing hook shim with Codex's own lifecycle hooks and reading the result out of a state directory of its own.
 
-**Architecture:** Codex 0.150.0 ships a hooks system whose event names are deliberately the same words Claude Code uses (`PreToolUse`, `PermissionRequest`, `PostToolUse`, `Stop`, `Interrupt`, `SessionStart`, `SessionEnd`, `SubagentStart`, `SubagentStop`, `UserPromptSubmit`) and whose command hooks are fed `session_id` and `cwd` on stdin — the exact two fields `tools/blink-hook.sh` reads. So the shim is not rewritten; it takes one extra argument that selects `~/.blink/state-codex/` instead of `~/.blink/state/`, and every sanitiser in it stays single-sourced. On the daemon side the hook slots do not become a third provider — `pc/normalizer.select_pair` shows only two rings and drops a third — they are unioned into the existing `codex` provider's state frame, keyed by session id, with the hook's answer beating the rollout reader's for any session both describe.
+**Architecture:** Codex 0.150.0 ships a hooks system whose event names are deliberately the same words Claude Code uses (`PreToolUse`, `PermissionRequest`, `PostToolUse`, `Stop`, `Interrupt`, `SessionStart`, `SessionEnd`, `SubagentStart`, `SubagentStop`, `UserPromptSubmit`) and whose command hooks are fed `session_id` and `cwd` on stdin — the exact two fields `tools/overwatch-hook.sh` reads. So the shim is not rewritten; it takes one extra argument that selects `~/.overwatch/state-codex/` instead of `~/.overwatch/state/`, and every sanitiser in it stays single-sourced. On the daemon side the hook slots do not become a third provider — `pc/normalizer.select_pair` shows only two rings and drops a third — they are unioned into the existing `codex` provider's state frame, keyed by session id, with the hook's answer beating the rollout reader's for any session both describe.
 
 **Tech Stack:** POSIX sh, Python 3.10+, pytest. No new dependencies — in particular no TOML library, which is why Task 1's discovery matters so much.
 
@@ -12,13 +12,13 @@
 
 ## Global Constraints
 
-- **A separate state directory.** Codex hook slots are written to `~/.blink/state-codex/`; Claude's stay in `~/.blink/state/`. `pc/providers/claude_state.STATE_DIR` is never pointed at the Codex directory, and no code path counts a file from one directory into the other provider's numbers.
+- **A separate state directory.** Codex hook slots are written to `~/.overwatch/state-codex/`; Claude's stay in `~/.overwatch/state/`. `pc/providers/claude_state.STATE_DIR` is never pointed at the Codex directory, and no code path counts a file from one directory into the other provider's numbers.
 - **`pc/protocol.frame_to_usage` sums a primary and a secondary frame only** (`pc/protocol.py:381-384`). Codex hook counts must therefore arrive on the *existing* `provider="codex"` frame, not on a new provider id. A third provider is silently dropped by `pc/normalizer.select_pair`.
 - **A waiting state that cannot be cleared is worse than no waiting state at all.** Every event that sets `waiting` is registered together with every event that clears it, and each clearing path has a test that asserts the clear.
 - **The shim is POSIX sh, runs on every tool call, and fails silently.** No stdout, no stderr, exit 0 always, and an unwritable `$HOME` produces nothing at all. `tests/ci/check_hook_shim.sh` is the proof.
 - **Shim files are written with `newline="\n"`** (`pc/cli.py:170`) — Windows CRLF broke `case ... in\r` on every tool call once already.
 - **Never rewrite a file we cannot parse.** `pc/install_statusline.SettingsUnreadable` is raised and the caller reports `skipped (...)` and keeps going, exactly as `pc/cli.py` already does for the Claude hooks step.
-- **The Codex hook installs automatically when Codex is detected**, not behind a flag — but `blink install` says, before it writes anything, that Codex will ask the user to trust the hook once.
+- **The Codex hook installs automatically when Codex is detected**, not behind a flag — but `overwatch install` says, before it writes anything, that Codex will ask the user to trust the hook once.
 - **UI copy is sentence case:** every on-screen sentence starts with a capital letter.
 - **Python 3.10+**, matching the style in `pc/`. Comments explain WHY, in prose, at the density of the surrounding file.
 - **`pytest tests -q` passes (515 today) and `sh tests/ci/check_hook_shim.sh sh` passes at every commit.**
@@ -28,10 +28,10 @@
 | File | Responsibility | Change |
 |---|---|---|
 | `docs/research/codex-hook-contract.md` | what the installed Codex actually accepts | create (Task 1) |
-| `tools/blink-hook.sh` | the one shim, for both tools | second argument selects the state directory |
+| `tools/overwatch-hook.sh` | the one shim, for both tools | second argument selects the state directory |
 | `tests/ci/check_hook_shim.sh` | the shim's whole security battery | a Codex-directory section |
 | `pc/providers/claude_state.py` | the shared state machine and slot scanner | `Interrupt` clears; expose `session_states()` |
-| `pc/providers/codex_state.py` | scan `~/.blink/state-codex/` | create |
+| `pc/providers/codex_state.py` | scan `~/.overwatch/state-codex/` | create |
 | `pc/providers/codex_cli.py` | the `codex` provider's frames | read a rollout's session id; union hook state over rollout state |
 | `pc/install_codex_hooks.py` | register/unregister in Codex's hooks file | create |
 | `pc/cli.py` | install, uninstall, status | a new step with its disclosure; cleanup; a status line |
@@ -101,7 +101,7 @@ Create `docs/research/codex-hook-contract.md` with exactly these headings and no
 ```markdown
 # Codex hook contract, as of codex-cli 0.150.0
 
-Everything here is what `blink install` writes into another vendor's
+Everything here is what `overwatch install` writes into another vendor's
 configuration, so each line says how it was established. Re-run the probes in
 `docs/plans/codex-hook-shim.md` Task 1 after any Codex upgrade.
 
@@ -137,11 +137,11 @@ git commit -m "docs: pin the Codex hook contract against the installed 0.150.0"
 ### Task 2: The shim's state directory becomes an argument
 
 **Files:**
-- Modify: `tools/blink-hook.sh:31-35` and `tools/blink-hook.sh:112`
+- Modify: `tools/overwatch-hook.sh:31-35` and `tools/overwatch-hook.sh:112`
 - Test: `tests/ci/check_hook_shim.sh` (append a section 14, before the final `printf 'PASS ...'`)
 
 **Interfaces:**
-- Produces: the shim invocation `sh <shim> <Event> codex` writes to `$HOME/.blink/state-codex/`; `sh <shim> <Event>` and any unrecognised second argument write to `$HOME/.blink/state/` as before.
+- Produces: the shim invocation `sh <shim> <Event> codex` writes to `$HOME/.overwatch/state-codex/`; `sh <shim> <Event>` and any unrecognised second argument write to `$HOME/.overwatch/state/` as before.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -151,13 +151,13 @@ Append to `tests/ci/check_hook_shim.sh`, immediately before the closing `printf 
 # 14. The Codex state directory. The same shim serves Codex's hooks, which use
 #     the same event names and the same stdin fields; the second argument is
 #     the only thing that differs, and it must move every write.
-CODEXDIR="$HOME/.blink/state-codex"
+CODEXDIR="$HOME/.overwatch/state-codex"
 out=$(printf '%s' "$PAYLOAD" | $SH "$SHIM" PreToolUse codex 2>"$WORK/err14.txt")
 [ -z "$out" ] || fail "codex run printed to stdout: [$out]"
 [ -s "$WORK/err14.txt" ] && fail "codex run wrote to stderr: $(cat "$WORK/err14.txt")"
 grep -q '"event":"PreToolUse"' "$CODEXDIR/abc-123.state" ||
 	fail "codex event not recorded under state-codex"
-ok "the codex argument writes under ~/.blink/state-codex"
+ok "the codex argument writes under ~/.overwatch/state-codex"
 
 # 14b. ...and never into the Claude directory. A Codex session counted as a
 #      Claude one is the entire reason the second directory exists: the pip
@@ -178,16 +178,16 @@ ok "the two state directories never cross"
 printf '{"session_id":"weird"}' | $SH "$SHIM" Stop '../../../etc' >/dev/null 2>&1
 [ -f "$DIR/weird.state" ] ||
 	fail "an unknown tool argument did not fall back to state/"
-extra=$(ls -1 "$HOME/.blink" | grep -vxE 'state|state-codex|precious' || true)
+extra=$(ls -1 "$HOME/.overwatch" | grep -vxE 'state|state-codex|precious' || true)
 [ -z "$extra" ] ||
-	fail "an unknown tool argument created something in ~/.blink: $extra"
+	fail "an unknown tool argument created something in ~/.overwatch: $extra"
 ok "an unknown tool argument cannot choose a directory"
 
 # 14d. Every sanitiser case the Claude directory has, repeated for the codex
 #      one. The sanitisers are shared code, but the directory they write into
 #      is not, and this is the file that has to prove the second one is as
 #      safe as the first.
-printf 'keep me' > "$HOME/.blink/precious"
+printf 'keep me' > "$HOME/.overwatch/precious"
 printf '{"session_id":"../../pwned"}' |
 	$SH "$SHIM" PreToolUse codex >/dev/null 2>&1
 [ ! -e "$HOME/pwned.state" ] ||
@@ -202,8 +202,8 @@ for bad in '.' '..'; do
 	printf '{"session_id":"%s"}' "$bad" |
 		$SH "$SHIM" SessionEnd codex >/dev/null 2>&1
 done
-[ "$(cat "$HOME/.blink/precious")" = "keep me" ] ||
-	fail "a dot session id reached ~/.blink through the codex argument"
+[ "$(cat "$HOME/.overwatch/precious")" = "keep me" ] ||
+	fail "a dot session id reached ~/.overwatch through the codex argument"
 [ -d "$CODEXDIR" ] || fail "a dot session id removed the codex state directory"
 [ -z "$(find "$CODEXDIR" -prune \( -perm -040 -o -perm -004 \) -print)" ] ||
 	fail "codex state directory readable by others: $(ls -ld "$CODEXDIR")"
@@ -213,11 +213,11 @@ ok "the codex directory is as sanitised and as private as the Claude one"
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `sh tests/ci/check_hook_shim.sh sh`
-Expected: FAIL `codex event not recorded under state-codex` — the shim ignores `$2` today and wrote to `~/.blink/state/`.
+Expected: FAIL `codex event not recorded under state-codex` — the shim ignores `$2` today and wrote to `~/.overwatch/state/`.
 
 - [ ] **Step 3: Implement the minimal change**
 
-In `tools/blink-hook.sh`, replace:
+In `tools/overwatch-hook.sh`, replace:
 
 ```sh
 event=${1:-unknown}
@@ -236,7 +236,7 @@ event=${1:-unknown}
 # SessionEnd, SubagentStart/Stop -- and whose command hooks are handed the
 # same session_id and cwd on stdin. Everything below therefore already works
 # for it unchanged, and the only thing that has to differ is WHERE the slots
-# are written: a Codex session counted out of ~/.blink/state would be reported
+# are written: a Codex session counted out of ~/.overwatch/state would be reported
 # to the board as a Claude one, on a Claude pip, against a Claude account.
 #
 # One shim rather than a second copy of this file, because what is valuable
@@ -256,10 +256,10 @@ esac
 input=$(cat)
 ```
 
-and replace `DIR="$HOME/.blink/state"` with:
+and replace `DIR="$HOME/.overwatch/state"` with:
 
 ```sh
-DIR="$HOME/.blink/$sub"
+DIR="$HOME/.overwatch/$sub"
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
@@ -277,7 +277,7 @@ Expected: 515 passed.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tools/blink-hook.sh tests/ci/check_hook_shim.sh
+git add tools/overwatch-hook.sh tests/ci/check_hook_shim.sh
 git commit -m "feat: the hook shim can write a second tool's state directory"
 ```
 
@@ -535,7 +535,7 @@ git commit -m "refactor: expose the slot scanner's per-session view"
 
 **Interfaces:**
 - Consumes: `ClaudeStateProvider.session_states(now_epoch)` from Task 4.
-- Produces: `pc.providers.codex_state.STATE_DIR = "~/.blink/state-codex"`, and `scan(now_epoch, path=None, sweep=True) -> (dict[str, str], int)` — `{session_id: state}` and the live agent count.
+- Produces: `pc.providers.codex_state.STATE_DIR = "~/.overwatch/state-codex"`, and `scan(now_epoch, path=None, sweep=True) -> (dict[str, str], int)` — `{session_id: state}` and the live agent count.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -553,7 +553,7 @@ def test_the_default_directory_is_not_the_claude_one():
 
     Two sessions with the same id are effectively impossible (both tools use
     UUIDs), but the ATTRIBUTION is the real risk: a Codex session read out of
-    ~/.blink/state is reported to the board as a Claude one, on a Claude pip,
+    ~/.overwatch/state is reported to the board as a Claude one, on a Claude pip,
     against a Claude account's limits.
     """
     assert codex_state.STATE_DIR != claude_state.STATE_DIR
@@ -646,15 +646,15 @@ looks, in the file, exactly like a session nobody is using.
 
 Its hooks can. Codex 0.150.0 ships a lifecycle hooks system whose event names
 are the same words Claude Code uses and whose command hooks are fed the same
-session_id and cwd on stdin, so `tools/blink-hook.sh` serves it unchanged --
-with one argument telling it to write here instead of into ~/.blink/state.
+session_id and cwd on stdin, so `tools/overwatch-hook.sh` serves it unchanged --
+with one argument telling it to write here instead of into ~/.overwatch/state.
 
 Which is why this module is thin. The state machine, the slot format, the
 abandonment sweep and the agent counting are all the same ones Claude's hooks
 already needed, and they live in claude_state; sharing them is what keeps a
 change to the machine from applying to only one of the two tools. What is NOT
 shared is the directory, and that separation is the whole point: a Codex
-session counted out of ~/.blink/state is reported to the board as a Claude one,
+session counted out of ~/.overwatch/state is reported to the board as a Claude one,
 on a Claude pip, against a Claude account's limits.
 
 The frames are not built here either. Codex already has a provider, and
@@ -669,7 +669,7 @@ from pc.providers import claude_state
 # Expanded when it is used, not here: a module-level expanduser is evaluated
 # at import, before a test can move HOME, and the scan below DELETES files
 # under this path. Same rule, and same reason, as claude_state.STATE_DIR.
-STATE_DIR = "~/.blink/state-codex"
+STATE_DIR = "~/.overwatch/state-codex"
 
 
 def scan(now_epoch, path=None, sweep=True):
@@ -727,7 +727,7 @@ def test_rollout_session_id_comes_from_the_meta_line(tmp_path):
     p = tmp_path / "rollout-x.jsonl"
     p.write_text(
         '{"type":"session_meta","payload":{"session_id":"cx-1",'
-        '"cwd":"/Users/k/Projects/Blink","cli_version":"0.150.0"}}\n'
+        '"cwd":"/Users/k/Projects/Overwatch","cli_version":"0.150.0"}}\n'
         '{"type":"event_msg","payload":{"type":"task_started"}}\n')
     assert codex_cli.rollout_session_id(str(p)) == "cx-1"
 
@@ -1117,7 +1117,7 @@ git commit -m "feat: Codex hook slots and rollouts describe one census"
 Create `tests/pc/test_install_codex_hooks.py`:
 
 ```python
-"""Registering Blink's shim with Codex, and never damaging its config."""
+"""Registering Overwatch's shim with Codex, and never damaging its config."""
 import json
 
 import pytest
@@ -1131,15 +1131,15 @@ def _events(data):
 
 
 def test_the_command_carries_the_codex_argument():
-    """Without it the shim writes Codex sessions into ~/.blink/state and the
+    """Without it the shim writes Codex sessions into ~/.overwatch/state and the
     board reports them as Claude ones."""
-    cmd = ich.hook_command("/home/k/.blink/blink-hook.sh", "PreToolUse")
+    cmd = ich.hook_command("/home/k/.overwatch/overwatch-hook.sh", "PreToolUse")
     assert cmd.endswith("PreToolUse codex")
 
 
 def test_install_writes_one_group_per_event(tmp_path):
     p = tmp_path / "hooks.json"
-    ich.install(str(p), "/home/k/.blink/blink-hook.sh")
+    ich.install(str(p), "/home/k/.overwatch/overwatch-hook.sh")
 
     data = json.loads(p.read_text(encoding="utf-8"))
     events = _events(data)
@@ -1148,7 +1148,7 @@ def test_install_writes_one_group_per_event(tmp_path):
     assert group["matcher"] == "*"
     assert group["hooks"] == [{
         "type": "command",
-        "command": "sh /home/k/.blink/blink-hook.sh PreToolUse codex"}]
+        "command": "sh /home/k/.overwatch/overwatch-hook.sh PreToolUse codex"}]
     assert "matcher" not in events["Stop"][0], \
         "events that take no matcher must not be given one"
 
@@ -1168,7 +1168,7 @@ def test_install_is_idempotent(tmp_path):
     """A reinstall must not stack a second copy that then fires twice per
     tool call forever."""
     p = tmp_path / "hooks.json"
-    shim = "/home/k/.blink/blink-hook.sh"
+    shim = "/home/k/.overwatch/overwatch-hook.sh"
     ich.install(str(p), shim)
     msg = ich.install(str(p), shim)
 
@@ -1179,17 +1179,17 @@ def test_install_is_idempotent(tmp_path):
 
 
 def test_install_repoints_a_moved_shim(tmp_path):
-    """What `blink update` does every time it moves the binary. Without this
+    """What `overwatch update` does every time it moves the binary. Without this
     the old entries are orphaned: invisible to uninstall, still invoking a
     script that is not there, and a third install appends a duplicate."""
     p = tmp_path / "hooks.json"
-    ich.install(str(p), "/old/blink-hook.sh")
-    msg = ich.install(str(p), "/new/blink-hook.sh")
+    ich.install(str(p), "/old/overwatch-hook.sh")
+    msg = ich.install(str(p), "/new/overwatch-hook.sh")
 
     events = _events(json.loads(p.read_text(encoding="utf-8")))
     assert len(events["PreToolUse"]) == 1
     assert events["PreToolUse"][0]["hooks"][0]["command"] == \
-        "sh /new/blink-hook.sh PreToolUse codex"
+        "sh /new/overwatch-hook.sh PreToolUse codex"
     assert "repointed" in msg
 
 
@@ -1201,7 +1201,7 @@ def test_install_never_touches_someone_elses_hook(tmp_path):
                else {"PreToolUse": [theirs]})
     p.write_text(json.dumps(payload), encoding="utf-8")
 
-    ich.install(str(p), "/home/k/.blink/blink-hook.sh")
+    ich.install(str(p), "/home/k/.overwatch/overwatch-hook.sh")
 
     events = _events(json.loads(p.read_text(encoding="utf-8")))
     commands = [h["command"] for g in events["PreToolUse"] for h in g["hooks"]]
@@ -1221,7 +1221,7 @@ def test_install_refuses_a_file_it_cannot_parse(tmp_path):
     p.write_text(before, encoding="utf-8")
 
     with pytest.raises(SettingsUnreadable):
-        ich.install(str(p), "/home/k/.blink/blink-hook.sh")
+        ich.install(str(p), "/home/k/.overwatch/overwatch-hook.sh")
     assert p.read_text(encoding="utf-8") == before, \
         "an unparseable file must come out byte-identical"
 
@@ -1231,16 +1231,16 @@ def test_install_refuses_a_hooks_key_that_is_not_an_object(tmp_path):
     payload = ({"hooks": []} if ich._EVENTS_KEY else {"PreToolUse": "nope"})
     p.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(SettingsUnreadable):
-        ich.install(str(p), "/home/k/.blink/blink-hook.sh")
+        ich.install(str(p), "/home/k/.overwatch/overwatch-hook.sh")
 
 
 def test_the_marker_records_what_was_written(tmp_path, monkeypatch):
     """Uninstall matches on the marker rather than on the command text, so a
     customer hook that merely mentions our filename is never deleted."""
     p = tmp_path / "hooks.json"
-    ich.install(str(p), "/home/k/.blink/blink-hook.sh")
+    ich.install(str(p), "/home/k/.overwatch/overwatch-hook.sh")
     recorded = ich._read_marker()
-    assert "sh /home/k/.blink/blink-hook.sh Stop codex" in recorded
+    assert "sh /home/k/.overwatch/overwatch-hook.sh Stop codex" in recorded
 
 
 def test_codex_home_honours_the_environment(monkeypatch, tmp_path):
@@ -1262,7 +1262,7 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'pc.install_codex_hook
 Create `pc/install_codex_hooks.py`:
 
 ```python
-"""Register Blink's hook shim with Codex's own lifecycle hooks.
+"""Register Overwatch's hook shim with Codex's own lifecycle hooks.
 
 Same two rules as pc/install_hooks and pc/install_statusline: never lose
 anything the user put there, and never rewrite a key that is not ours. What
@@ -1279,9 +1279,9 @@ upgrade rather than discovering a change from a support ticket.
 
 TRUST: Codex requires persisted trust for hook sources and prompts once in its
 TUI, recording a `trusted_hash` of the hooks file. Nothing here can answer that
-prompt and nothing here should try -- `blink install` says it is coming
+prompt and nothing here should try -- `overwatch install` says it is coming
 (pc/cli.cmd_install) and the person answers it. A changed hooks file
-invalidates the hash, so a `blink update` that moves the shim will prompt
+invalidates the hash, so a `overwatch update` that moves the shim will prompt
 again; that is Codex working as designed, not a fault.
 """
 import json
@@ -1292,7 +1292,7 @@ import sys
 from pc.install_statusline import (SettingsUnreadable, _load, _save,
                                    _sniff_format, windows_bash_path)
 
-INSTALLED_MARKER_PATH = "~/.blink/codex-hooks-installed-commands"
+INSTALLED_MARKER_PATH = "~/.overwatch/codex-hooks-installed-commands"
 
 # F1: where Codex reads its hooks file from, under CODEX_HOME.
 _HOOKS_PATH_PARTS = ("hooks.json",)
@@ -1352,7 +1352,7 @@ def hook_command(shim_path: str, event: str) -> str:
     install_statusline.windows_bash_path spells out at length: a non-ASCII home
     directory does not survive the hand-over to Git Bash.
 
-    The trailing `codex` is what sends the slots to ~/.blink/state-codex. It is
+    The trailing `codex` is what sends the slots to ~/.overwatch/state-codex. It is
     the whole difference between this registration and the Claude one, and
     without it every Codex session on the machine is reported to the board as a
     Claude session against a Claude account's limits.
@@ -1395,7 +1395,7 @@ def _ours(command: str, expected: set, marker: set) -> bool:
     """Ours if the marker recorded it, or if it is what we would write now.
 
     Both checks: the marker survives a shim path that has since changed, and
-    the computed form survives a marker file lost with the rest of ~/.blink.
+    the computed form survives a marker file lost with the rest of ~/.overwatch.
     """
     return command in marker or command in expected
 
@@ -1447,7 +1447,7 @@ def install(hooks_path: str, shim_path: str) -> str:
         # Already present, in any group -- a reinstall must not stack a second
         # copy that then fires twice per tool call forever. But "present" is
         # not "correct": an entry that matches only via the MARKER names an
-        # older shim path, which is what `blink update` produces every time it
+        # older shim path, which is what `overwatch update` produces every time it
         # moves the binary. Left as-is those entries are orphaned instantly,
         # invisible to uninstall, and a third install appends a duplicate.
         ours = ours_group = None
@@ -1510,7 +1510,7 @@ Expected: 554 passed.
 
 ```bash
 git add pc/install_codex_hooks.py tests/pc/test_install_codex_hooks.py
-git commit -m "feat: register the Blink shim with Codex's lifecycle hooks"
+git commit -m "feat: register the Overwatch shim with Codex's lifecycle hooks"
 ```
 
 ---
@@ -1531,7 +1531,7 @@ Append to `tests/pc/test_install_codex_hooks.py`:
 ```python
 def test_uninstall_returns_the_file_to_the_shape_it_had(tmp_path):
     p = tmp_path / "hooks.json"
-    shim = "/home/k/.blink/blink-hook.sh"
+    shim = "/home/k/.overwatch/overwatch-hook.sh"
     ich.install(str(p), shim)
     msg = ich.uninstall(str(p), shim)
 
@@ -1542,7 +1542,7 @@ def test_uninstall_returns_the_file_to_the_shape_it_had(tmp_path):
 
 def test_uninstall_keeps_someone_elses_hook(tmp_path):
     p = tmp_path / "hooks.json"
-    shim = "/home/k/.blink/blink-hook.sh"
+    shim = "/home/k/.overwatch/overwatch-hook.sh"
     ich.install(str(p), shim)
     data = json.loads(p.read_text(encoding="utf-8"))
     _events(data)["PreToolUse"].append(
@@ -1558,11 +1558,11 @@ def test_uninstall_keeps_someone_elses_hook(tmp_path):
 
 
 def test_uninstall_removes_a_moved_shim_by_its_marker(tmp_path):
-    """The entries `blink update` left behind name an old path. The marker is
+    """The entries `overwatch update` left behind name an old path. The marker is
     the only thing that still proves they are ours."""
     p = tmp_path / "hooks.json"
-    ich.install(str(p), "/old/blink-hook.sh")
-    ich.uninstall(str(p), "/new/blink-hook.sh")
+    ich.install(str(p), "/old/overwatch-hook.sh")
+    ich.uninstall(str(p), "/new/overwatch-hook.sh")
     assert json.loads(p.read_text(encoding="utf-8")) == {}
 
 
@@ -1570,14 +1570,14 @@ def test_uninstall_leaves_an_unparseable_file_alone(tmp_path):
     p = tmp_path / "hooks.json"
     before = "{oops"
     p.write_text(before, encoding="utf-8")
-    msg = ich.uninstall(str(p), "/home/k/.blink/blink-hook.sh")
+    msg = ich.uninstall(str(p), "/home/k/.overwatch/overwatch-hook.sh")
     assert p.read_text(encoding="utf-8") == before
     assert "left it alone" in msg
 
 
 def test_uninstall_with_no_hooks_file_is_not_an_error(tmp_path):
     msg = ich.uninstall(str(tmp_path / "nope.json"),
-                        "/home/k/.blink/blink-hook.sh")
+                        "/home/k/.overwatch/overwatch-hook.sh")
     assert "No Codex state hooks" in msg
 ```
 
@@ -1599,7 +1599,7 @@ def uninstall(hooks_path: str, shim_path: str = None) -> str:
     every other entry in place. An empty group left behind by that removal is
     dropped too, and an event whose list ends up empty loses its key -- so a
     machine that has uninstalled has a hooks file shaped the way it was before
-    Blink ever ran, rather than a skeleton of empty lists.
+    Overwatch ever ran, rather than a skeleton of empty lists.
     """
     try:
         data = _load(hooks_path)
@@ -1680,7 +1680,7 @@ git commit -m "feat: uninstall the Codex hooks as cleanly as the Claude ones"
 
 ### Task 10: The `config.toml` pointer — only if Task 1 finding F3 says it is needed
 
-**SKIP THIS TASK. F3 answered it: no pointer key is needed.** Verified by execution on 2026-09-04 — a sandbox `config.toml` with no hooks-related key at all still fired the hook, because `hooks.json` is discovered purely by location. `config.toml` IS still written by `blink install`, but for the **trust record** (F5, `[hooks.state."<key>"]`), which belongs to Task 8, not to this task's `install_pointer`/`remove_pointer`. Note the skip in the report and go to Task 11.
+**SKIP THIS TASK. F3 answered it: no pointer key is needed.** Verified by execution on 2026-09-04 — a sandbox `config.toml` with no hooks-related key at all still fired the hook, because `hooks.json` is discovered purely by location. `config.toml` IS still written by `overwatch install`, but for the **trust record** (F5, `[hooks.state."<key>"]`), which belongs to Task 8, not to this task's `install_pointer`/`remove_pointer`. Note the skip in the report and go to Task 11.
 
 ~~Run this task only if F3 recorded that `~/.codex/config.toml` needs a key pointing at the hooks file.~~ If F3 recorded that Codex reads the default path with no key, skip it, note the skip in your report, and go to Task 11.
 
@@ -1773,8 +1773,8 @@ Append to `pc/install_codex_hooks.py`, and set `_POINTER_BODY` to the exact key 
 # by anything above it -- and it is removable to the byte, which an edited
 # document would not be: every TOML round-tripper this project could take on
 # reformats and drops comments, and this is a file people hand-edit.
-_POINTER_BEGIN = "# >>> blink hooks pointer >>>"
-_POINTER_END = "# <<< blink hooks pointer <<<"
+_POINTER_BEGIN = "# >>> overwatch hooks pointer >>>"
+_POINTER_END = "# <<< overwatch hooks pointer <<<"
 # F3 from docs/research/codex-hook-contract.md.
 _POINTER_BODY = '[hooks]\nhooks = "hooks.json"'   # DEAD: F3 says no pointer is needed
 
@@ -1800,7 +1800,7 @@ def _write_text(path, text):
     parent = os.path.dirname(path)
     if parent:
         os.makedirs(parent, exist_ok=True)
-    tmp = path + ".blink-tmp"
+    tmp = path + ".overwatch-tmp"
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
     os.replace(tmp, path)
@@ -1816,7 +1816,7 @@ def _strip_pointer(text):
         # A begin with no end: someone edited inside our block. Leaving it is
         # the only move that cannot delete their work.
         raise SettingsUnreadable(
-            "the Blink block in config.toml has no end marker")
+            "the Overwatch block in config.toml has no end marker")
     end += len(_POINTER_END)
     if text[end:end + 1] == "\n":
         end += 1
@@ -1894,7 +1894,7 @@ git commit -m "feat: point Codex's config at the hooks file, reversibly"
 
 ---
 
-### Task 11: `blink install` registers the Codex hook, and says so first
+### Task 11: `overwatch install` registers the Codex hook, and says so first
 
 **Files:**
 - Modify: `pc/cli.py` (`cmd_install`: the step numbering, the `state` chmod loop, and a new step between the Claude hooks step and the service step)
@@ -1967,7 +1967,7 @@ def test_install_creates_the_codex_state_directory_private(monkeypatch,
     monkeypatch.setattr(cli.install_codex_hooks, "install",
                         lambda p, s: "installed (10 events).")
     cli._install_codex_hooks()
-    d = os.path.join(cli.blink_home(), "state-codex")
+    d = os.path.join(cli.overwatch_home(), "state-codex")
     assert os.path.isdir(d)
     if os.name != "nt":
         assert stat.S_IMODE(os.stat(d).st_mode) == 0o700
@@ -1993,14 +1993,14 @@ def _announce_codex_hooks() -> None:
     dialog from a tool the person did not think they were configuring is a
     support incident rather than a feature.
     """
-    print("Blink is about to add a hook to Codex as well.")
+    print("Overwatch is about to add a hook to Codex as well.")
     print()
     print(f"  File     {install_codex_hooks.hooks_file()}")
     print("  Why      Codex does not record permission prompts in its session")
     print("           log, so without this a Codex session waiting on you")
     print("           looks idle on the panel.")
     print("  Note     The first time the hook runs, Codex will ask you once")
-    print("           whether to trust it. That prompt is expected and Blink")
+    print("           whether to trust it. That prompt is expected and Overwatch")
     print("           cannot answer it for you. Say yes and the amber light")
     print("           works; say no and everything else still does.")
     print()
@@ -2016,11 +2016,11 @@ def _install_codex_hooks() -> str:
     """
     if not codex_present():
         return "no Codex on this machine, nothing to do"
-    # Private to the user, for the same reason ~/.blink/state is: these files
+    # Private to the user, for the same reason ~/.overwatch/state is: these files
     # name the projects someone has open, and the default umask would leave
     # them readable by every account on the machine. Created here rather than
     # left to the shim so the mode is right from the first hook onward.
-    state_dir = os.path.join(blink_home(), "state-codex")
+    state_dir = os.path.join(overwatch_home(), "state-codex")
     os.makedirs(state_dir, exist_ok=True)
     try:
         os.chmod(state_dir, 0o700)
@@ -2074,12 +2074,12 @@ Expected: 569 passed.
 
 ```bash
 git add pc/cli.py tests/test_cli.py
-git commit -m "feat: blink install registers the Codex hook, after saying so"
+git commit -m "feat: overwatch install registers the Codex hook, after saying so"
 ```
 
 ---
 
-### Task 12: `blink uninstall` removes it, and the slots with it
+### Task 12: `overwatch uninstall` removes it, and the slots with it
 
 **Files:**
 - Modify: `pc/cli.py` (`cmd_uninstall` step numbering and a new step; `_rm_state_dir`)
@@ -2087,7 +2087,7 @@ git commit -m "feat: blink install registers the Codex hook, after saying so"
 
 **Interfaces:**
 - Consumes: `install_codex_hooks.uninstall`, and `install_codex_hooks.remove_pointer` if Task 10 ran.
-- Produces: `_rm_state_dir()` clears `~/.blink/state-codex` as well as `~/.blink/state`.
+- Produces: `_rm_state_dir()` clears `~/.overwatch/state-codex` as well as `~/.overwatch/state`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2099,7 +2099,7 @@ def test_uninstall_removes_the_codex_slots_too(tmp_path):
     would go on counting sessions from a tool it no longer hooks."""
     import os
     for sub in ("state", "state-codex"):
-        d = os.path.join(cli.blink_home(), sub)
+        d = os.path.join(cli.overwatch_home(), sub)
         os.makedirs(os.path.join(d, "sess-1"), exist_ok=True)
         with open(os.path.join(d, "sess-1.state"), "w") as f:
             f.write("{}")
@@ -2109,7 +2109,7 @@ def test_uninstall_removes_the_codex_slots_too(tmp_path):
     cli._rm_state_dir()
 
     for sub in ("state", "state-codex"):
-        d = os.path.join(cli.blink_home(), sub)
+        d = os.path.join(cli.overwatch_home(), sub)
         assert not os.path.exists(os.path.join(d, "sess-1.state"))
         assert not os.path.exists(os.path.join(d, "sess-1"))
 
@@ -2164,7 +2164,7 @@ Change `_rm_state_dir` to cover both directories:
 
 ```python
 def _rm_state_dir():
-    """Remove ~/.blink/state and ~/.blink/state-codex and their subdirectories.
+    """Remove ~/.overwatch/state and ~/.overwatch/state-codex and their subdirectories.
 
     Two levels deep and no deeper, by construction: the shim only ever creates
     <session>.state files and <session>/<agent> files, in whichever of the two
@@ -2173,7 +2173,7 @@ def _rm_state_dir():
     loop cannot be talked into deleting more than it was told.
     """
     for sub in ("state", "state-codex"):
-        root = os.path.join(blink_home(), sub)
+        root = os.path.join(overwatch_home(), sub)
         try:
             names = os.listdir(root)
         except OSError:
@@ -2196,7 +2196,7 @@ Then in `cmd_uninstall`, renumber `[N/4]` to `[N/5]` and insert:
     print("[5/5] Files ... ", end="", flush=True)
 ```
 
-Add `os.path.join(blink_home(), "codex-hooks-installed-commands")` to the list of files `cmd_uninstall` removes, beside `hooks-installed-commands` if that is already there; if it is not, add both — a marker left behind after an uninstall is what makes a later install think it never happened.
+Add `os.path.join(overwatch_home(), "codex-hooks-installed-commands")` to the list of files `cmd_uninstall` removes, beside `hooks-installed-commands` if that is already there; if it is not, add both — a marker left behind after an uninstall is what makes a later install think it never happened.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -2210,12 +2210,12 @@ Expected: 571 passed.
 
 ```bash
 git add pc/cli.py tests/test_cli.py
-git commit -m "feat: blink uninstall removes the Codex hook and its slots"
+git commit -m "feat: overwatch uninstall removes the Codex hook and its slots"
 ```
 
 ---
 
-### Task 13: `blink status` says whether the Codex hook is firing
+### Task 13: `overwatch status` says whether the Codex hook is firing
 
 The most useful support answer after "is it installed" is "is it running". For Codex there is a third question nobody else has — "did you say yes to the trust prompt" — and a registered hook that has never written a slot is exactly what saying no looks like.
 
@@ -2242,7 +2242,7 @@ def test_status_reports_a_registered_hook_that_has_never_fired(monkeypatch):
     """Which is exactly what declining the trust prompt looks like, and the
     single most likely support call this feature will generate."""
     monkeypatch.setattr(cli.install_codex_hooks, "_read_marker",
-                        lambda: {"sh /x/blink-hook.sh Stop codex"})
+                        lambda: {"sh /x/overwatch-hook.sh Stop codex"})
     monkeypatch.setattr(cli.codex_state, "scan",
                         lambda now, path=None, sweep=True: ({}, 0))
     lines = cli._codex_hook_status()
@@ -2251,7 +2251,7 @@ def test_status_reports_a_registered_hook_that_has_never_fired(monkeypatch):
 
 def test_status_reports_live_codex_sessions(monkeypatch):
     monkeypatch.setattr(cli.install_codex_hooks, "_read_marker",
-                        lambda: {"sh /x/blink-hook.sh Stop codex"})
+                        lambda: {"sh /x/overwatch-hook.sh Stop codex"})
     monkeypatch.setattr(cli.codex_state, "scan",
                         lambda now, path=None, sweep=True: (
                             {"a": "running", "b": "waiting"}, 0))
@@ -2270,7 +2270,7 @@ In `pc/cli.py`, add `from pc.providers import codex_state` to the imports used b
 
 ```python
 def _codex_hook_status():
-    """Lines describing the Codex hook, for `blink status`.
+    """Lines describing the Codex hook, for `overwatch status`.
 
     Three states worth telling apart, because the fixes are different:
     registered and firing, registered and silent, not registered. The middle
@@ -2280,7 +2280,7 @@ def _codex_hook_status():
     """
     if not install_codex_hooks._read_marker():
         return ["Codex hook  not installed"
-                " (run `blink install` with Codex on this machine)"]
+                " (run `overwatch install` with Codex on this machine)"]
     try:
         states, _agents = codex_state.scan(time.time(), sweep=False)
     except Exception:
@@ -2316,7 +2316,7 @@ Expected: 574 passed.
 
 ```bash
 git add pc/cli.py tests/test_cli.py
-git commit -m "feat: blink status distinguishes a silent Codex hook from a missing one"
+git commit -m "feat: overwatch status distinguishes a silent Codex hook from a missing one"
 ```
 
 ---
@@ -2349,24 +2349,24 @@ Confirm on disk:
 ```bash
 cat "${CODEX_HOME:-$HOME/.codex}/hooks.json"
 cat "${CODEX_HOME:-$HOME/.codex}/config.toml"
-cat ~/.blink/codex-hooks-installed-commands
+cat ~/.overwatch/codex-hooks-installed-commands
 ```
 
 - [ ] **Step 2: Make Codex fire a hook, and watch for the trust prompt**
 
 ```bash
-cd /tmp && mkdir -p blink-codex-probe && cd blink-codex-probe
+cd /tmp && mkdir -p overwatch-codex-probe && cd overwatch-codex-probe
 codex
 ```
 
 Type a prompt that runs one shell command. **Record exactly what Codex asks about trust** — the wording, when it appears, and what accepting it writes. Then in a second terminal:
 
 ```bash
-ls -la ~/.blink/state-codex/
-cat ~/.blink/state-codex/*.state
+ls -la ~/.overwatch/state-codex/
+cat ~/.overwatch/state-codex/*.state
 ```
 
-Expected: at least one `<uuid>.state` file containing `{"event":"...","t":<10 digits>,"name":"blink-codex-probe"}`.
+Expected: at least one `<uuid>.state` file containing `{"event":"...","t":<10 digits>,"name":"overwatch-codex-probe"}`.
 
 If the directory is empty: the trust prompt was declined, or F1/F2/F3 are wrong. Re-run Task 1's probes, correct `_HOOKS_PATH_PARTS` / `_EVENTS_KEY` / `_POINTER_BODY`, and repeat. **Do not proceed past this step on an empty directory.**
 
@@ -2381,7 +2381,7 @@ codex --sandbox read-only
 Ask it to run a command that needs approval, and while the prompt is on screen:
 
 ```bash
-cat ~/.blink/state-codex/*.state
+cat ~/.overwatch/state-codex/*.state
 python3 -c "
 import time, sys; sys.path.insert(0, '/Users/KfirLevy/Projects/LiveClaudeUi/.claude/worktrees/hint-line')
 from pc.providers import codex_cli
@@ -2405,7 +2405,7 @@ from pc import ingest, protocol
 bus = ingest.IngestionBus()
 print(bus.poll())
 "
-ls ~/.blink/state/ ~/.blink/state-codex/
+ls ~/.overwatch/state/ ~/.overwatch/state-codex/
 ```
 
 Expected: the session counts on the wire message equal the number of terminals actually open, and no file appears in both directories. Also confirm the ids match between the two sources — this is what Task 7's union depends on:
@@ -2415,7 +2415,7 @@ python3 -c "
 import glob, os, sys; sys.path.insert(0, '/Users/KfirLevy/Projects/LiveClaudeUi/.claude/worktrees/hint-line')
 from pc.providers import codex_cli
 print('rollout ids:', [codex_cli.rollout_session_id(p) for p in codex_cli.recent_rollouts()])
-print('hook ids:   ', [os.path.basename(p)[:-6] for p in glob.glob(os.path.expanduser('~/.blink/state-codex/*.state'))])
+print('hook ids:   ', [os.path.basename(p)[:-6] for p in glob.glob(os.path.expanduser('~/.overwatch/state-codex/*.state'))])
 "
 ```
 
@@ -2424,8 +2424,8 @@ Expected: the id of the live session appears in both lists, spelled identically.
 - [ ] **Step 5: Confirm `codex exec` counts, and that uninstall is clean**
 
 ```bash
-cd /tmp/blink-codex-probe && codex exec "print hello and stop"
-ls -la ~/.blink/state-codex/
+cd /tmp/overwatch-codex-probe && codex exec "print hello and stop"
+ls -la ~/.overwatch/state-codex/
 ```
 
 Expected: a batch run leaves a slot too. A `codex exec` run is a session for these purposes and must show a pip.
@@ -2434,11 +2434,11 @@ Expected: a batch run leaves a slot too. A `codex exec` run is a session for the
 python3 -m pc.cli uninstall
 cat "${CODEX_HOME:-$HOME/.codex}/hooks.json"
 cat "${CODEX_HOME:-$HOME/.codex}/config.toml"
-ls ~/.blink/state-codex 2>&1
+ls ~/.overwatch/state-codex 2>&1
 diff /tmp/codex-config.backup.toml "${CODEX_HOME:-$HOME/.codex}/config.toml"
 ```
 
-Expected: our entries gone, the user's config byte-identical to the backup (`diff` silent), `~/.blink/state-codex` empty or absent, and no `codex-hooks-installed-commands` marker left.
+Expected: our entries gone, the user's config byte-identical to the backup (`diff` silent), `~/.overwatch/state-codex` empty or absent, and no `codex-hooks-installed-commands` marker left.
 
 - [ ] **Step 6: Write down what running it settled**
 
@@ -2457,13 +2457,13 @@ git commit -m "docs: what running a Codex hook on the desk actually settled"
 
 **Codex installed but its config unreadable or hand-edited — refuse, do not repair.** `pc/install_statusline._load` has raised `SettingsUnreadable` on this exact ground since it was written, on the reasoning that a file which fails to parse is usually a file someone is halfway through editing. The argument is stronger here, not weaker: this is another vendor's configuration, documented as a place people put their own automation, and "repairing" it means writing our idea of it over theirs. So `install()` refuses and changes nothing, `cmd_install` prints `skipped (...)` and carries on (the status line is the product; the activity light is a nicety), and the TOML pointer in Task 10 refuses outright rather than risk producing a duplicate `[hooks]` header, which would be a parse error and therefore a Codex that does not start.
 
-**One shim, not two.** The valuable thing in `tools/blink-hook.sh` is not its control flow — it is `_ident` and `_projname`, each of which is the fix for a bug that reached a real machine (a tool argument becoming a filename, `..` reaching `~/.blink` where the signing keys live, a nested `cwd` promoting attacker-chosen text onto a display other people see). A second copy is a second place for the next such fix to be forgotten, and this codebase has already been bitten by exactly that shape of duplication. Codex's event names are the same words Claude Code's are and its command hooks are fed the same stdin fields, so the two tools genuinely differ in one respect only: which directory the slot goes in. The cost on the hot path is one parameter expansion and a two-arm `case` — no extra process — on a path that already forks `sed` twice. The `case` is a whitelist rather than a path fragment because the argument arrives from a config file people can hand-edit.
+**One shim, not two.** The valuable thing in `tools/overwatch-hook.sh` is not its control flow — it is `_ident` and `_projname`, each of which is the fix for a bug that reached a real machine (a tool argument becoming a filename, `..` reaching `~/.overwatch` where the signing keys live, a nested `cwd` promoting attacker-chosen text onto a display other people see). A second copy is a second place for the next such fix to be forgotten, and this codebase has already been bitten by exactly that shape of duplication. Codex's event names are the same words Claude Code's are and its command hooks are fed the same stdin fields, so the two tools genuinely differ in one respect only: which directory the slot goes in. The cost on the hot path is one parameter expansion and a two-arm `case` — no extra process — on a path that already forks `sed` twice. The `case` is a whitelist rather than a path fragment because the argument arrives from a config file people can hand-edit.
 
 **No watchdog over the Codex REGISTRATION -- but the shim file itself is covered.** Two different things live under this heading and the distinction decides the answer.
 
-The *registration* -- the entry in Codex's own config -- gets no watchdog. `DriftWatchdog` exists for `statusLine`, a single slot that Claude Code's updates and other tools can displace without telling anyone. Codex's hook entry is not that shape, and there is a specific reason not to watch it: a watchdog would have the daemon writing unattended into another vendor's configuration every 300 seconds, and every such write invalidates Codex's `trusted_hash` and re-prompts the user. A self-healing feature whose healing action is "silently ask the customer to approve something again, from a background process" is worse than the fault it repairs. `blink status` (Task 13) says the hook has gone quiet; `blink install` puts it back.
+The *registration* -- the entry in Codex's own config -- gets no watchdog. `DriftWatchdog` exists for `statusLine`, a single slot that Claude Code's updates and other tools can displace without telling anyone. Codex's hook entry is not that shape, and there is a specific reason not to watch it: a watchdog would have the daemon writing unattended into another vendor's configuration every 300 seconds, and every such write invalidates Codex's `trusted_hash` and re-prompts the user. A self-healing feature whose healing action is "silently ask the customer to approve something again, from a background process" is worse than the fault it repairs. `overwatch status` (Task 13) says the hook has gone quiet; `overwatch install` puts it back.
 
-The *shim file* is the opposite case, and the plan `docs/plans/shim-self-repair.md` must cover it. That plan adds a content check that rewrites any shim under `~/.blink/` whose bytes have fallen behind the daemon -- the fault that made session naming a silent no-op on every install that arrived by `blink update`. A Codex shim living in `~/.blink/` inherits that protection for free, and must: it is the same failure mode, and rewriting our own file in our own directory touches nothing Codex has hashed.
+The *shim file* is the opposite case, and the plan `docs/plans/shim-self-repair.md` must cover it. That plan adds a content check that rewrites any shim under `~/.overwatch/` whose bytes have fallen behind the daemon -- the fault that made session naming a silent no-op on every install that arrived by `overwatch update`. A Codex shim living in `~/.overwatch/` inherits that protection for free, and must: it is the same failure mode, and rewriting our own file in our own directory touches nothing Codex has hashed.
 
 So when this plan lands, add the Codex shim to the `shims=` tuple that plan passes to `DriftWatchdog`. If you are reading this before that plan has been executed, that is the ordering: repair first, then this.
 
@@ -2496,7 +2496,7 @@ must be the smoke test, before anything is built on top.
 
 **1. The trust hash covers the declared COMMAND STRING, not the script.**
 This inverts the risk the plan assumed. Editing the shim's *contents* does NOT
-re-prompt; changing the *path* does. So `blink update`, which swaps the program
+re-prompt; changing the *path* does. So `overwatch update`, which swaps the program
 directory, would **silently disable the hook** if the command embeds a versioned
 path. Register a STABLE entry-point path that survives updates, and give the
 user a one-time `/hooks` trust instruction. The plan's warning about rewriting
@@ -2515,12 +2515,12 @@ finishes; deny fires nothing. So a WAITING state is always clearable — at the
 next `PreToolUse` or at `Stop` — but on a deny it clears LATE. Decide
 deliberately how long a stale WAITING may linger, and say so in the copy.
 
-**4. `permission_mode` is on the hook input.** BLINK can suppress WAITING
+**4. `permission_mode` is on the hook input.** OVERWATCH can suppress WAITING
 entirely in never-ask modes, where an approval prompt cannot occur.
 
 ## The question that would have made this plan unnecessary, and its answer
 
-Could the waiting signal come from the rollout files BLINK already reads, with
+Could the waiting signal come from the rollout files OVERWATCH already reads, with
 no hook at all? **No — verified impossible at the shipped tag.**
 `ExecApprovalRequest`, `ApplyPatchApprovalRequest`, `RequestPermissions` and
 `RequestUserInput` all sit in the "transient, never persisted" arm of

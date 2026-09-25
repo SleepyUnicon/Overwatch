@@ -18,7 +18,7 @@
 - **No status text may contain `-`.** ` - ` is the separator between status and suffix.
 - **Label cap: 24 bytes** on the wire, enforced daemon-side.
 - **Non-ASCII must go through `fmt_ascii()`.** Built-in LVGL fonts draw anything non-ASCII as an empty box, and project directories under a non-ASCII user profile are a real configuration here.
-- **Hooks never fail.** `tools/blink-hook.sh` exits 0 unconditionally; a Blink bug must not become the user's bug.
+- **Hooks never fail.** `tools/overwatch-hook.sh` exits 0 unconditionally; an Overwatch bug must not become the user's bug.
 - **Firmware is not done until flashed and boot-verified**, not merely built.
 
 ## File Structure
@@ -28,7 +28,7 @@
 | `firmware/src/fmt.h` / `fmt.c` | Pure formatting, no LVGL, host-tested | Add `fmt_hint()` |
 | `firmware/src/usage_view.c` | Panel widgets and state | Call `fmt_hint()`; fix `set_activity`; `LONG_DOT` on hint |
 | `firmware/src/proto.c` | Wire dispatch | New `session` branch |
-| `tools/blink-hook.sh` | Capture lifecycle events | Extract project name; rewrite the promise |
+| `tools/overwatch-hook.sh` | Capture lifecycle events | Extract project name; rewrite the promise |
 | `pc/providers/claude_state.py` | Per-session state → counts | Carry names; name only when unambiguous |
 | `pc/providers/base.py` | Normalized frame | Add `label` field |
 | `pc/protocol.py` | Message builders | Add `session()` |
@@ -81,8 +81,8 @@ static void test_fmt_hint(void)
 	EXPECT_STR(b, "Finished");
 
 	/* A label wins over a count if both arrive. */
-	fmt_hint("Working", "Blink", 2, b, sizeof(b));
-	EXPECT_STR(b, "Working - Blink");
+	fmt_hint("Working", "Overwatch", 2, b, sizeof(b));
+	EXPECT_STR(b, "Working - Overwatch");
 
 	/* Non-ASCII is transliterated, never drawn as boxes. */
 	fmt_hint("Working", "caf\xc3\xa9", 1, b, sizeof(b));
@@ -118,7 +118,7 @@ Add after `fmt_ascii`:
  * The line under the status dot: what is happening, and to what.
  *
  *   status  ""      -> ""                      (nothing to say)
- *   label   set     -> "Working - Blink"
+ *   label   set     -> "Working - Overwatch"
  *   n > 1           -> "Waiting for you - 3 sessions"
  *   otherwise       -> "Working"
  *
@@ -301,12 +301,12 @@ git commit -m "fix: the dot changed colour and the line under it stayed blank"
 Independent of Task 1. Nothing consumes the new field until Task 3.
 
 **Files:**
-- Modify: `tools/blink-hook.sh`
+- Modify: `tools/overwatch-hook.sh`
 - Test: `tests/ci/check_hook_shim.sh`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `~/.blink/state/<session_id>.state` gains an optional `"name"` key holding a sanitised final path segment, at most 24 bytes. Task 3 reads it.
+- Produces: `~/.overwatch/state/<session_id>.state` gains an optional `"name"` key holding a sanitised final path segment, at most 24 bytes. Task 3 reads it.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -318,7 +318,7 @@ check_name '{"session_id":"abc","cwd":"/Users/kfir/Projects/LiveClaudeUi"}' \
 	'LiveClaudeUi'
 
 # Windows, where the separator is an escaped backslash in the JSON.
-check_name '{"session_id":"abc","cwd":"C:\\\\Users\\\\kfir\\\\Blink"}' 'Blink'
+check_name '{"session_id":"abc","cwd":"C:\\\\Users\\\\kfir\\\\Overwatch"}' 'Overwatch'
 
 # A tool argument carrying its own cwd must not win. The top-level key is
 # first, which is the same rule _ident relies on for session_id.
@@ -340,14 +340,14 @@ check_name "{\"session_id\":\"abc\",\"cwd\":\"/tmp/$(printf 'a%.0s' $(seq 1 40))
 check_no_name '{"session_id":"abc"}'
 ```
 
-Write `check_name` and `check_no_name` helpers modelled on the file's existing session-id helpers: run the shim with a payload, then read `$HOME/.blink/state/abc.state` and compare the `name` field (or assert the key is absent).
+Write `check_name` and `check_no_name` helpers modelled on the file's existing session-id helpers: run the shim with a payload, then read `$HOME/.overwatch/state/abc.state` and compare the `name` field (or assert the key is absent).
 
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `tests/ci/check_hook_shim.sh`
 Expected: every new case fails — the shim writes no `name` key at all yet.
 
-- [ ] **Step 3: Add the extractor to `tools/blink-hook.sh`**
+- [ ] **Step 3: Add the extractor to `tools/overwatch-hook.sh`**
 
 After the `_ident` helper and its `sid=` lines:
 
@@ -423,13 +423,13 @@ Expected: all cases pass.
 
 - [ ] **Step 7: Confirm the shim still never fails**
 
-Run: `printf '%s' '{"bogus"' | sh tools/blink-hook.sh PreToolUse; echo "exit=$?"`
+Run: `printf '%s' '{"bogus"' | sh tools/overwatch-hook.sh PreToolUse; echo "exit=$?"`
 Expected: `exit=0`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add tools/blink-hook.sh tests/ci/check_hook_shim.sh
+git add tools/overwatch-hook.sh tests/ci/check_hook_shim.sh
 git commit -m "feat: the hook records which project a session belongs to"
 ```
 
@@ -459,7 +459,7 @@ def test_name_is_carried_when_one_session_holds_the_state(tmp_path):
 
 
 def test_no_name_when_two_sessions_share_the_state(tmp_path):
-    _write_state(tmp_path, "s1", "Notification", NOW, name="Blink")
+    _write_state(tmp_path, "s1", "Notification", NOW, name="Overwatch")
     _write_state(tmp_path, "s2", "Notification", NOW, name="Other")
     prov = ClaudeStateProvider(path=str(tmp_path), now=lambda: NOW)
     frame = prov.poll(NOW)[0]

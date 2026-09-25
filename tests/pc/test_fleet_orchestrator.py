@@ -58,7 +58,7 @@ def _load():
     as exists, so a sys.path.insert("tools/fleet") both depends on where
     pytest was started from and squats a name any dependency might want.
     """
-    spec = importlib.util.spec_from_file_location("blink_fleet_run", _RUN_PY)
+    spec = importlib.util.spec_from_file_location("overwatch_fleet_run", _RUN_PY)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -68,10 +68,10 @@ fleet_run = _load()
 
 
 WIN = {"ssh": "galit@lenovo-r90r7u44.lan", "os": "windows",
-       "python": "python", "workdir": "%USERPROFILE%\\blink-fleet",
+       "python": "python", "workdir": "%USERPROFILE%\\overwatch-fleet",
        "board": "codex", "has_claude_desktop": False}
 UBUNTU = {"ssh": "kfir@kfir-macbook", "os": "linux",
-          "python": "/usr/bin/python3", "workdir": "~/blink-fleet",
+          "python": "/usr/bin/python3", "workdir": "~/overwatch-fleet",
           "board": "claude", "has_claude_desktop": False}
 
 
@@ -184,15 +184,15 @@ def test_windows_line_never_starts_with_a_quote():
 
 def test_windows_workdir_written_posix_style_is_still_cmd():
     """An inventory that spells the workdir $USERPROFILE\\... still works."""
-    cfg = dict(WIN, workdir="$USERPROFILE\\blink-fleet")
+    cfg = dict(WIN, workdir="$USERPROFILE\\overwatch-fleet")
     line = fleet_run.remote_cmd(cfg, fleet_run.agent_argv(cfg))[-1]
     assert "%USERPROFILE%" in line and "$USERPROFILE" not in line
 
 
 def test_posix_tilde_is_not_quoted_into_a_literal_directory():
-    """'~/blink-fleet' in sh is a directory named tilde, not the home one."""
+    """'~/overwatch-fleet' in sh is a directory named tilde, not the home one."""
     line = fleet_run.remote_cmd(UBUNTU, fleet_run.agent_argv(UBUNTU))[-1]
-    assert "'~/blink-fleet'" not in line
+    assert "'~/overwatch-fleet'" not in line
     assert "$HOME" in line
 
 
@@ -651,11 +651,11 @@ def _inventory(tmp_path):
         'has_claude_desktop = true\n\n'
         '[hosts.kfir-ubuntu]\n'
         'ssh = "kfir@kfir-macbook"\nos = "linux"\nboard = "claude"\n'
-        'python = "/usr/bin/python3"\nworkdir = "~/blink-fleet"\n'
+        'python = "/usr/bin/python3"\nworkdir = "~/overwatch-fleet"\n'
         'has_claude_desktop = false\n\n'
         '[hosts.galit-win10]\n'
         'ssh = "galit@lenovo-r90r7u44.lan"\nos = "windows"\nboard = "codex"\n'
-        'python = "python"\nworkdir = "%USERPROFILE%\\\\blink-fleet"\n'
+        'python = "python"\nworkdir = "%USERPROFILE%\\\\overwatch-fleet"\n'
         'has_claude_desktop = false\n', encoding="utf-8")
     return path
 
@@ -697,7 +697,7 @@ def _two_desk_inventory(tmp_path, second_ssh, second_workdir="~/other"):
     path.write_text(
         '[hosts.desk-one]\n'
         'ssh = "kfir@kfir-macbook"\nos = "linux"\nboard = "claude"\n'
-        'python = "python3"\nworkdir = "~/blink-fleet"\n'
+        'python = "python3"\nworkdir = "~/overwatch-fleet"\n'
         'has_claude_desktop = false\n\n'
         '[hosts.desk-two]\n'
         f'ssh = "{second_ssh}"\nos = "linux"\nboard = "claude"\n'

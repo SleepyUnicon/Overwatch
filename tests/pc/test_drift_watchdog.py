@@ -2,7 +2,7 @@
 
 That distinction is the whole feature. Anything can rewrite settings.json and
 drop our command silently -- the symptom is a panel that stops updating while
-the daemon reports success. But a user who ran `blink uninstall` has said
+the daemon reports success. But a user who ran `overwatch uninstall` has said
 something, and a program that puts its hook back after being told to go away
 is not self-healing, it is malware-shaped.
 """
@@ -13,7 +13,7 @@ import pytest
 
 from pc import install_statusline as isl
 
-SHIM = "/opt/blink/blink-statusline.sh"
+SHIM = "/opt/overwatch/overwatch-statusline.sh"
 
 
 @pytest.fixture
@@ -76,7 +76,7 @@ def test_a_replacement_is_chained_not_clobbered(settings):
 
 def test_a_moved_shim_is_repointed(settings):
     isl.install(settings, SHIM)
-    moved = "/opt/blink-v2/blink-statusline.sh"
+    moved = "/opt/overwatch-v2/overwatch-statusline.sh"
     msg = isl.drift_check(settings, moved)
     assert "old shim path" in msg
     assert _current(settings) == isl.statusline_command(moved)
@@ -154,12 +154,12 @@ def test_a_quiet_machine_never_logs_anything():
 
 def test_both_repairs_are_reported_on_one_tick(monkeypatch):
     monkeypatch.setattr(isl, "shim_content_check",
-                        lambda shims: "blink-hook.sh was out of date")
+                        lambda shims: "overwatch-hook.sh was out of date")
     w = isl.DriftWatchdog("s", "p", interval_s=1.0, now=_Clock(),
                           check=lambda *a: "restored it",
-                          shims=(("p", "blink-hook.sh"),))
+                          shims=(("p", "overwatch-hook.sh"),))
 
-    assert w.tick() == "restored it; blink-hook.sh was out of date"
+    assert w.tick() == "restored it; overwatch-hook.sh was out of date"
 
 
 def test_the_shim_check_waits_for_the_interval_like_everything_else(monkeypatch):
@@ -169,7 +169,7 @@ def test_the_shim_check_waits_for_the_interval_like_everything_else(monkeypatch)
                         lambda shims: calls.append(1) and None)
     w = isl.DriftWatchdog("s", "p", interval_s=300.0, now=clock,
                           check=lambda *a: None,
-                          shims=(("p", "blink-hook.sh"),))
+                          shims=(("p", "overwatch-hook.sh"),))
     w.tick()
     w.tick()
     w.tick()
@@ -186,15 +186,15 @@ def test_a_stale_shim_is_still_repaired_after_it_gave_up(monkeypatch):
     statusLine hook must not leave them stale forever.
     """
     monkeypatch.setattr(isl, "shim_content_check",
-                        lambda shims: "blink-hook.sh was out of date")
+                        lambda shims: "overwatch-hook.sh was out of date")
     clock = _Clock()
     w = isl.DriftWatchdog("s", "p", interval_s=1.0, now=clock,
                           check=lambda *a: "restored it",
-                          shims=(("p", "blink-hook.sh"),))
+                          shims=(("p", "overwatch-hook.sh"),))
     for i in range(10):
         clock.t = i * 2.0
         m = w.tick()
 
-    assert m == "blink-hook.sh was out of date"
+    assert m == "overwatch-hook.sh was out of date"
     # And the shim rewrites never counted towards the cap on their way there.
     assert w._reinstatements == isl.MAX_REINSTATEMENTS

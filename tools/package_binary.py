@@ -3,9 +3,9 @@
 
     tools/package_binary.py <platform-key> [build-dir] [out-dir]
 
-`build-dir` is what tools/build_binary.sh produced (default dist/blink); the
-result is <out-dir>/blink-<key>.tar.gz, or .zip for a Windows key, with one
-top-level directory `blink/` inside -- the shape pc/update.unpack() expects and
+`build-dir` is what tools/build_binary.sh produced (default dist/overwatch); the
+result is <out-dir>/overwatch-<key>.tar.gz, or .zip for a Windows key, with one
+top-level directory `overwatch/` inside -- the shape pc/update.unpack() expects and
 the shape `tar xz` hands a person. Python rather than tar/zip commands so the
 same bytes come out of a runner, a developer's machine and the CI harness that
 fakes a release; tarfile keeps the executable bit, and zipfile is told to.
@@ -43,7 +43,7 @@ def package(key, build_dir, out_dir):
             for path in files:
                 if os.path.islink(path):
                     raise SystemExit(f"a zip cannot carry the symlink {path}")
-                arc = "blink/" + os.path.relpath(path, build_dir).replace(os.sep, "/")
+                arc = "overwatch/" + os.path.relpath(path, build_dir).replace(os.sep, "/")
                 info = zipfile.ZipInfo.from_file(path, arc)
                 info.compress_type = zipfile.ZIP_DEFLATED
                 mode = os.stat(path).st_mode
@@ -53,7 +53,7 @@ def package(key, build_dir, out_dir):
     else:
         with tarfile.open(out, "w:gz") as t:
             for path in files:
-                arc = "blink/" + os.path.relpath(path, build_dir).replace(os.sep, "/")
+                arc = "overwatch/" + os.path.relpath(path, build_dir).replace(os.sep, "/")
                 t.add(path, arcname=arc, recursive=False)
     return out
 
@@ -62,6 +62,6 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     key = sys.argv[1]
-    build = sys.argv[2] if len(sys.argv) > 2 else "dist/blink"
+    build = sys.argv[2] if len(sys.argv) > 2 else "dist/overwatch"
     outd = sys.argv[3] if len(sys.argv) > 3 else os.path.dirname(os.path.abspath(build))
     print(package(key, build, outd))

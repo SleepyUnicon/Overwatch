@@ -4,7 +4,7 @@ A one-line launcher so PyInstaller has a script to freeze; the CLI itself
 lives in pc/cli.py, where it can be imported and tested without building
 anything.
 
-One thing the launcher does itself: `blink -m <module> ...` runs a bundled
+One thing the launcher does itself: `overwatch -m <module> ...` runs a bundled
 Python module the way `python -m` would. The daemon flashes firmware with
 esptool and reads the flash-encryption eFuse with pc.efuse_probe, both bundled
 into this binary, and invokes them as `sys.executable -m esptool ...` -- which in a frozen build is

@@ -45,7 +45,7 @@ static const struct device *const display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_d
  *
  * These panels differ from the pilot units in two independent ways, and both
  * land in MADCTL (36h), so one write fixes both. Pilot boards must build with
- * CONFIG_BLINK_PANEL_PILOT, which compiles this away entirely.
+ * CONFIG_OVERWATCH_PANEL_PILOT, which compiles this away entirely.
  *
  * The pilot units and the production panels are driven with byte-identical
  * registers, yet production renders mirrored -- so the difference is in the
@@ -76,7 +76,7 @@ static const struct device *const display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_d
  * window coordinates and its pixels mirror together, and the panel's own
  * reversed wiring cancels them back out.
  */
-#ifdef CONFIG_BLINK_PANEL_PILOT
+#ifdef CONFIG_OVERWATCH_PANEL_PILOT
 
 /* Pilot panels need none of it: the stock rotation=90 MADCTL (BGR|MV) that the
  * driver writes is already correct for them, mirror and colour order alike. */
@@ -113,7 +113,7 @@ static void panel_fix_madctl(void)
 	}
 }
 
-#endif /* CONFIG_BLINK_PANEL_PILOT */
+#endif /* CONFIG_OVERWATCH_PANEL_PILOT */
 
 /*
  * Rebuild the gauge screen because the theme changed.
@@ -141,7 +141,7 @@ static void theme_rebuild(void)
 	ui_settings_attach(lv_scr_act());
 }
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 /*
  * Everything from here to the matching #endif belongs to the standalone WiFi
  * flow -- provisioning, the setup AP, the sign-in exchange, the blind-radio
@@ -199,7 +199,7 @@ static __noinit uint32_t blind_magic;
  * flag only picks the honest reason to show on the setup form if that
  * join fails too. */
 static bool scan_said_absent;
-#endif /* CONFIG_BLINK_WIFI_MODE */
+#endif /* CONFIG_OVERWATCH_WIFI_MODE */
 
 /* ---- OTA boot-side: test-boot self-confirm, else MCUboot reverts ---- */
 
@@ -217,7 +217,7 @@ static void ota_boot_begin(void)
 	ota_test_boot = true;
 	ota_confirm_deadline = k_uptime_get() + 90 * 1000;
 	printk("[ota] test boot of %s -- must confirm within 90 s\n",
-	       BLINK_FW_VERSION);
+	       OVERWATCH_FW_VERSION);
 
 	/* Hardware watchdog for hard hangs: a wedged main loop stops feeding,
 	 * the chip resets, and MCUboot reverts the unconfirmed image. */
@@ -306,7 +306,7 @@ static void ota_report_outcome(void)
 	}
 	cfg_set_ota_state(0, "");
 	/* Through whatsnew_split, always: the breadcrumb may be a packed
-	 * pair, and comparing "1.2.5>1.3.2" against BLINK_FW_VERSION would
+	 * pair, and comparing "1.2.5>1.3.2" against OVERWATCH_FW_VERSION would
 	 * announce a successful update as a failed one. */
 	whatsnew_split(trail, from, sizeof(from), to, sizeof(to));
 	/*
@@ -324,9 +324,9 @@ static void ota_report_outcome(void)
 	 * is the only other evidence.
 	 */
 	printk("[ota] update %s: wanted %s, running %s (from %s)\n",
-	       strcmp(to, BLINK_FW_VERSION) == 0 ? "landed" : "REVERTED",
-	       to, BLINK_FW_VERSION, from[0] ? from : "?");
-	if (strcmp(to, BLINK_FW_VERSION) == 0) {
+	       strcmp(to, OVERWATCH_FW_VERSION) == 0 ? "landed" : "REVERTED",
+	       to, OVERWATCH_FW_VERSION, from[0] ? from : "?");
+	if (strcmp(to, OVERWATCH_FW_VERSION) == 0) {
 		/*
 		 * The notice says how much changed; the screen behind it says
 		 * what. An empty summary means this release has no entry in
@@ -334,16 +334,16 @@ static void ota_report_outcome(void)
 		 * version alone rather than offering a screen with nothing
 		 * on it.
 		 */
-		whatsnew_summary(from, BLINK_FW_VERSION, summary,
+		whatsnew_summary(from, OVERWATCH_FW_VERSION, summary,
 				 sizeof(summary));
-		ui_settings_notice_update(BLINK_FW_VERSION, summary, from,
-					  BLINK_FW_VERSION);
+		ui_settings_notice_update(OVERWATCH_FW_VERSION, summary, from,
+					  OVERWATCH_FW_VERSION);
 	} else {
 		ui_settings_notice("Update failed, previous version restored.");
 	}
 }
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 /* Everything from here to usb_anim_pump() is the board's own network path:
  * the captive portal, the sign-in, the scan. Whole functions, so this is a
  * region rather than a sprinkle -- see firmware/Kconfig. */
@@ -823,7 +823,7 @@ static void standalone_anim_pump(void)
 	ota_boot_pump();
 }
 
-#endif /* CONFIG_BLINK_WIFI_MODE */
+#endif /* CONFIG_OVERWATCH_WIFI_MODE */
 
 /* Outside the gate: this is the tethered path's own step list, and it was
  * only sitting next to wifi_boot_steps out of habit. */
@@ -841,7 +841,7 @@ static void usb_anim_pump(void)
 	ota_boot_pump();
 }
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 /* Lower priority than main (higher number): 1-2 s of ECDHE math must not
  * starve the render loop on this single-core build. */
 static char worker_refresh[CFG_TOKEN_MAX];
@@ -1349,7 +1349,7 @@ static void net_worker(void *a, void *b, void *c)
 			if (ota_install(&m) == OTA_OK) {
 				char trail[CFG_OTA_VER_MAX];
 
-				whatsnew_trail(BLINK_FW_VERSION, m.version,
+				whatsnew_trail(OVERWATCH_FW_VERSION, m.version,
 					       trail, sizeof(trail));
 				cfg_set_ota_state(1, trail);
 				ota_ui_set(OTA_UI_REBOOTING, &m, 100);
@@ -1468,7 +1468,7 @@ static void run_standalone(void)
 	}
 }
 
-#endif /* CONFIG_BLINK_WIFI_MODE */
+#endif /* CONFIG_OVERWATCH_WIFI_MODE */
 
 /* ---- USB bridge mode: PC daemon pushes usage over serial ---- */
 
@@ -1801,7 +1801,7 @@ int main(void)
 	 * block for seconds against a 30 s window. */
 	ui_boot_set_pump(ota_boot_pump);
 	backlight_init();	/* drive the PWM to the persisted level */
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 	net_wifi_init();
 	net_wifi_set_idle_hook(wifi_idle);
 	ap_psk_setup();		/* before any QR or AP use */
@@ -1846,7 +1846,7 @@ int main(void)
 	 * as dead time on hardware (user feedback 2026-07-16). A PC daemon
 	 * never loses the board to this shortcut: the daemon opening the
 	 * port is a hard reset, which clears the intentional mark. */
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 	if (ui_boot_intentional_pending()) {
 		char ssid[CFG_SSID_MAX], psk[CFG_PSK_MAX], tok[CFG_TOKEN_MAX];
 
@@ -1882,7 +1882,7 @@ int main(void)
 		run_usb();
 	}
 
-#if IS_ENABLED(CONFIG_BLINK_WIFI_MODE)
+#if IS_ENABLED(CONFIG_OVERWATCH_WIFI_MODE)
 	char tok[CFG_TOKEN_MAX], ssid[CFG_SSID_MAX], psk[CFG_PSK_MAX];
 	bool have_wifi = cfg_get_wifi(ssid, sizeof(ssid), psk, sizeof(psk));
 	bool have_tok = cfg_get_token(tok, sizeof(tok));

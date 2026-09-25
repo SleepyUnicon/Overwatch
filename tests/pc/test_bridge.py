@@ -321,7 +321,7 @@ def test_a_platform_with_no_published_app_still_gets_its_firmware(capsys):
 
 def test_a_daemon_that_cannot_replace_itself_is_not_held_back():
     """Nothing wires self_update outside claude_usage_bridge -- a checkout, a
-    test, `blink run` from source. There is no app half to pair with there,
+    test, `overwatch run` from source. There is no app half to pair with there,
     and refusing firmware would break the development path for a rule that
     exists to protect customers."""
     sent = []
@@ -405,9 +405,9 @@ class SessionMessageIsSent(unittest.TestCase):
         self.bridge.poll_once()          # nothing changed
         self.assertEqual(len(self._sessions()), 1)
 
-        self.pair = ("Blink", 2)
+        self.pair = ("Overwatch", 2)
         self.bridge.poll_once()
-        self.assertEqual(self._sessions()[-1]["label"], "Blink")
+        self.assertEqual(self._sessions()[-1]["label"], "Overwatch")
         self.assertEqual(self._sessions()[-1]["n"], 2)
 
     def test_session_message_is_resent_on_greet(self):
@@ -439,10 +439,10 @@ class SessionMessageIsSent(unittest.TestCase):
         self.bridge.poll_once()
         self.sent.clear()
 
-        self.pair = ("Blink", 1)
+        self.pair = ("Overwatch", 1)
         self.bridge.poll_if_changed()
 
-        self.assertEqual(self._sessions()[-1]["label"], "Blink")
+        self.assertEqual(self._sessions()[-1]["label"], "Overwatch")
 
     def test_a_name_alone_does_not_re_send_the_usage_line(self):
         """The tick's whole reason for comparing: the fully-loaded usage line
@@ -451,7 +451,7 @@ class SessionMessageIsSent(unittest.TestCase):
         self.bridge.poll_once()
         self.sent.clear()
 
-        self.pair = ("Blink", 1)
+        self.pair = ("Overwatch", 1)
         self.bridge.poll_if_changed()
 
         self.assertEqual([m["t"] for m in self.sent], ["session"])

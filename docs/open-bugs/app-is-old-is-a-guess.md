@@ -14,7 +14,7 @@ The settings screen's update row reads **"App is old"** whenever
 
 ```c
 return host_seen && host_ver[0] &&
-       ota_version_newer(BLINK_FW_VERSION, host_ver);
+       ota_version_newer(OVERWATCH_FW_VERSION, host_ver);
 ```
 
 A version comparison between the board's own firmware and the daemon's
@@ -76,7 +76,7 @@ field older firmware ignores, so `PROTO_VERSION` did not move.
 2. `proto_host_outdated()` returns what the daemon SAID. A daemon too old to
    set the field sets nothing, the row goes blank, and blank is the right way
    to be wrong: silent beats confidently false.
-3. `blink status` keeps its comparison -- it is offline by design and cannot
+3. `overwatch status` keeps its comparison -- it is offline by design and cannot
    ask the feed -- but now names the other possibility instead of only
    prescribing a command that may do nothing.
 
@@ -89,20 +89,20 @@ published release at 1.3.2:
 No `app` field, so the row goes blank instead of calling the newest published
 release old. Flashed and boot-verified on 20500d342b68.
 
-## `blink status` has it too, and its advice is worse
+## `overwatch status` has it too, and its advice is worse
 
 The same comparison drives the CLI, which does name a remedy the panel has no
 room for:
 
     Board       ... firmware 1.3.3
                 the board is on 1.3.3 and this app is 1.3.2 -- they ship together
-                run: /Users/kfir/.blink/bin/blink update
+                run: /Users/kfir/.overwatch/bin/overwatch update
 
 Observed 2026-09-11 on a desk whose app was already the newest published
 release. Running that command finds nothing to do, so the one place with room
 to give an instruction was spending it on one that cannot help.
 
-Fixed differently from the panel, and deliberately. `blink status` is offline by
+Fixed differently from the panel, and deliberately. `overwatch status` is offline by
 design -- it has to work on a plane, and it is the first thing anyone runs when
 nothing works -- so it cannot ask the feed and must not pretend to. It keeps the
 comparison and names the other possibility instead:
@@ -113,11 +113,11 @@ comparison and names the other possibility instead:
 
 The row was also a dead end: it stated a problem, offered no action, and the
 label budget is about 13 characters (`ui_settings.c:1186`), so there is no room
-to say `run blink update`. The button beside it is correctly disabled -- the
+to say `run overwatch update`. The button beside it is correctly disabled -- the
 board cannot update the app on someone's computer.
 
 That is much smaller now. The row no longer means "older than me", it means the
-daemon has found a newer app it can actually install, so `blink update` really
+daemon has found a newer app it can actually install, so `overwatch update` really
 is the remedy and the customer is no longer being told about a problem with no
 solution. What remains is only that the panel cannot NAME the remedy in
 thirteen characters, which is a copy question rather than a correctness one --

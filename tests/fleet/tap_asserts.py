@@ -177,7 +177,7 @@ def _sleep_wakes(tap_lines):
 def check(tap_lines, expect, name=None):
     """Everything wrong with this run, as sentences. Empty means it passed.
 
-    tap_lines are the parsed BLINK_TAP records; expect is the scenario's own
+    tap_lines are the parsed OVERWATCH_TAP records; expect is the scenario's own
     block: min_tx (usage frames actually sent), min_board_usage (frames the
     board applied), min_stale_lines (how many of those carried STALE) and
     min_sleep_wakes (how many times the board must have woken from sleep and

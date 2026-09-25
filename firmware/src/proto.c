@@ -22,7 +22,7 @@
 #include "version.h"
 #include "cfg_store.h"
 
-#define PROTO_VERSION BLINK_PROTO_VERSION
+#define PROTO_VERSION OVERWATCH_PROTO_VERSION
 #define PING_INTERVAL_MS 10000
 /*
  * The daemon answers every ping with a pong, so silence means it is genuinely
@@ -187,7 +187,7 @@ static void send_hello(void)
 	char buf[160];
 	snprintf(buf, sizeof(buf),
 		 "{\"t\":\"hello\",\"v\":%d,\"board\":\"cyd\","
-		 "\"board_id\":\"%s\",\"fw\":\"" BLINK_FW_VERSION "\","
+		 "\"board_id\":\"%s\",\"fw\":\"" OVERWATCH_FW_VERSION "\","
 		 "\"reset\":\"0x%x\"}",
 		 PROTO_VERSION, idhex, cause);
 	emit(buf);
@@ -259,7 +259,7 @@ void proto_ota_check(void)
 	ota_ui_set(OTA_UI_CHECKING, NULL, 0);
 	snprintf(buf, sizeof(buf),
 		 "{\"t\":\"ota_query\",\"v\":%d,\"cur\":\"%s\"}",
-		 PROTO_VERSION, BLINK_FW_VERSION);
+		 PROTO_VERSION, OVERWATCH_FW_VERSION);
 	emit(buf);
 }
 
@@ -653,7 +653,7 @@ static void dispatch(const char *json)
 		ota_request_check();
 		/*
 		 * Answer. The daemon sends `welcome` as a question -- "is a
-		 * Blink board on this port?" -- and decides whether to pull
+		 * Overwatch board on this port?" -- and decides whether to pull
 		 * the reset line on whether anything comes back within 1.5 s
 		 * (claude_usage_bridge.probe_is_our_board). This handler used
 		 * to reply with nothing: the ota_query it was credited with
@@ -705,7 +705,7 @@ static void dispatch(const char *json)
 			 * the last moment anything knows: after the write
 			 * this image is gone. See whatsnew.h for why it is
 			 * packed into the existing field. */
-			whatsnew_trail(BLINK_FW_VERSION, v, trail,
+			whatsnew_trail(OVERWATCH_FW_VERSION, v, trail,
 				       sizeof(trail));
 			cfg_set_ota_state(1, trail);
 		}
@@ -842,7 +842,7 @@ bool proto_host_outdated(void)
 	/*
 	 * What the DAEMON said, not what this board worked out.
 	 *
-	 * This used to be `ota_version_newer(BLINK_FW_VERSION, host_ver)` -- a
+	 * This used to be `ota_version_newer(OVERWATCH_FW_VERSION, host_ver)` -- a
 	 * comparison between our own firmware and the app's version. That
 	 * answers "is the app older than ME", and the row it feeds says "App
 	 * is old", which is a claim about the RELEASE. The two agree only

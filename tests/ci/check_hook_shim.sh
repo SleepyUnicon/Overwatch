@@ -1,5 +1,5 @@
 #!/bin/sh
-# Exercise tools/blink-hook.sh under one specific shell.
+# Exercise tools/overwatch-hook.sh under one specific shell.
 #
 #   tests/ci/check_hook_shim.sh [dash|busybox|bash|sh]
 #
@@ -19,8 +19,8 @@ set -eu
 
 WHICH="${1:-sh}"
 ci_label "$WHICH"
-SHIM_SRC="$ROOT/tools/blink-hook.sh"
-WORK="${TMPDIR:-/tmp}/blink-hook-$WHICH"
+SHIM_SRC="$ROOT/tools/overwatch-hook.sh"
+WORK="${TMPDIR:-/tmp}/overwatch-hook-$WHICH"
 
 case "$WHICH" in
 dash) SH="dash" ;;
@@ -36,9 +36,9 @@ HOME="$WORK/home"
 mkdir -p "$HOME"
 export HOME
 
-SHIM="$HOME/blink-hook.sh"
+SHIM="$HOME/overwatch-hook.sh"
 cp "$SHIM_SRC" "$SHIM"
-DIR="$HOME/.blink/state"
+DIR="$HOME/.overwatch/state"
 
 # A realistic payload, carrying several fields we must be seen NOT to keep.
 PAYLOAD='{"session_id":"abc-123","transcript_path":"/x/secret.jsonl","cwd":"/home/secret/proj","tool_name":"Bash","hook_event_name":"PreToolUse","last_assistant_message":"the secret is swordfish"}'
@@ -119,10 +119,10 @@ printf '{"session_id":"../../pwned"}' |
 ok "a traversing session id cannot escape the state directory"
 
 # 8b. The bare names `.` and `..` -- no slash, so the old class admitted them,
-#     and `$DIR/..` is ~/.blink itself. With an agent id naming a file there,
+#     and `$DIR/..` is ~/.overwatch itself. With an agent id naming a file there,
 #     SubagentStart truncated it and SubagentStop deleted it. The signing keys
 #     live in that directory.
-printf 'keep me' > "$HOME/.blink/precious"
+printf 'keep me' > "$HOME/.overwatch/precious"
 for bad in '.' '..'; do
 	printf '{"session_id":"%s","agent_id":"precious"}' "$bad" |
 		$SH "$SHIM" SubagentStart >/dev/null 2>&1
@@ -130,7 +130,7 @@ for bad in '.' '..'; do
 		$SH "$SHIM" SubagentStop >/dev/null 2>&1
 	printf '{"session_id":"%s"}' "$bad" | $SH "$SHIM" SessionEnd >/dev/null 2>&1
 done
-[ "$(cat "$HOME/.blink/precious")" = "keep me" ] ||
+[ "$(cat "$HOME/.overwatch/precious")" = "keep me" ] ||
 	fail "a dot session id reached a file outside the state dir"
 [ -d "$DIR" ] || fail "a dot session id removed the state directory"
 # ...and the same via the AGENT id, which reaches an rm -f of its own.
@@ -138,9 +138,9 @@ printf '{"session_id":"abc-123","agent_id":".."}' |
 	$SH "$SHIM" SubagentStop >/dev/null 2>&1
 printf '{"session_id":"abc-123","agent_id":"../precious"}' |
 	$SH "$SHIM" SubagentStop >/dev/null 2>&1
-[ "$(cat "$HOME/.blink/precious")" = "keep me" ] ||
+[ "$(cat "$HOME/.overwatch/precious")" = "keep me" ] ||
 	fail "a traversing agent id reached a file outside the session dir"
-ok "dot and dot-dot ids cannot reach ~/.blink"
+ok "dot and dot-dot ids cannot reach ~/.overwatch"
 
 # 8c. The top-level session id wins over one inside a tool's arguments.
 #     PreToolUse payloads carry tool_input verbatim, and tools have their own
@@ -194,7 +194,7 @@ check_name '{"session_id":"abc","cwd":"/Users/kfir/Projects/LiveClaudeUi"}' \
 	'LiveClaudeUi'
 
 # Windows, where the separator is an escaped backslash in the JSON.
-check_name '{"session_id":"abc","cwd":"C:\\\\Users\\\\kfir\\\\Blink"}' 'Blink'
+check_name '{"session_id":"abc","cwd":"C:\\\\Users\\\\kfir\\\\Overwatch"}' 'Overwatch'
 
 # A tool argument carrying its own cwd must not win. The top-level key is
 # first, which is the same rule _ident relies on for session_id.
@@ -304,13 +304,13 @@ ok "drains a large payload without complaint"
 # 14. The Codex state directory. The same shim serves Codex's hooks, which use
 #     the same event names and the same stdin fields; the second argument is
 #     the only thing that differs, and it must move every write.
-CODEXDIR="$HOME/.blink/state-codex"
+CODEXDIR="$HOME/.overwatch/state-codex"
 out=$(printf '%s' "$PAYLOAD" | $SH "$SHIM" PreToolUse codex 2>"$WORK/err14.txt")
 [ -z "$out" ] || fail "codex run printed to stdout: [$out]"
 [ -s "$WORK/err14.txt" ] && fail "codex run wrote to stderr: $(cat "$WORK/err14.txt")"
 grep -q '"event":"PreToolUse"' "$CODEXDIR/abc-123.state" ||
 	fail "codex event not recorded under state-codex"
-ok "the codex argument writes under ~/.blink/state-codex"
+ok "the codex argument writes under ~/.overwatch/state-codex"
 
 # 14b. ...and never into the Claude directory. A Codex session counted as a
 #      Claude one is the entire reason the second directory exists: the pip
@@ -336,7 +336,7 @@ printf '{"session_id":"weird"}' | $SH "$SHIM" Stop '../../../etc' >/dev/null 2>&
 # This is a directory whose contents an attacker-shaped session id helps
 # choose, which is the whole point of the assertion below.
 extra=
-for p in "$HOME"/.blink/*; do
+for p in "$HOME"/.overwatch/*; do
 	[ -e "$p" ] || continue		# no matches: the glob stays literal
 	case "${p##*/}" in
 	state|state-codex|precious) ;;
@@ -344,14 +344,14 @@ for p in "$HOME"/.blink/*; do
 	esac
 done
 [ -z "$extra" ] ||
-	fail "an unknown tool argument created something in ~/.blink: $extra"
+	fail "an unknown tool argument created something in ~/.overwatch: $extra"
 ok "an unknown tool argument cannot choose a directory"
 
 # 14d. Every sanitiser case the Claude directory has, repeated for the codex
 #      one. The sanitisers are shared code, but the directory they write into
 #      is not, and this is the file that has to prove the second one is as
 #      safe as the first.
-printf 'keep me' > "$HOME/.blink/precious"
+printf 'keep me' > "$HOME/.overwatch/precious"
 printf '{"session_id":"../../pwned"}' |
 	$SH "$SHIM" PreToolUse codex >/dev/null 2>&1
 [ ! -e "$HOME/pwned.state" ] ||
@@ -366,8 +366,8 @@ for bad in '.' '..'; do
 	printf '{"session_id":"%s"}' "$bad" |
 		$SH "$SHIM" SessionEnd codex >/dev/null 2>&1
 done
-[ "$(cat "$HOME/.blink/precious")" = "keep me" ] ||
-	fail "a dot session id reached ~/.blink through the codex argument"
+[ "$(cat "$HOME/.overwatch/precious")" = "keep me" ] ||
+	fail "a dot session id reached ~/.overwatch through the codex argument"
 [ -d "$CODEXDIR" ] || fail "a dot session id removed the codex state directory"
 [ -z "$(find "$CODEXDIR" -prune \( -perm -040 -o -perm -004 \) -print)" ] ||
 	fail "codex state directory readable by others: $(ls -ld "$CODEXDIR")"

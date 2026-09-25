@@ -273,7 +273,7 @@ def test_finished_at_that_is_not_a_finite_time_refuses(tmp_path, value):
     # is nullified by three characters.
     #
     # The same shape of bug reached this project once already, in the
-    # daemon's poll interval, where BLINK_POLL_INTERVAL_S=nan walked past a
+    # daemon's poll interval, where OVERWATCH_POLL_INTERVAL_S=nan walked past a
     # `<= 0` guard and stopped polling for a whole run.
     assert _refuse(tmp_path, finished_at=value)
 

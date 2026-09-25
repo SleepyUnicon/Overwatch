@@ -151,7 +151,7 @@ def test_launchd_stop_boots_the_agent_out(home, monkeypatch):
     _write(cli.plist_path())
     r = _Runs()
     assert cli._LaunchdBackend().stop(r) == "stopped"
-    assert r.ran("launchctl", "bootout", "gui/501/com.blink.bridge")
+    assert r.ran("launchctl", "bootout", "gui/501/com.overwatch.bridge")
 
 
 def test_launchd_start_bootstraps_the_installed_plist(home, monkeypatch):
@@ -167,12 +167,12 @@ def test_launchd_start_kickstarts_the_job_it_just_bootstrapped(home, monkeypatch
 
     Measured on a live machine, with the shipped plist (RunAtLoad is set):
 
-        launchctl bootout   gui/501/com.blink.bridge          -> rc 0
+        launchctl bootout   gui/501/com.overwatch.bridge          -> rc 0
         launchctl bootstrap gui/501 <plist>                   -> rc 0
-        launchctl print     gui/501/com.blink.bridge          -> not running,
+        launchctl print     gui/501/com.overwatch.bridge          -> not running,
                                                                  runs = 0
                                 (still not running six seconds later)
-        launchctl kickstart gui/501/com.blink.bridge          -> running,
+        launchctl kickstart gui/501/com.overwatch.bridge          -> running,
                                                                  runs = 1, pid
 
     So a bootstrap that exits 0 has not started anything. This is the fleet
@@ -186,7 +186,7 @@ def test_launchd_start_kickstarts_the_job_it_just_bootstrapped(home, monkeypatch
     assert cli._LaunchdBackend().start(r) == "started"
     assert r.calls[0][:2] == ["launchctl", "bootstrap"]
     assert r.calls[1][:2] == ["launchctl", "kickstart"]
-    assert r.ran("launchctl", "kickstart", "gui/501/com.blink.bridge")
+    assert r.ran("launchctl", "kickstart", "gui/501/com.overwatch.bridge")
 
 
 def test_launchd_start_does_not_kickstart_a_bootstrap_that_failed(home, monkeypatch):
@@ -223,7 +223,7 @@ def test_launchd_install_kickstarts_and_only_then_claims_it_is_running(
         home, monkeypatch):
     """The same gap in shipped customer code, and the same measurement.
 
-    install() is what `blink install` and every self-update path print as
+    install() is what `overwatch install` and every self-update path print as
     "Background service ... running (launchd)". By the measurement above
     that sentence was false whenever bootstrap succeeded: the job was
     registered and idle, and would not have run until the next login.
@@ -240,8 +240,8 @@ def test_launchd_install_kickstarts_and_only_then_claims_it_is_running(
     # not a process that exists, so the claim comes from launchctl print.
     assert [c[1] for c in r.calls] == ["bootout", "bootstrap", "kickstart",
                                        "print"]
-    assert r.ran("launchctl", "kickstart", "-k", "gui/501/com.blink.bridge")
-    # The v1.2.1 rule reaches the new call site too: nothing Blink starts may
+    assert r.ran("launchctl", "kickstart", "-k", "gui/501/com.overwatch.bridge")
+    # The v1.2.1 rule reaches the new call site too: nothing Overwatch starts may
     # flash a console window. NO_WINDOW is empty off Windows, so a sentinel is
     # what actually pins a call site that dropped the spread.
     for kw in r.kwargs:
@@ -267,7 +267,7 @@ def test_launchd_install_does_not_claim_running_when_the_kickstart_fails(
     assert "running (launchd)" != msg
     assert "not running" in msg
     # And a command someone can paste.
-    assert "launchctl kickstart -k gui/501/com.blink.bridge" in msg
+    assert "launchctl kickstart -k gui/501/com.overwatch.bridge" in msg
 
 
 def test_launchd_install_does_not_kickstart_a_bootstrap_that_never_took(
@@ -311,7 +311,7 @@ def test_launchd_status_tells_never_installed_from_merely_not_loaded(
 
     Observed for real on 2026-09-09: the agent was booted out by hand before a
     burn, the burn correctly declined to restore a service it had not stopped,
-    and `blink status` then said "Bridge not installed" over a plist sitting
+    and `overwatch status` then said "Bridge not installed" over a plist sitting
     in ~/Library/LaunchAgents.
 
     status() takes no runner, so subprocess is patched directly. The two
@@ -402,8 +402,8 @@ def test_systemd_stop_and_start_the_user_unit(home, monkeypatch):
     r = _Runs()
     assert cli._SystemdBackend().stop(r) == "stopped"
     assert cli._SystemdBackend().start(r) == "started"
-    assert r.ran("systemctl", "--user", "stop", "blink-bridge.service")
-    assert r.ran("systemctl", "--user", "start", "blink-bridge.service")
+    assert r.ran("systemctl", "--user", "stop", "overwatch-bridge.service")
+    assert r.ran("systemctl", "--user", "start", "overwatch-bridge.service")
 
 
 def test_systemd_stop_falls_back_when_there_is_no_systemctl(home, monkeypatch):
@@ -438,7 +438,7 @@ def test_a_launchd_job_that_was_not_loaded_counts_as_stopped(home, monkeypatch):
     it aborts the fleet agent before any scenario with "the serial port is
     probably still held", about a port nothing is holding.
     """
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     _platform(monkeypatch, "darwin")
     _write(cli.plist_path())
     out = service_ctl.stop_service(runner=_Runs(codes=[3]))
@@ -481,7 +481,7 @@ def test_stopping_and_starting_never_installs_or_removes(home, monkeypatch, kill
 
 
 def test_every_command_hides_the_console_window(home, monkeypatch, killer):
-    """The v1.2.1 fix: nothing Blink starts may flash a console window.
+    """The v1.2.1 fix: nothing Overwatch starts may flash a console window.
 
     update.ota.NO_WINDOW is an empty dict off Windows, so asserting on its
     real value would be vacuous on the machine most likely to run this suite
@@ -507,25 +507,25 @@ def test_every_command_hides_the_console_window(home, monkeypatch, killer):
 # ------------------------------------------------------- the thin wrappers --
 
 def test_no_unit_test_can_stop_the_real_service(home):
-    """BLINK_SKIP_SERVICE, set for every test by tests/conftest.py."""
+    """OVERWATCH_SKIP_SERVICE, set for every test by tests/conftest.py."""
     r = _Runs()
     for out in (service_ctl.stop_service(runner=r),
                 service_ctl.start_service(runner=r)):
         assert out.skipped is True and out.ok is False
-        assert "BLINK_SKIP_SERVICE" in str(out)
+        assert "OVERWATCH_SKIP_SERVICE" in str(out)
     assert r.calls == []
 
 
 def test_a_skipped_stop_cannot_be_read_as_a_done_one(home, monkeypatch):
     """Both answers are a line of prose, so the difference has to be a field.
 
-    tests/ci/check_install.sh documents exporting BLINK_SKIP_SERVICE=1, so a
+    tests/ci/check_install.sh documents exporting OVERWATCH_SKIP_SERVICE=1, so a
     fleet agent started from such a shell is a real path: it would stop
     nothing, be refused the port, and blame the board -- and since the start
     no-ops too, it leaves a perfectly healthy desk and nothing to diagnose.
     """
     skipped = service_ctl.stop_service(runner=_Runs())
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     _pretend_installed(monkeypatch)
     done = service_ctl.stop_service(runner=_Runs())
     assert skipped.skipped and not done.skipped
@@ -533,7 +533,7 @@ def test_a_skipped_stop_cannot_be_read_as_a_done_one(home, monkeypatch):
 
 
 def test_the_outcome_still_reads_as_the_line_it_replaced(home, monkeypatch):
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     _pretend_installed(monkeypatch)
     out = service_ctl.stop_service(runner=_Runs())
     assert str(out) == out.detail and isinstance(out.detail, str)
@@ -541,7 +541,7 @@ def test_the_outcome_still_reads_as_the_line_it_replaced(home, monkeypatch):
 
 def test_ok_tracks_what_the_backend_actually_did(home, monkeypatch, killer):
     """Pins service_ctl._WORKED to the phrases the backends really return."""
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     _platform(monkeypatch, "darwin")
     assert service_ctl.stop_service(runner=_Runs()).ok          # not installed
     _write(cli.plist_path())
@@ -563,7 +563,7 @@ def test_a_runner_less_call_uses_the_runner_the_suite_stubbed(home, monkeypatch)
     once -- as a `runner=subprocess.run` default argument, or any module
     constant standing in for one -- it is the real function, and neither this
     file's tripwire nor the stub the rest of the suite installs can take it
-    back. That leaves one delenv("BLINK_SKIP_SERVICE") between a test and the
+    back. That leaves one delenv("OVERWATCH_SKIP_SERVICE") between a test and the
     logged-in user's agent, which is the incident tests/conftest.py describes.
 
     Note what this does NOT depend on: spelling it cli.subprocess.run rather
@@ -571,7 +571,7 @@ def test_a_runner_less_call_uses_the_runner_the_suite_stubbed(home, monkeypatch)
     read the same attribute off the one module object at call time. The
     binding time is the part that bites, so that is the part pinned here.
     """
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     stub = _Runs()
     monkeypatch.setattr(cli.subprocess, "run", stub)
     b = _RecordingBackend()
@@ -583,7 +583,7 @@ def test_a_runner_less_call_uses_the_runner_the_suite_stubbed(home, monkeypatch)
 
 
 def test_stop_and_start_drive_this_machine_platform(home, monkeypatch):
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     _pretend_installed(monkeypatch)
     r = _Runs()
     service_ctl.stop_service(runner=r)
@@ -599,7 +599,7 @@ def test_stop_and_start_drive_this_machine_platform(home, monkeypatch):
 
 
 def test_a_failing_command_is_reported_not_raised(home, monkeypatch):
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     _pretend_installed(monkeypatch)
     # The command that has to FAIL is the stop itself, and on Windows that is
     # the second call: schtasks /query decides whether anything is installed,
@@ -622,7 +622,7 @@ def test_a_backend_that_does_not_answer_in_prose_is_reported_not_raised(
     was there to find with one about the cleanup, and leaves the desk with no
     service and no explanation.
     """
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
 
     class _Terse:
         def stop(self, runner=None):
@@ -640,7 +640,7 @@ def test_a_backend_that_does_not_answer_in_prose_is_reported_not_raised(
 def test_a_missing_tool_is_reported_not_raised(home, monkeypatch):
     """The fleet agent calls start_service from a finally block: an exception
     raised there would replace the real test failure with this one."""
-    monkeypatch.delenv("BLINK_SKIP_SERVICE")
+    monkeypatch.delenv("OVERWATCH_SKIP_SERVICE")
     _pretend_installed(monkeypatch)
 
     def _absent(argv, **kw):

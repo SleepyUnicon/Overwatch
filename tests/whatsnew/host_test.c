@@ -268,7 +268,7 @@ int main(void)
 
 	/* When the pair does not fit, the TARGET survives whole. A truncated
 	 * version names a release nobody shipped, and main.c compares this
-	 * against BLINK_FW_VERSION to decide whether the update landed -- so
+	 * against OVERWATCH_FW_VERSION to decide whether the update landed -- so
 	 * a clipped target reports a good update as a failure. */
 	whatsnew_trail("10.10.10", "10.10.11", trail, 16);
 	CHECK(strcmp(trail, "10.10.11") == 0);

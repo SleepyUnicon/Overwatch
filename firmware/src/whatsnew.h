@@ -172,7 +172,7 @@ void whatsnew_trail(const char *from, const char *to, char *buf, size_t len);
  * before this existed, or written by the fallback above.
  *
  * Every reader must go through this. main.c compares the breadcrumb against
- * BLINK_FW_VERSION to decide whether the update landed, and handed the
+ * OVERWATCH_FW_VERSION to decide whether the update landed, and handed the
  * packed form it would compare "1.2.5>1.3.2" against "1.3.2" and announce a
  * successful update as a failure.
  */

@@ -30,7 +30,7 @@ ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 # script picks (a few lines down) may come from the Zephyr venv.
 . "$ROOT/tools/lib_zephyr.sh"
 EDITION=""
-PORT="${BLINK_PORT:-}"
+PORT="${OVERWATCH_PORT:-}"
 SKIP_BUILD=0
 LOGO=""
 # Must match logo_partition in firmware/boards/esp32_devkitc_esp32_procpu.overlay.
@@ -60,17 +60,17 @@ die()  { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 # Two toolchains, found without an activation step to remember on the bench:
 #
 #  - the Python with pyserial, numpy and pillow (the boot check and the logo
-#    encoder): BLINK_PYTHON, else a repo venv, else the Zephyr venv every
+#    encoder): OVERWATCH_PYTHON, else a repo venv, else the Zephyr venv every
 #    firmware build already uses;
 #  - esptool.py: whatever is on PATH, else the espressif tools directory
-#    lib_efuse.sh already uses (BLINK_ETOOLS or the Python 3.10 framework
+#    lib_efuse.sh already uses (OVERWATCH_ETOOLS or the Python 3.10 framework
 #    bin), else the Python above's own bin. Never prepended over an
 #    esptool.py that is already on PATH -- one chosen on purpose, or the
 #    stubs in tests/ci/check_factory.sh, must win.
-PY="${BLINK_PYTHON:-$ROOT/.venv/bin/python}"
+PY="${OVERWATCH_PYTHON:-$ROOT/.venv/bin/python}"
 # `|| true` inside the substitution, and it is load-bearing.
 #
-# blink_zephyr_ws returns non-zero when there is no workspace, which makes the
+# overwatch_zephyr_ws returns non-zero when there is no workspace, which makes the
 # ASSIGNMENT non-zero, which makes this whole `||` list non-zero -- and `set -e`
 # then killed the script here, silently, with no message and status 1. On a
 # machine with a Zephyr workspace it never fired; on one without, `burn.sh`
@@ -79,13 +79,13 @@ PY="${BLINK_PYTHON:-$ROOT/.venv/bin/python}"
 # there and passed on the author's desk for days.
 #
 # The next line already handles "no usable interpreter" properly, and says so.
-[ -x "$PY" ] || PY="$(blink_zephyr_ws 2>/dev/null || true)/.venv/bin/python"
+[ -x "$PY" ] || PY="$(overwatch_zephyr_ws 2>/dev/null || true)/.venv/bin/python"
 [ -x "$PY" ] || PY=$(command -v python3) || die "no python3"
 for mod in serial numpy PIL; do
 	"$PY" -c "import $mod" 2>/dev/null ||
-		die "$PY lacks the '$mod' module. Run with BLINK_PYTHON=<python that has pyserial, numpy and pillow>"
+		die "$PY lacks the '$mod' module. Run with OVERWATCH_PYTHON=<python that has pyserial, numpy and pillow>"
 done
-ETOOLS="${BLINK_ETOOLS:-/Library/Frameworks/Python.framework/Versions/3.10/bin}"
+ETOOLS="${OVERWATCH_ETOOLS:-/Library/Frameworks/Python.framework/Versions/3.10/bin}"
 if ! command -v esptool.py >/dev/null 2>&1; then
 	for d in "$ETOOLS" "$(dirname -- "$PY")"; do
 		if [ -x "$d/esptool.py" ]; then
@@ -96,20 +96,20 @@ if ! command -v esptool.py >/dev/null 2>&1; then
 	done
 fi
 command -v esptool.py >/dev/null 2>&1 ||
-	die "esptool.py not found on PATH, in $ETOOLS, or next to $PY (pip install esptool, or set BLINK_ETOOLS)"
+	die "esptool.py not found on PATH, in $ETOOLS, or next to $PY (pip install esptool, or set OVERWATCH_ETOOLS)"
 
-BOARD="${BLINK_BOARD:-esp32_devkitc/esp32/procpu}"
-KEY="${BLINK_SIGNING_KEY:-$HOME/.blink/ota_signing_key_p256.pem}"
+BOARD="${OVERWATCH_BOARD:-esp32_devkitc/esp32/procpu}"
+KEY="${OVERWATCH_SIGNING_KEY:-$HOME/.overwatch/ota_signing_key_p256.pem}"
 # Overridable so tests/ci/check_factory.sh can point this at a fake build
-# (and BLINK_ETOOLS, read by lib_efuse.sh, at fake tools) and run the whole
+# (and OVERWATCH_ETOOLS, read by lib_efuse.sh, at fake tools) and run the whole
 # script against a scripted board. Unset behaves exactly as before.
-BUILD="${BLINK_BUILD_DIR:-$ROOT/firmware/build-sb}"
+BUILD="${OVERWATCH_BUILD_DIR:-$ROOT/firmware/build-sb}"
 
 # ---------------------------------------------------------------- 0. the port
 say "Finding the board"
 # The installed daemon holds the port. Stop it for the duration and put it back
 # on the way out, whatever happens -- including a Ctrl-C mid-flash.
-AGENT="gui/$(id -u)/com.blink.bridge"
+AGENT="gui/$(id -u)/com.overwatch.bridge"
 DAEMON_WAS_UP=0
 if launchctl print "$AGENT" >/dev/null 2>&1; then
 	DAEMON_WAS_UP=1
@@ -128,7 +128,7 @@ fi
 restore_daemon() {
 	[ "$DAEMON_WAS_UP" = 1 ] || return 0
 	launchctl bootstrap "gui/$(id -u)" \
-		"$HOME/Library/LaunchAgents/com.blink.bridge.plist" >/dev/null 2>&1 || true
+		"$HOME/Library/LaunchAgents/com.overwatch.bridge.plist" >/dev/null 2>&1 || true
 	# BOOTSTRAP REGISTERS; IT DOES NOT START. RunAtLoad is honoured at login,
 	# not on a bootstrap, so this left the desk with no daemon at all until
 	# the next login -- the board silently unattended after a burn that
@@ -182,7 +182,7 @@ if [ "$SKIP_BUILD" = 0 ]; then
 	[ -f "$KEY" ] || die "signing key not found at $KEY.
        Every unit must be signed with the SAME key or its OTA updates will be
        rejected in the field. See tools/backup_keys.sh."
-	blink_zephyr_activate || die "cannot build without a Zephyr workspace."
+	overwatch_zephyr_activate || die "cannot build without a Zephyr workspace."
 	( cd "$ROOT/firmware" && west build --sysbuild -d build-sb -b "$BOARD" . -- \
 		-DSB_CONFIG_BOOTLOADER_MCUBOOT=y -DUSE_CCACHE=0 \
 		-DSB_CONFIG_BOOT_SIGNATURE_KEY_FILE="\"$KEY\"" ) >/dev/null 2>&1 \
@@ -218,9 +218,9 @@ rm -f "$APP"
 # is running THIS image and not whatever was on it before. With --no-build
 # against a stale build directory the two can differ, and a stamp on the
 # wrong firmware is still a stamp.
-FW_VERSION=$(sed -n 's/^#define BLINK_FW_VERSION "\(.*\)"$/\1/p' \
+FW_VERSION=$(sed -n 's/^#define OVERWATCH_FW_VERSION "\(.*\)"$/\1/p' \
 	"$ROOT/firmware/src/version.h")
-[ -n "$FW_VERSION" ] || die "cannot read BLINK_FW_VERSION from firmware/src/version.h"
+[ -n "$FW_VERSION" ] || die "cannot read OVERWATCH_FW_VERSION from firmware/src/version.h"
 
 # ------------------------------------------------------------- 2b. logo
 # Built BEFORE anything is written to the board: a bad picture must fail the
