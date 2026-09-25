@@ -1579,10 +1579,36 @@ static void run_usb(void)
 			if (ui_pages_current() != UI_PAGE_MUSIC && !ota_busy &&
 			    lv_display_get_inactive_time(NULL)
 				    >= SLEEP_UNTOUCHED_AFTER_MS) {
-				printk("[usage] untouched for %d s; showing "
-				       "the face\n",
+				printk("[usage] untouched for %d s\n",
 				       SLEEP_UNTOUCHED_AFTER_MS / 1000);
-				ui_sleep_show_face();
+				/*
+				 * WHICH doze, and it matters.
+				 *
+				 * ui_sleep_show_face() ends on a tap and
+				 * nothing else. That is right for a working
+				 * desk -- the owner asked for the face and a
+				 * tap is the only thing that can mean "done".
+				 * It is wrong for a board that has never met
+				 * a daemon: this rule is checked first, so a
+				 * new board reaches the setup screen through
+				 * it, and a tap-only doze then sits there
+				 * through the install, showing "Set me up" to
+				 * somebody who just did. The daemon connects
+				 * and the screen does not move.
+				 *
+				 * So a board still waiting to be introduced
+				 * takes the doze that wakes when a host
+				 * speaks. Reported from a second computer,
+				 * where the install finished and the panel
+				 * carried on asking to be set up.
+				 */
+				if (!proto_host_version()[0]) {
+					ui_sleep_run(host_is_back,
+						     "Waiting for the app on "
+						     "your computer.");
+				} else {
+					ui_sleep_show_face();
+				}
 				continue;
 			}
 

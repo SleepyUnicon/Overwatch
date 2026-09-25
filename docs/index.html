@@ -114,9 +114,13 @@
   #onphone{display:none}
   @media (max-width:820px) and (pointer:coarse){ #onphone{display:block} }
   /* Nothing may push the page sideways. A long command scrolls inside its
-     own box; an address wraps rather than widening the document. */
-  html,body{max-width:100%;overflow-x:hidden}
-  .warn,.tile,.status{overflow-wrap:anywhere}
+     own box; an address wraps rather than widening the document.
+     NOT overflow-x:hidden on html/body -- that clips the overflow while
+     still laying the page out at the wider width, so `margin:0 auto`
+     centres against a box wider than the window and the whole page sits
+     off to one side. Contain the children instead. */
+  .warn,.tile,.status{overflow-wrap:anywhere;min-width:0}
+  pre{max-width:100%}
   footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
          color:var(--faint);font-size:13px}
 </style>
@@ -156,7 +160,7 @@
 
 <div class="tiles">
 
-  <div class="tile">
+  <div class="tile" data-setup>
     <h2><span class="num">1</span> Install it on this computer</h2>
     <p>The board is a screen on a cable. A small program on your computer reads
        the figures Claude Code and Codex have already written to disk and sends
@@ -179,7 +183,7 @@
     </div>
   </div>
 
-  <div class="tile">
+  <div class="tile" data-setup>
     <h2><span class="num">2</span> Plug the board in</h2>
     <p>Any USB port, any cable that carries data — a charge-only cable powers
        the screen and is never seen by the computer, which is the single most
@@ -207,6 +211,11 @@
   </div>
 
 </div>
+
+<p id="again" hidden style="margin:26px 0 0;font-size:14px;color:var(--faint)">
+  <a href="#" id="againLink">Need to set it up again?</a>
+  — on this computer, or another one.
+</p>
 
 <footer>
   Source under <a href="https://github.com/SleepyUnicon/Overwatch/blob/main/LICENSE">PolyForm Noncommercial 1.0.0</a>.
@@ -325,6 +334,7 @@ async function poll(){
         + 'computer the board is plugged into.'
       : 'Not running yet — do step 1, then come back.');
     document.getElementById('picker').hidden = true;
+    setSetupVisible(true);
     return;
   }
   if (!token){
@@ -334,6 +344,7 @@ async function poll(){
       + 'running Overwatch and follow the link there \u2014 it pairs this page '
       + 'and brings you back.');
     document.getElementById('picker').hidden = true;
+    setSetupVisible(true);
     return;
   }
   let r;
@@ -344,16 +355,31 @@ async function poll(){
       + '<a href="http://127.0.0.1:8730">127.0.0.1:8730</a> on that computer '
       + 'and follow the link again.');
     document.getElementById('picker').hidden = true;
+    setSetupVisible(true);
     return;
   }
   state = await r.json();
   setDot('d1', true, 'Overwatch is running on this computer.');
   document.getElementById('picker').hidden = false;
+  /* Steps 1 and 2 are instructions for somebody who has not done them.
+   * Once the daemon answers AND this page is paired, both are finished by
+   * definition -- the answer is the proof. They come back on request. */
+  setSetupVisible(false);
   /* Only once paired: telling someone to bookmark a page that does not yet
    * work is advice to save the wrong thing. */
   document.getElementById('bm').hidden = !location.hash.includes('t=');
   draw();
 }
+
+function setSetupVisible(show){
+  document.querySelectorAll('[data-setup]').forEach(el => el.hidden = !show);
+  document.getElementById('again').hidden = show;
+}
+document.getElementById('againLink').onclick = e => {
+  e.preventDefault();
+  setSetupVisible(true);
+  document.querySelector('[data-setup]').scrollIntoView({behavior:'smooth'});
+};
 
 /* ---------- the launcher, drawn as the panel draws it ---------- */
 function iconFor(name){
