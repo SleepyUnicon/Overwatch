@@ -30,6 +30,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.0.3", "The Codex edition boots to the mark\nA smaller, cleaner boot clip" },
 	{ "2.0.2", "A face with moods when you leave it\nIt naps after a minute" },
 	{ "2.0.1", "It boots to its own mark now\nUpdates arrive over the cable" },
 	{ "2.0.0", "Five pages, swipe between them\nA launcher, music, and a light theme" },
