@@ -69,13 +69,30 @@
 <div class="step">
   <div class="n">1</div>
   <div class="body">
-    <h2>Download it</h2>
-    <p>Pick your computer. Nothing to sign in to, and no Python to install.</p>
-    <div class="os">
-      <a href="https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz">macOS (Apple silicon)</a>
-      <a href="https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-x86_64.tar.gz">macOS (Intel)</a>
-      <a href="https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-windows-x86_64.zip">Windows</a>
-      <a href="https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-linux-x86_64.tar.gz">Linux</a>
+    <h2>Install it</h2>
+    <p>One line. Paste it into Terminal (macOS, Linux) or PowerShell
+       (Windows) and press return.</p>
+<pre><code># macOS, Apple silicon
+curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</code></pre>
+<pre><code># macOS, Intel
+curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch
+
+# Linux
+curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-linux-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</code></pre>
+<pre><code>:: Windows
+curl.exe -fsSL -o overwatch.zip https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-windows-x86_64.zip &amp;&amp; tar -xf overwatch.zip &amp;&amp; .\overwatch\overwatch.exe</code></pre>
+    <p>It lists everything it is about to change before changing anything.
+       The only file it edits is <code>~/.claude/settings.json</code>, and
+       <code>overwatch uninstall</code> puts it all back.</p>
+
+    <div class="note" style="margin-top:18px">
+      <strong>Use the command, not your browser.</strong> macOS quarantines
+      anything a browser downloads, and Gatekeeper then refuses to run it —
+      <em>"cannot be opened because the developer cannot be verified"</em>.
+      These builds are ad-hoc signed rather than notarised, so that refusal
+      is expected. <code>curl</code> sets no quarantine flag and the command
+      above just works. If you did download it in a browser, clear the flag
+      with <code>xattr -d com.apple.quarantine overwatch/overwatch</code>.
     </div>
   </div>
 </div>
@@ -83,15 +100,13 @@
 <div class="step">
   <div class="n">2</div>
   <div class="body">
-    <h2>Run it once</h2>
-    <p>It sets itself up and starts at login from then on.</p>
-<pre><code># macOS and Linux
-tar xzf overwatch-*.tar.gz && ./overwatch/overwatch</code></pre>
-<pre><code>:: Windows
-tar -xf overwatch-windows-x86_64.zip &amp;&amp; .\overwatch\overwatch.exe</code></pre>
-    <p>It will tell you what it is about to change before it changes anything.
-       The only file it edits is <code>~/.claude/settings.json</code>, and
-       <code>overwatch uninstall</code> puts it all back.</p>
+    <h2>Open the setup page</h2>
+    <p>The installer prints a link to it when it finishes, and it stays up
+       for as long as Overwatch is running:</p>
+<pre><code>http://127.0.0.1:8730</code></pre>
+    <p>That page sets the launcher's six tiles and tells you whether the
+       board is being seen. It runs on your own machine and is reachable
+       only from it.</p>
   </div>
 </div>
 

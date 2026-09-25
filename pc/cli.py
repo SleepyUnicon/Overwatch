@@ -2126,6 +2126,19 @@ def cmd_install(_args) -> int:
 
     print()
     print("Done. Plug the board in over USB -- it picks it up on its own.")
+    print()
+    # The page FIRST, and by URL rather than by subcommand.
+    #
+    # This block used to offer three terminal commands and nothing else, to a
+    # person whose next move is to plug in a board and set up six launcher
+    # tiles. Somebody who was handed a kit has no reason to want a fourth
+    # terminal command; they want a window. The page is served for as long as
+    # the daemon runs -- see the note at its start in claude_usage_bridge --
+    # so this link works from here on, board or no board.
+    from pc import webconfig
+    print(f"  Set it up:  {webconfig.URL}")
+    print("              the launcher's tiles, and whether the board is seen")
+    print()
     print(f"  Log:     {log_path()}")
     print(f"  Check:   {installed_bin()} status")
     print(f"  Undo:    {installed_bin()} uninstall")

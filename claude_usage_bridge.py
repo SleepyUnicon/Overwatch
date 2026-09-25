@@ -881,6 +881,20 @@ def main(argv=None):
             return None
         return cands[0]
 
+    # The config page, up for as long as the DAEMON is -- not for as long
+    # as a board is.
+    #
+    # It used to start once the first board had connected, which is exactly
+    # backwards for the person who needs it most: somebody who has just
+    # installed, has not plugged anything in yet, and has nowhere to look.
+    # The page is also where they would find out that nothing is plugged in.
+    #
+    # Still not in WidgetBridge.__init__, for the reason the comment there
+    # gave: building a bridge in a test must not bind a port. This is the one
+    # place there is exactly one daemon.
+    webconfig.serve_background()
+
+
     port = wait_for_port(args.port, on_wait=_upkeep)
     # Ports asked politely under the CURRENT layout. Not a permanent blacklist:
     # it is discarded the moment anything is plugged or unplugged.
@@ -1143,11 +1157,6 @@ def main(argv=None):
                                   os.path.join(overwatch_home, "pending_fw.json")))
         report_failure = None   # handed to the Bridge above; never repeated
 
-        # The launcher's config page, served for as long as the daemon runs.
-        # Started here rather than in WidgetBridge.__init__ so that building a
-        # bridge in a test does not bind a port -- the daemon is the only
-        # thing that should be listening, and there is exactly one of it.
-        webconfig.serve_background()
         # No reset means no boot `hello`, so nothing would trigger the
         # greeting -- see Bridge.greet.
         if already_running:
