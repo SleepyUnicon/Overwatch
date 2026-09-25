@@ -120,6 +120,104 @@ def pid_path():
     return os.path.join(blink_home(), "bridge.pid")
 
 
+def pid_paths():
+    """Every place a daemon may have left its pid.
+
+    The same set _kill_recorded_daemon sweeps, named once so that "is it
+    running?" and "stop it" cannot drift apart -- and with the frozen
+    build's own choice added. claude_usage_bridge writes beside its
+    directory when frozen, which IS pid_path() once installed but lands in
+    the build directory when the binary is run in place.
+    """
+    paths = [pid_path(),
+             os.path.join(bin_dir(), "bridge.pid"),
+             os.path.join(bin_dir() + ".old", "bridge.pid")]
+    if _frozen():
+        paths.append(os.path.join(
+            os.path.dirname(os.path.dirname(_self_path())), "bridge.pid"))
+    # And beside whatever binary we would START, which is not always one of
+    # the above: a frozen build run in place out of dist/ writes its pid
+    # there. Without this the page reported "Started (pid N)" and then, one
+    # poll later, "Not running" -- both true, neither useful.
+    cmd = daemon_start_command()[0]
+    if len(cmd) == 2:                     # a blink binary, not `python -m`
+        paths.append(os.path.join(
+            os.path.dirname(os.path.dirname(cmd[0])), "bridge.pid"))
+    seen, out = set(), []
+    for q in paths:
+        if q not in seen:
+            seen.add(q)
+            out.append(q)
+    return tuple(out)
+
+
+def daemon_alive(runner=None):
+    """The pid of a running bridge daemon, or None.
+
+    Signal 0 alone is not enough. A pid is recycled after a reboot, and the
+    number the daemon wrote can belong to something else entirely by the
+    time anyone asks -- which would report a stopped daemon as healthy. So
+    the process's NAME is checked too, the same filter the Windows backend
+    already applies to tasklist for the same reason.
+
+    Nothing here raises: this answers a status question, and a status
+    question that throws is worse than one that says "no".
+    """
+    run = runner or subprocess.run
+    for path in pid_paths():
+        try:
+            with open(path, encoding="utf-8") as f:
+                pid = int(f.read().strip())
+        except (OSError, ValueError):
+            continue
+        if pid == os.getpid():
+            continue
+        try:
+            if sys.platform == "win32":
+                out = run(["tasklist", "/fi", "PID eq %d" % pid,
+                           "/fi", "IMAGENAME eq "
+                           + os.path.basename(installed_bin()),
+                           "/nh", "/fo", "csv"],
+                          capture_output=True, text=True,
+                          **update.ota.NO_WINDOW)
+                # tasklist exits ZERO with no match and prints a notice,
+                # so the pid has to appear in the output to count.
+                if str(pid) in (out.stdout or ""):
+                    return pid
+                continue
+            out = run(["ps", "-p", str(pid), "-o", "comm="],
+                      capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        name = os.path.basename((out.stdout or "").strip()).lower()
+        if name and ("blink" in name or "python" in name):
+            return pid
+    return None
+
+
+def daemon_start_command():
+    """How to start the bridge on this machine, as (command, cwd).
+
+    The installed binary first -- that is what the login service runs and
+    what a kit user has. Then this program, when it is the frozen build
+    being run in place. Only then the checkout, which needs pyserial in the
+    interpreter running it: true for a developer, not for anybody else.
+
+    The cwd travels WITH the command because it is not free to choose. A
+    binary can be started from anywhere and ~/.blink is the tidiest place
+    for it; `-m pc.cli` cannot, because Python resolves the package from
+    the working directory and started anywhere else it exits on
+    "No module named 'pc'".
+    """
+    inst = installed_bin()
+    if os.path.exists(inst):
+        return [inst, "run"], blink_home()
+    if _frozen():
+        return [_self_path(), "run"], blink_home()
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return [sys.executable, "-m", "pc.cli", "run"], root
+
+
 def settings_path():
     return os.path.join(_home(), ".claude", "settings.json")
 

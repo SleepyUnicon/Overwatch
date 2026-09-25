@@ -19,8 +19,10 @@ import html
 import json
 import os
 import re
+import subprocess
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 if __package__ in (None, ""):
@@ -30,9 +32,23 @@ if __package__ in (None, ""):
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from pc import widgets
+from pc import cli, widgets
 
 HOST, PORT = "127.0.0.1", 8730
+
+# Set by serve_background(), which only the daemon calls. When this page is
+# served from inside the daemon the question "is the daemon running?" has a
+# certain answer, and it should not be guessed at from a pid file.
+IN_DAEMON = False
+
+START_WAIT_S = 12.0   # how long /api/daemon/start waits for it to come up
+
+# Outlive the page that started it. This is usually a short-lived
+# `python3 -m pc.webconfig`, and a daemon started as its child would die with
+# the terminal it came from. setsid on POSIX; on Windows the same idea spelt
+# DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP, in the style of ota.NO_WINDOW.
+DETACHED = ({"creationflags": 0x00000008 | 0x00000200}
+            if sys.platform == "win32" else {"start_new_session": True})
 APP_DIRS = ("/Applications", os.path.expanduser("~/Applications"),
             "/System/Applications")
 
@@ -64,6 +80,86 @@ def installed_apps():
     return sorted(found, key=str.lower)
 
 
+def daemon_state():
+    """What to tell the page about the daemon.
+
+    `where` is the honest part. Served from inside the daemon there is
+    nothing to start and the button would be a lie, so the page is told so
+    and hides it.
+    """
+    if IN_DAEMON:
+        return {"running": True, "here": True,
+                "detail": "Running - this page is part of it."}
+    pid = cli.daemon_alive()
+    if pid:
+        return {"running": True, "here": False,
+                "detail": "Running (pid %d)." % pid}
+    return {"running": False, "here": False,
+            "detail": "Not running. The panel is not being fed."}
+
+
+def start_daemon():
+    """Launch the bridge and wait for it to say it is up.
+
+    DETACHED, and deliberately so: this page is usually a short-lived
+    `python3 -m pc.webconfig`, and a daemon started as its child would die
+    with the tab that started it. start_new_session takes it out of this
+    process group so a Ctrl-C here cannot reach it.
+
+    No arguments are taken from the request. The command comes from
+    cli.daemon_start_command() and nothing the browser sends can influence
+    it -- this endpoint starts ONE known program or nothing at all.
+    """
+    if daemon_state()["running"]:
+        return True, "Already running."
+    cmd, cwd = cli.daemon_start_command()
+    log = os.path.join(cli.blink_home(), "bridge.log")
+    try:
+        os.makedirs(cli.blink_home(), exist_ok=True)
+        fh = open(log, "a", encoding="utf-8", errors="replace")
+    except OSError as e:
+        return False, "could not open %s: %s" % (log, e)
+    try:
+        proc = subprocess.Popen(cmd, stdout=fh, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL,
+                                cwd=cwd, **DETACHED)
+    except OSError as e:
+        fh.close()
+        return False, "could not run %s: %s" % (cmd[0], e)
+    finally:
+        # Popen dup'd the descriptor; this copy is not ours to hold open.
+        try:
+            fh.close()
+        except OSError:
+            pass
+
+    # Do not return on a successful spawn. The daemon can be dead a second
+    # later -- no pyserial, a serial port another process already holds --
+    # and "Started" followed by nothing happening is the least useful thing
+    # this could say.
+    #
+    # Two signals, and the CHILD HANDLE is the authoritative one. The pid
+    # file is how you find a daemon somebody else started; for the one we
+    # just started, proc knows. Waiting on the pid file alone would have
+    # reported a 12-second timeout for a daemon that came up perfectly but
+    # wrote its pid somewhere pid_paths() does not sweep -- and, worse,
+    # would have sat out the whole 12 seconds before admitting to a crash
+    # that happened in the first one.
+    deadline = time.time() + START_WAIT_S
+    while time.time() < deadline:
+        pid = cli.daemon_alive()
+        if pid:
+            return True, "Started (pid %d)." % pid
+        if proc.poll() is not None:
+            return False, ("it exited immediately (status %s) - see %s"
+                           % (proc.returncode, log))
+        time.sleep(0.4)
+    if proc.poll() is None:
+        return True, "Started (pid %d)." % proc.pid
+    return False, ("it did not come up within %ds - see %s"
+                   % (int(START_WAIT_S), log))
+
+
 PAGE = """<!doctype html><meta charset=utf-8>
 <title>Overwatch launcher</title>
 <style>
@@ -82,9 +178,22 @@ PAGE = """<!doctype html><meta charset=utf-8>
         background:#d9694a;color:#14171c;font-size:14px;font-weight:600;
         cursor:pointer}
  #msg{margin-top:14px;font-size:13px;color:#3fb96b;min-height:20px}
+ .bar{display:flex;align-items:center;gap:12px;padding:11px 14px;
+      border-radius:10px;border:1px solid #2b313b;background:#1b1f26;
+      margin-bottom:22px;font-size:13px}
+ .dot{width:8px;height:8px;border-radius:50%;background:#6e7889;flex:none}
+ .dot.up{background:#3fb96b} .dot.down{background:#d9694a}
+ #dtext{flex:1;color:#8a94a4}
+ #dbtn{margin:0;padding:7px 13px;font-size:13px}
+ #dbtn[disabled]{opacity:.55;cursor:default}
 </style>
 <main>
 <h1>Launcher</h1>
+<div class=bar>
+  <span class=dot id=ddot></span>
+  <span id=dtext>Checking the daemon...</span>
+  <button id=dbtn hidden onclick=startDaemon()>Start it</button>
+</div>
 <p class=sub>Six slots, top-left to bottom-right, matching the grid on the panel.
 Slots left empty are drawn dim and do nothing.</p>
 <div id=slots></div>
@@ -94,6 +203,43 @@ Slots left empty are drawn dim and do nothing.</p>
 <script>
 let S={};
 fetch('/api/state').then(r=>r.json()).then(d=>{S=d;draw()});
+poll();
+
+function poll(){
+  fetch('/api/daemon').then(r=>r.json()).then(d=>{
+    document.getElementById('dtext').textContent = d.detail;
+    document.getElementById('ddot').className = 'dot '+(d.running?'up':'down');
+    const b=document.getElementById('dbtn');
+    // Hidden, not just disabled, when this page IS the daemon: a button that
+    // can never do anything is worse than no button.
+    b.hidden = d.running || d.here;
+    b.disabled = false;
+    b.textContent = 'Start it';
+  }).catch(()=>{
+    document.getElementById('dtext').textContent = 'Cannot reach this page.';
+    document.getElementById('ddot').className = 'dot down';
+  });
+}
+
+function startDaemon(){
+  const b=document.getElementById('dbtn');
+  b.disabled=true; b.textContent='Starting...';
+  document.getElementById('dtext').textContent =
+    'Starting it - this takes a few seconds.';
+  fetch('/api/daemon/start',{method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      if(!d.ok){
+        document.getElementById('dtext').textContent = 'Failed: '+d.detail;
+        document.getElementById('ddot').className='dot down';
+        b.disabled=false; b.textContent='Try again';
+        return;
+      }
+      poll();
+    }).catch(e=>{
+      document.getElementById('dtext').textContent = 'Failed: '+e;
+      b.disabled=false; b.textContent='Try again';
+    });
+}
 function draw(){
   document.getElementById('slots').innerHTML = S.apps.map((cur,i)=>{
     const opts = ['<option value="">— empty —</option>'].concat(
@@ -140,9 +286,17 @@ class Handler(BaseHTTPRequestHandler):
                 "installed": installed_apps(),
                 "icons": list(widgets.ICON_KEYS),
             }))
+        if self.path == "/api/daemon":
+            return self._send(200, json.dumps(daemon_state()))
         self._send(404, json.dumps({"error": "not found"}))
 
     def do_POST(self):
+        if self.path == "/api/daemon/start":
+            # POST, not GET: it starts a process, and a GET would fire on a
+            # bookmark, a prefetch or a refresh.
+            ok, detail = start_daemon()
+            return self._send(200 if ok else 500,
+                              json.dumps({"ok": ok, "detail": detail}))
         if self.path != "/api/apps":
             return self._send(404, json.dumps({"error": "not found"}))
         try:
@@ -190,11 +344,13 @@ def serve_background():
     Loopback only, inherited from HOST -- the page has no authentication and
     edits what the machine will launch, so it must not be reachable off-box.
     """
+    global IN_DAEMON
     try:
         srv = HTTPServer((HOST, PORT), Handler)
     except OSError as e:
         print("[widgets] config page not started: %s" % e, file=sys.stderr)
         return None
+    IN_DAEMON = True      # only the daemon calls this; see daemon_state()
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     # Daemon thread: this should never be the reason the process refuses to
     # exit. serve_forever() has no timeout and would otherwise outlive the
