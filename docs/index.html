@@ -108,6 +108,15 @@
               border:1px solid var(--line);background:var(--card2);color:var(--fg)}
   .row button.go{background:var(--accent);color:var(--ink);border-color:var(--accent);
                  font-weight:600}
+  /* The phone panel is shown by the stylesheet, never by script. innerWidth
+     reported 1190 on a 375 px viewport while testing -- a media query is the
+     only thing that agrees with what is actually on screen. */
+  #onphone{display:none}
+  @media (max-width:820px) and (pointer:coarse){ #onphone{display:block} }
+  /* Nothing may push the page sideways. A long command scrolls inside its
+     own box; an address wraps rather than widening the document. */
+  html,body{max-width:100%;overflow-x:hidden}
+  .warn,.tile,.status{overflow-wrap:anywhere}
   footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
          color:var(--faint);font-size:13px}
 </style>
@@ -128,6 +137,22 @@
   <h1>Overwatch</h1>
   <p class="sub">Your Claude Code and Codex usage, as two live dials on your desk.</p>
 </header>
+
+<div class="warn" id="onphone" style="margin:0 0 18px">
+  <strong>You are on a phone.</strong> Scanning the code was the right move —
+  it is how the address gets off the panel and into your hands. But Overwatch
+  is set up <em>on the computer the board is plugged into</em>, and everything
+  below has to happen there.
+  <div style="margin-top:10px;font:13px/1.5 var(--mono);color:var(--fg);
+              background:var(--ink);border:1px solid var(--line);
+              border-radius:8px;padding:11px 9px;text-align:center;
+              overflow-wrap:normal;word-break:keep-all">
+    sleepyunicon.github.io/Overwatch
+  </div>
+  <div style="margin-top:9px">Open that on the computer and carry on from
+    step 1. This page cannot do it for you: it talks to the machine it is
+    open on, and right now that is this phone.</div>
+</div>
 
 <div class="tiles">
 
@@ -287,11 +312,18 @@ function setDot(id, up, text, html){
   if (html) { t.innerHTML = html; } else { t.textContent = text; }
 }
 
+/* A hint, not a gate. Nothing is hidden on a phone: a wrong guess about
+ * the device must not be the reason somebody cannot read the steps. */
+const onPhone = matchMedia('(max-width:820px) and (pointer:coarse)').matches;
+
 async function poll(){
   let daemon = null;
   try { daemon = await (await api('/api/daemon')).json(); }
   catch(e){
-    setDot('d1', false, 'Not running yet — do step 1, then come back.');
+    setDot('d1', false, onPhone
+      ? 'Not on this phone, and it never will be — Overwatch runs on the '
+        + 'computer the board is plugged into.'
+      : 'Not running yet — do step 1, then come back.');
     document.getElementById('picker').hidden = true;
     return;
   }
