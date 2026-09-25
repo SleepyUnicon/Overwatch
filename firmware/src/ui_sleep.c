@@ -21,6 +21,7 @@
 #include "sleep_gate.h"
 #include "ui_boot.h"
 #include "ui_face.h"
+#include "ui_qr.h"
 #include "ui_settings.h"
 #include "ui_sleep.h"
 #include "usage_freshness.h"
@@ -155,7 +156,36 @@ void ui_sleep_run(bool (*awake)(void), const char *peek_note)
 	lv_refr_now(NULL);
 	printk("[sleep] dozing (face)\n");
 
-	ui_face_create(scr);
+	/*
+	 * A board that has NEVER met a daemon shows the way to one instead
+	 * of a face.
+	 *
+	 * This is the screen somebody who was handed a built kit is looking
+	 * at, and the face -- charming on a working desk -- tells them
+	 * nothing at all. It cannot tell their computer anything either: see
+	 * ui_qr.h. So it shows the address, and they carry it across.
+	 *
+	 * Asked of proto_host_version() rather than of "is a host talking
+	 * now", because the two differ exactly when it matters. A board
+	 * whose daemon is merely asleep HAS been set up and wants its face
+	 * back; one that has never been introduced has not.
+	 */
+	if (!proto_host_version()[0]) {
+		lv_obj_set_style_bg_color(scr, lv_color_hex(0xFDFAF1), 0);
+
+		lv_obj_t *title = lv_label_create(scr);
+
+		lv_label_set_text(title, "Set me up");
+		lv_obj_set_style_text_color(title, lv_color_hex(0x101418), 0);
+		lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+		lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 16);
+
+		lv_obj_t *qr = ui_qr_panel(scr, UI_QR_SETUP_URL, 120);
+
+		lv_obj_align(qr, LV_ALIGN_CENTER, 0, 18);
+	} else {
+		ui_face_create(scr);
+	}
 	lv_refr_now(NULL);
 	while (!woken()) {
 		/*
@@ -172,6 +202,9 @@ void ui_sleep_run(bool (*awake)(void), const char *peek_note)
 			int64_t t = k_uptime_get();
 
 			if (t >= next_frame) {
+				/* No-op when the setup screen is up: the
+				 * face was never built, and ui_face_tick
+				 * returns on its own null check. */
 				ui_face_tick();
 				next_frame = t + 30;
 			}
@@ -211,6 +244,9 @@ void ui_sleep_run(bool (*awake)(void), const char *peek_note)
 	 */
 	lv_scr_load(prev);
 	lv_obj_del(scr);
+	/* The face's objects were children of that screen and have just gone
+	 * with it. See ui_face_forget. */
+	ui_face_forget();
 	/*
 	 * Eyes open: the popup may speak again, from the NEXT change. The
 	 * counts that arrived during the sleep were recorded as they came, so

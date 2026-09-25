@@ -18,6 +18,7 @@
 #include <lvgl.h>
 #include <stdio.h>
 
+#include "ui_qr.h"
 #include "ui_settings.h"
 #include "cfg_store.h"
 #include "whatsnew.h"
@@ -606,6 +607,67 @@ static void wn_open_cb(lv_event_t *e)
 	lv_obj_center(wn);
 	wn_page = 0;
 	wn_draw();
+}
+
+/*
+ * The setup QR, on a long press of the version line.
+ *
+ * On a LONG press because the settings page has no room for a row. It is two
+ * 56 px rows and a two-line footer inside 240, and the BUILD_ASSERT above
+ * exists because the last time those moved a row went off the bottom and
+ * nobody noticed until it was flashed. A third row lands at 184 and collides
+ * with the footer.
+ *
+ * The version line is the right thing to hide it behind rather than an
+ * arbitrary corner: somebody hunting for "where do I set this up on another
+ * computer" is already looking at the line that says what this thing is.
+ *
+ * A board that has never met a daemon shows this screen by itself -- see
+ * ui_sleep.c. This is the way back to it once one has.
+ */
+static lv_obj_t *qr_ov;
+
+static void qr_ov_close(lv_event_t *e)
+{
+	ARG_UNUSED(e);
+	if (qr_ov) {
+		lv_obj_del(qr_ov);
+		qr_ov = NULL;
+	}
+}
+
+static void qr_ov_open(lv_event_t *e)
+{
+	ARG_UNUSED(e);
+	if (qr_ov) {
+		return;
+	}
+	qr_ov = lv_obj_create(lv_layer_top());
+	lv_obj_set_size(qr_ov, 320, 240);
+	/* Light, not COL_BG: the QR has to stay dark-on-light to scan, and a
+	 * white card floating on a dark screen reads as a mistake. */
+	lv_obj_set_style_bg_color(qr_ov, lv_color_hex(0xFDFAF1), 0);
+	lv_obj_set_style_bg_opa(qr_ov, LV_OPA_COVER, 0);
+	lv_obj_set_style_border_width(qr_ov, 0, 0);
+	lv_obj_set_style_pad_all(qr_ov, 0, 0);
+	lv_obj_set_style_radius(qr_ov, 0, 0);
+	lv_obj_clear_flag(qr_ov, LV_OBJ_FLAG_SCROLLABLE);
+	/* Same trap the whatsnew overlay documents: children are born
+	 * GESTURE_BUBBLE, so a swipe here would start a page slide underneath
+	 * while this still covered the screen. */
+	lv_obj_clear_flag(qr_ov, LV_OBJ_FLAG_GESTURE_BUBBLE);
+	lv_obj_add_flag(qr_ov, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_add_event_cb(qr_ov, qr_ov_close, LV_EVENT_CLICKED, NULL);
+
+	lv_obj_t *t = lv_label_create(qr_ov);
+
+	lv_label_set_text(t, "Set up on a computer");
+	lv_obj_set_style_text_color(t, lv_color_hex(0x101418), 0);
+	lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 14);
+
+	lv_obj_t *panel = ui_qr_panel(qr_ov, UI_QR_SETUP_URL, 118);
+
+	lv_obj_align(panel, LV_ALIGN_CENTER, 0, 16);
 }
 
 void ui_settings_whatsnew_dismiss(void)
@@ -2446,6 +2508,11 @@ BUILD_ASSERT(FOOT_Y2 + 16 <= 240,
 	lv_label_set_text(ver, sub);
 	lv_obj_set_style_text_color(ver, COL_DIM, 0);
 	lv_obj_align(ver, LV_ALIGN_TOP_MID, 0, FOOT_Y1);
+	/* Long press for the setup QR. CLICKABLE because a label is not, and
+	 * LVGL sends no press events at all to an object that cannot be
+	 * clicked -- the handler would never run. */
+	lv_obj_add_flag(ver, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_add_event_cb(ver, qr_ov_open, LV_EVENT_LONG_PRESSED, NULL);
 
 	/*
 	 * The one instruction this device gives, and it is here because this

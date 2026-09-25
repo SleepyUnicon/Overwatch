@@ -175,6 +175,18 @@ void ui_face_idle(void)
 	scheduled = true;
 }
 
+void ui_face_forget(void)
+{
+	/* Pointers only. lv_obj_del on the screen already took the objects;
+	 * deleting them again here is the double free this exists to avoid. */
+	root = NULL;
+	mouth = NULL;
+	for (int i = 0; i < 2; i++) {
+		eye[i] = NULL;
+		brow[i] = NULL;
+	}
+}
+
 /* Ease one number toward another. Integer, and it always ARRIVES: without
  * the final nudge a difference of 1 would divide to 0 forever and leave the
  * face a pixel short of every expression it ever aimed at. */

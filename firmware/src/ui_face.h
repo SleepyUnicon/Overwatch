@@ -65,4 +65,15 @@ void ui_face_hold(enum ui_face_expr e);
 /* Let the scheduler run again. */
 void ui_face_idle(void);
 
+/*
+ * Forget the objects without touching them.
+ *
+ * They belong to the screen they were built on, and ui_sleep deletes that
+ * screen when the doze ends -- which frees them and leaves this module
+ * holding pointers into freed memory. A later tick would then draw through
+ * them. Called after the screen goes, so the next tick before the next
+ * create is a no-op rather than a fault.
+ */
+void ui_face_forget(void);
+
 #endif /* UI_FACE_H */
