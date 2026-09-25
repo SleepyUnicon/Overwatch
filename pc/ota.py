@@ -53,11 +53,13 @@ NO_WINDOW = {"creationflags": 0x08000000} if sys.platform == "win32" else {}
 # The owner sees a reboot they did not ask for, and nothing anywhere says
 # why.
 #
-# EMPTY MEANS OFF, and empty is the default, because right now there is no
-# Overwatch release feed to point at. Put the repo here the day you publish
-# one -- "youruser/Overwatch" -- and both the firmware feed and the app
-# self-updater come back on together.
-RELEASE_REPO = ""
+# EMPTY MEANS OFF. It was empty until 2026-09-25, because there was no
+# Overwatch release feed to point at; v2.0.0 is the first, signed with this
+# fork's own key (see update.RELEASE_PUBKEY_PEM -- it carried upstream's
+# until that release, so nothing published here could ever have verified).
+#
+# Both the firmware feed and the app self-updater come back on together.
+RELEASE_REPO = "SleepyUnicon/Overwatch"
 
 RELEASE_BASE = ("https://github.com/%s/releases/latest/download/"
                 % RELEASE_REPO) if RELEASE_REPO else ""
