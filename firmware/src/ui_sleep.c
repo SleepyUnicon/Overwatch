@@ -1,12 +1,16 @@
 /*
  * Sleep mode (docs/sleep-mode-design.md).
  *
- * Three clips: closing once, the loop for as long as whatever put the board
- * to sleep still holds -- the host silent, or the reading no longer moving --
- * opening once. The clips are drawn straight to the panel by the BAN1 player,
- * over a plain LVGL screen in the clip's own ground colour; that screen is
- * also what takes the tap. Every frame gap services the protocol, so the
- * first word from a waking app is heard within a frame.
+ * A DRAWN face, for as long as whatever put the board to sleep still holds --
+ * the host silent, or the reading no longer moving. It sits on a plain LVGL
+ * screen that also takes the tap, and every pass services the protocol, so
+ * the first word from a waking app is heard within a frame.
+ *
+ * It used to be three encoded clips: closing, looping, opening. Those were
+ * the Blink eyes, and they were a filmed animation -- one expression, played
+ * back. ui_face.c draws instead, which is what lets the face have moods at
+ * all: see the note at the top of ui_face.h for why a clip library was the
+ * wrong shape for this.
  */
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
@@ -16,6 +20,7 @@
 #include "proto.h"
 #include "sleep_gate.h"
 #include "ui_boot.h"
+#include "ui_face.h"
 #include "ui_settings.h"
 #include "ui_sleep.h"
 #include "usage_freshness.h"
@@ -69,16 +74,6 @@ static bool woken(void)
 	return wake_when() || ui_settings_busy();
 }
 
-static bool awake_now(void)
-{
-	return woken();
-}
-
-/*
- * The face page's way out. Deliberately does NOT consult woken(): the user
- * asked for this screen, so a computer that happens to start talking again
- * must not yank it away mid-overwatch. Only a touch ends it.
- */
 static bool tap_only(void)
 {
 	return tapped;
@@ -117,9 +112,6 @@ static void peek(lv_obj_t *prev, lv_obj_t *sleep_scr, const char *note)
 
 void ui_sleep_run(bool (*awake)(void), const char *peek_note)
 {
-	const struct bootclip *close = sleepclip_active(SLEEP_CLOSE);
-	const struct bootclip *loop = sleepclip_active(SLEEP_LOOP);
-	const struct bootclip *open = sleepclip_active(SLEEP_OPEN);
 	lv_obj_t *prev = lv_scr_act();
 	lv_obj_t *scr = lv_obj_create(NULL);
 
@@ -156,31 +148,40 @@ void ui_sleep_run(bool (*awake)(void), const char *peek_note)
 	ui_settings_whatsnew_dismiss();
 	lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 	lv_obj_add_flag(scr, LV_OBJ_FLAG_CLICKABLE);
-	lv_obj_set_style_bg_color(scr, lv_color_hex(close->bg_rgb), 0);
+	lv_obj_set_style_bg_color(scr, lv_color_hex(UI_FACE_GROUND), 0);
 	lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 	lv_obj_add_event_cb(scr, tap_cb, LV_EVENT_CLICKED, NULL);
 	lv_scr_load(scr);
 	lv_refr_now(NULL);
-	printk("[sleep] dozing (%s)\n", close->name);
+	printk("[sleep] dozing (face)\n");
 
-	ui_boot_play_clip(close->blob, close->blob_len, awake_now);
+	ui_face_create(scr);
+	lv_refr_now(NULL);
 	while (!woken()) {
-		tapped = false;
-		if (!ui_boot_play_clip(loop->blob, loop->blob_len,
-				       awake_or_tap)) {
-			/* A loop that will not decode must not spin. */
-			int64_t until = k_uptime_get() + 1000;
+		/*
+		 * service() sleeps 5 ms and the face wants about 30, so the
+		 * tick is paced against the clock rather than the loop. Tying
+		 * it to the iteration count would make every expression six
+		 * times faster than it was drawn to be, and would change
+		 * again the day service() changes its sleep.
+		 */
+		int64_t next_frame = 0;
 
-			while (k_uptime_get() < until) {
-				service();
+		tapped = false;
+		while (!woken() && !tapped) {
+			int64_t t = k_uptime_get();
+
+			if (t >= next_frame) {
+				ui_face_tick();
+				next_frame = t + 30;
 			}
+			service();
 		}
 		if (tapped && !woken()) {
 			peek(prev, scr, peek_note);
 		}
 	}
 	printk("[sleep] waking\n");
-	ui_boot_play_clip(open->blob, open->blob_len, NULL);
 
 	/*
 	 * Back to the dashboard as it was -- flagged old only if it still IS.
