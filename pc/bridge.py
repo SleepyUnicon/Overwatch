@@ -43,6 +43,13 @@ def _pair_token() -> str:
         return ""
 
 
+# How long after a failed update before the offer is made again. Long
+# enough that a board which cannot reach the feed is not retrying in a
+# tight loop, short enough that somebody still sitting at the desk sees
+# the prompt come back rather than concluding it is broken.
+RETRY_AFTER_S = 120
+
+
 class Bridge:
     def __init__(self, write_msg, fetch_usage, now=time.monotonic,
                  set_preferred=None,
@@ -57,6 +64,7 @@ class Bridge:
         self._set_preferred = set_preferred
         self._now = now
         self._last_query_at = None       # see offer_if_newer
+        self._failed_at = None           # see _ota_reset
         self._wall = wall                # callable() -> (epoch_s, utc_offset_min)
         self._app_ver = app_ver
         self._last_ping = None
@@ -220,6 +228,17 @@ class Bridge:
 
     def _ota_reset(self):
         self._manifest = None
+        # WHEN it failed, so the offer can come back.
+        #
+        # A board asks once per boot and when its update row is tapped. So a
+        # failed update used to be the end of it: both sides went quiet, the
+        # panel said the update failed once, and nothing ever mentioned it
+        # again. Restarting the daemon was the only way back, which is a
+        # command the owner of a kit does not have.
+        #
+        # Seen on 2026-09-25, after a release published mid-download made the
+        # sizes disagree: a correct refusal that then left no way to retry.
+        self._failed_at = self._now()
 
     def offer_if_newer(self, fw):
         """Check the feed for a board running `fw`, unasked.
@@ -243,8 +262,33 @@ class Bridge:
             return
         self._on_ota_query(fw)
 
+    def retry_offer_if_failed(self):
+        """Offer again, once, some time after an update failed.
+
+        A separate door from offer_if_newer because the quiet minute in
+        there cannot be the thing that blocks a retry: it expires after 60 s
+        and the retry waits longer than that, so hanging this off the same
+        guard produced code that could never run. A test caught it -- the
+        bypass sat inside a window that had already closed.
+
+        Which leaves the real reason a failure was final: nothing CALLED
+        offer_if_newer afterwards. This is that call.
+        """
+        if self._failed_at is None or self._board_fw is None:
+            return
+        if self._now() - self._failed_at < RETRY_AFTER_S:
+            return
+        self._failed_at = None          # one retry per failure
+        print("[bridge] ota: offering again after a failed update",
+              file=sys.stderr)
+        self._on_ota_query(self._board_fw)
+
     def _on_ota_query(self, cur):
         self._last_query_at = self._now()
+        # One retry per failure. Left set, it would bypass the quiet minute
+        # for good and answer every boot query twice for the rest of the
+        # daemon's life.
+        self._failed_at = None
         # The board's firmware version, from the board, on every query. The
         # other half of what _note_board used to be the only source of -- and
         # _resume_pending falls back to "0.0.0" without it, which would compare
@@ -487,7 +531,14 @@ class Bridge:
             self._write(protocol.ota_error("no flasher configured"))
             return
         try:
-            blob = self._fetch_firmware()
+            # Pinned to the manifest's OWN version, so a release published
+            # mid-download cannot swap the bytes under the size check below.
+            try:
+                blob = self._fetch_firmware(
+                    version=self._manifest.get("version", ""))
+            except TypeError:
+                # An injected fetcher from a test that predates the pin.
+                blob = self._fetch_firmware()
         except Exception as e:
             print(f"[bridge] ota: download failed: {e}", file=sys.stderr)
             self._ota_reset()

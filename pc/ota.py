@@ -63,6 +63,28 @@ RELEASE_REPO = "SleepyUnicon/Overwatch"
 
 RELEASE_BASE = ("https://github.com/%s/releases/latest/download/"
                 % RELEASE_REPO) if RELEASE_REPO else ""
+
+
+def tagged_base(version):
+    """Where THIS version's files are, rather than wherever latest points.
+
+    /releases/latest/download/ is a moving target, and a release published
+    between reading the manifest and fetching what it describes makes the
+    two disagree. Seen on 2026-09-25: a board took an offer of 2.0.6, 2.0.7
+    was published mid-download, and both halves failed on
+    "size 12795104 != manifest 12795121". The check did its job -- nothing
+    mismatched was installed -- but the update died, and a user who tapped
+    at the wrong second has no idea why.
+
+    The manifest names its own version, so everything it describes can be
+    fetched from that release by tag. The window does not close entirely
+    -- the manifest read is still against latest -- but after that one read
+    every byte comes from the release the manifest is FOR.
+    """
+    if not RELEASE_REPO or not version:
+        return RELEASE_BASE
+    return "https://github.com/%s/releases/download/v%s/" % (
+        RELEASE_REPO, version)
 MANIFEST_URL = RELEASE_BASE + "manifest.json" if RELEASE_BASE else ""
 FIRMWARE_URL = RELEASE_BASE + "overwatch-fw.bin" if RELEASE_BASE else ""
 
@@ -149,11 +171,17 @@ def fetch_manifest(get=_get):
     return m
 
 
-def fetch_firmware(get=_get):
-    """The release binary. ~1.3 MB, so this blocks for a few seconds."""
+def fetch_firmware(get=_get, version=""):
+    """The release binary. ~1.3 MB, so this blocks for a few seconds.
+
+    `version` pins the fetch to one release -- pass the manifest's own, and
+    a newer release appearing mid-download cannot swap the bytes underneath
+    this. Omitted, it falls back to latest, which is what the local-directory
+    override and the older callers want.
+    """
     if get is _get and not feed_configured():
         raise RuntimeError("no release feed configured; see ota.RELEASE_REPO")
-    return get(FIRMWARE_URL, timeout=300)
+    return get(tagged_base(version) + "overwatch-fw.bin", timeout=300)
 
 
 def _parts(v):

@@ -227,11 +227,17 @@ def available(manifest, current=RELEASE_VERSION, key=None):
     return version, artifact
 
 
-def download(key, artifact, get=ota._get):
+def download(key, artifact, get=ota._get, version=""):
     """The new release's archive, checked against the manifest. Raises on
     either mismatch -- there is nothing sensible to do with a download we
-    cannot identify, and running it is certainly not it."""
-    blob = get(ota.RELEASE_BASE + archive_name(key), timeout=300)
+    cannot identify, and running it is certainly not it.
+
+    `version` pins it to one release. Without it the fetch goes to
+    /latest/, which MOVES: on 2026-09-25 a release published mid-download
+    made this raise "size 12795104 != manifest 12795121" against a manifest
+    that had been correct when it was read. See ota.tagged_base.
+    """
+    blob = get(ota.tagged_base(version) + archive_name(key), timeout=300)
     if len(blob) != artifact["size"]:
         raise ValueError(f"size {len(blob)} != manifest {artifact['size']}")
     digest = hashlib.sha256(blob).hexdigest()

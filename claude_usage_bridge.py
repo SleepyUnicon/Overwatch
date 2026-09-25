@@ -672,7 +672,8 @@ def _self_update_tick(target):
         return
     print(f"[update] installing {version}", file=sys.stderr)
     try:
-        blob = update.download(update.platform_key(), artifact)
+        blob = update.download(update.platform_key(), artifact,
+                               version=m.get("version", ""))
     except Exception as e:
         print(f"[update] download failed: {e}", file=sys.stderr)
         return
@@ -1122,7 +1123,8 @@ def main(argv=None):
             port is a failure that would look exactly like a broken board.
             """
             try:
-                blob = update.download(update.platform_key(), artifact)
+                blob = update.download(update.platform_key(), artifact,
+                                       version=version)
             except Exception as e:
                 print(f"[update] download failed: {e}", file=sys.stderr)
                 return False
@@ -1240,6 +1242,17 @@ def main(argv=None):
                     if bridge.board_alive():
                         bridge.poll_once()
                     next_poll = time.monotonic() + poll_every
+                    # A failed update used to be the end of it. The board
+                    # asks once per boot and when its row is tapped, and
+                    # nothing re-asked -- so after a failure both sides went
+                    # quiet, the panel mentioned it once, and the only way
+                    # back was restarting the daemon. That is a command the
+                    # owner of a kit does not have.
+                    #
+                    # Seen on 2026-09-25: a release published mid-download
+                    # made the sizes disagree, the refusal was correct, and
+                    # the prompt never returned.
+                    bridge.retry_offer_if_failed()
                 if time.monotonic() >= next_fast_poll:
                     # The fast tick, after the heartbeat on purpose: when both
                     # come due in the same pass the heartbeat has already sent
