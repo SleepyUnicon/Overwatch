@@ -171,9 +171,15 @@ def test_the_daemon_hands_that_very_fetch_to_the_bridge():
     src = pathlib.Path(ingest.__file__).resolve().parents[1] / \
         "claude_usage_bridge.py"
     tree = ast.parse(src.read_text(encoding="utf-8"))
+    # Any Bridge, by whatever name it is subclassed under. This named
+    # "Bridge" exactly and went red when the daemon started building a
+    # WidgetBridge instead -- the guard's own docstring says to move it
+    # when that happens, and a guard that fails closed on a rename stops
+    # being read long before it stops failing.
+    names = ("Bridge", "WidgetBridge")
     calls = [n for n in ast.walk(tree)
              if isinstance(n, ast.Call)
-             and isinstance(n.func, ast.Name) and n.func.id == "Bridge"]
+             and isinstance(n.func, ast.Name) and n.func.id in names]
     assert calls, "the daemon builds no Bridge any more; move this guard"
     for call in calls:
         kw = [k for k in call.keywords if k.arg == "fetch_usage"]

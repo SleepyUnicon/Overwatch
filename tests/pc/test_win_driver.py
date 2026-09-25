@@ -352,9 +352,14 @@ class TestTheBundledPackage:
 
 
 class TestInstallSteps:
-    def test_windows_has_one_step_more_than_the_others(self):
+    def test_two_platforms_have_a_step_the_others_do_not(self):
+        # Windows needs the USB driver and macOS needs the Automation
+        # grant, so both are 6. This asserted `6 if win32 else 5` and went
+        # red the moment the macOS step was added -- the code was right and
+        # the test was describing the world before it.
         from pc import cli
-        assert cli._install_steps() == (6 if sys.platform == "win32" else 5)
+        extra = sys.platform in ("win32", "darwin")
+        assert cli._install_steps() == (6 if extra else 5)
 
     def test_the_stepper_counts_to_the_total_it_was_given(self, capsys):
         from pc import cli
