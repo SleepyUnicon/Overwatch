@@ -45,6 +45,17 @@ SHIMS = (
 # grounds that they look like somebody else's.
 MARKERS = ("statusline-installed-command", "hooks-installed-commands")
 
+# ...and the shims themselves, whose CONTENTS name the state directory.
+# Renaming the file is not enough: the hook shim computes its state
+# directory as "$HOME/.blink/$sub", so a shim that moved and was renamed
+# still writes where it always did. That is not theoretical -- it
+# recreated ~/.blink within the same minute the move finished, on the
+# first hook that fired afterwards.
+#
+# Both locations: the installer writes one copy beside the state and one
+# in bin/, and settings.json points at the bin/ copy.
+SHIM_DIRS = (".", "bin")
+
 # Service registrations that name the old binary. Reported, never touched.
 OLD_SERVICE = {
     "darwin": ("com.blink.bridge",
@@ -162,6 +173,10 @@ def run(settings_path=None):
     for name in MARKERS:
         if _rewrite(os.path.join(dst, name), pairs):
             said.append("rewrote " + name)
+    for sub in SHIM_DIRS:
+        for _, new_name in SHIMS:
+            if _rewrite(os.path.join(dst, sub, new_name), pairs):
+                said.append("repointed %s in %s" % (new_name, sub))
 
     sp = settings_path or cli.settings_path()
     if _rewrite(sp, pairs):
@@ -170,9 +185,18 @@ def run(settings_path=None):
     leftover = OLD_SERVICE.get(
         "linux" if sys.platform.startswith("linux") else sys.platform)
     if leftover:
-        said.append("the old %s service is still registered and names a "
-                    "binary that has moved -- run `overwatch install` to "
-                    "replace it" % leftover[0])
+        name, where = leftover
+        # CHECK, do not assume. This said "is still registered"
+        # unconditionally, which on a machine that never had the service
+        # installed is a sentence about something that does not exist --
+        # and the one thing a migration report must not do is invent work.
+        # Windows keeps its tasks in a database rather than a file, so
+        # there is nothing to stat; it is left to `install` to sort out.
+        if where != "Task Scheduler" and os.path.exists(
+                os.path.expanduser(where)):
+            said.append("the old %s service is still registered and names "
+                        "a binary that has moved -- run `overwatch install`"
+                        " to replace it" % name)
     return said
 
 

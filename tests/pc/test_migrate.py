@@ -19,8 +19,13 @@ def home(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "_home", lambda: str(tmp_path))
     old = tmp_path / ".blink"
     (old / "bin").mkdir(parents=True)
-    (old / "blink-statusline.sh").write_text("#!/bin/sh\necho hi\n")
-    (old / "blink-hook.sh").write_text("#!/bin/sh\nexit 0\n")
+    for d in (old, old / "bin"):
+        # The shims name the state directory INSIDE themselves, which is
+        # the whole point of test_the_shims_stop_writing_to_the_old_home.
+        (d / "blink-statusline.sh").write_text(
+            '#!/bin/sh\nDIR="$HOME/.blink/state"\n')
+        (d / "blink-hook.sh").write_text(
+            '#!/bin/sh\nDIR="$HOME/.blink/$sub"\nexit 0\n')
     (old / "ota_signing_key_p256.pem").write_text("-----BEGIN EC KEY-----\n")
     (old / "apps.json").write_text('["Claude", "", "", "", "", ""]')
     (old / "statusline-installed-command").write_text(
@@ -130,9 +135,20 @@ def test_the_rewrite_does_not_depend_on_how_home_is_spelled(home, settings):
     assert "/somewhere/else/.overwatch/overwatch-statusline.sh" in text
 
 
-def test_it_says_the_old_service_is_still_registered(home):
+def test_it_says_the_old_service_is_still_registered(home, monkeypatch):
+    monkeypatch.setattr(migrate.os.path, "exists",
+                        lambda p: True if ".plist" in str(p)
+                        or "systemd" in str(p) else os.path.lexists(p))
     said = migrate.run()
     assert any("still registered" in line for line in said)
+
+
+def test_it_does_not_invent_a_service_that_was_never_installed(home):
+    """It said this unconditionally. On a machine that never had the login
+    service, that is a sentence about something which does not exist, and
+    the one thing a migration report must not do is invent work."""
+    said = migrate.run()
+    assert not any("still registered" in line for line in said)
 
 
 def test_a_failure_is_reported_rather_than_raised(home, monkeypatch):
@@ -149,3 +165,17 @@ def test_run_quietly_swallows_anything(home, monkeypatch):
     monkeypatch.setattr(migrate, "run", lambda: 1 / 0)
     lines = migrate.run_quietly()
     assert lines and "migration failed" in lines[0]
+
+
+def test_the_shims_stop_writing_to_the_old_home(home):
+    """Renaming the file is not enough. The hook shim computes its state
+    directory as "$HOME/.blink/$sub", so a shim that moved and was renamed
+    still writes where it always did -- which recreated ~/.blink within a
+    minute of the move, on the first hook that fired afterwards."""
+    migrate.run()
+    new = home / ".overwatch"
+    for sub in (".", "bin"):
+        for name in ("overwatch-hook.sh", "overwatch-statusline.sh"):
+            body = (new / sub / name).read_text()
+            assert ".blink" not in body, "%s/%s still writes to the old home" % (sub, name)
+            assert ".overwatch" in body
