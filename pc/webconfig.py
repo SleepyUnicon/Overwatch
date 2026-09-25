@@ -90,10 +90,14 @@ def daemon_state():
     if IN_DAEMON:
         return {"running": True, "here": True,
                 "detail": "Running - this page is part of it."}
-    pid = cli.daemon_alive()
-    if pid:
+    if cli.daemon_running():
+        # The pid is for the message only. The LOCK is what decided the
+        # answer, and it is held by a daemon whose pid file this page may
+        # not be able to find -- a binary run in place out of a build
+        # directory writes it beside itself.
+        pid = cli.daemon_alive()
         return {"running": True, "here": False,
-                "detail": "Running (pid %d)." % pid}
+                "detail": "Running%s." % (" (pid %d)" % pid if pid else "")}
     return {"running": False, "here": False,
             "detail": "Not running. The panel is not being fed."}
 

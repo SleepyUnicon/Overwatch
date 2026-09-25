@@ -151,6 +151,58 @@ def pid_paths():
     return tuple(out)
 
 
+def daemon_holding_lock():
+    """Whether a daemon holds ~/.blink/bridge.lock. None if it cannot be told.
+
+    Better than the pid file wherever it works, for three reasons: the path
+    is fixed however the binary was installed or run, the kernel drops the
+    lock when the process dies however it dies, and a recycled pid cannot
+    impersonate it. claude_usage_bridge takes this lock for the daemon's
+    whole life so that two of them cannot interleave on one cable.
+
+    None means "cannot tell from here" -- Windows has no flock (there the
+    exclusive port is the lock), and neither has an unwritable home. The pid
+    sweep answers those.
+
+    Opened "a", never "w": the daemon's own open truncates, and a status
+    check has no business doing that to a file another process is holding.
+    """
+    try:
+        import fcntl
+    except ImportError:
+        return None
+    path = os.path.join(blink_home(), "bridge.lock")
+    if not os.path.exists(path):
+        return False                  # no daemon has ever run here
+    try:
+        fh = open(path, "a", encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return True                   # somebody holds it
+    else:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        return False
+    finally:
+        fh.close()
+
+
+def daemon_running():
+    """Is a bridge daemon running? The lock first, the pid file second.
+
+    Two answers because neither is available everywhere. The lock is the
+    better one and is what POSIX gets; Windows has no flock, so there the
+    pid sweep -- with its image-name filter against recycled pids -- is the
+    whole answer.
+    """
+    held = daemon_holding_lock()
+    if held is not None:
+        return held
+    return daemon_alive() is not None
+
+
 def daemon_alive(runner=None):
     """The pid of a running bridge daemon, or None.
 
