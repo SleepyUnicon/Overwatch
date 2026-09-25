@@ -47,13 +47,20 @@ MANIFEST_URL = ota.RELEASE_BASE + "manifest.json"
 SIG_URL = ota.RELEASE_BASE + "manifest.json.sig"
 
 # The public half of ~/.overwatch/release_signing_key_p256.pem. Signing happens in
-# tools/release.sh. Losing the private half costs nothing today and everything
+# tools/release.sh.
+#
+# THIS FORK'S KEY, not upstream's. It carried Kfir's, whose private half is on
+# his machine -- so this fork could not sign a manifest its own app would
+# accept, and no Overwatch install could ever have taken an update. Changed
+# while there is no installed base to strand; after that it cannot be changed
+# at all, because the only thing that could authorise a new key is the old
+# one. Losing the private half costs nothing today and everything
 # after launch: from the first customer onwards, no installed app would ever
 # accept another update, and there is no way to reach one that will not. Back
 # it up the way MCUboot's key is.
 RELEASE_PUBKEY_PEM = """-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEs++ur2jHlamykVsPeCvtT/VE5Awy
-JK1K9T7tpqx6hxXWLKxorhWH6Pkxs8Bd/jzv4Zsk2yTOhaUE+dZmSt24Yw==
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMWmWe5oVVJuYVB7RT0bB9YDB/e6Y
+xgGVlngwIiXJXfCkvO/54G4RecCOlYukndy11KCLatR3x460TqXDNizAvA==
 -----END PUBLIC KEY-----
 """
 
