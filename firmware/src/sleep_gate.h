@@ -35,24 +35,6 @@ bool sleep_should_start(bool host_lost, bool had_usage, bool ota_busy);
  */
 #define SLEEP_ABSENT_AFTER_S 14400
 
-/*
- * Untouched for this long and the face comes up. A DIFFERENT question again
- * from the two above, and the only one that is about the person's hands
- * rather than about the numbers.
- *
- * One minute is far too short for the other two rules and exactly right for
- * this one, because the wake is a tap rather than a reading: nothing is
- * hidden that a touch does not bring straight back. The four-hour rule
- * cannot be shortened the same way -- it wakes on data, so a board that
- * dozed at sixty seconds would hide the dial from somebody sitting in front
- * of it and stay hidden until their usage happened to move.
- *
- * The Music page is exempt. It is the one page whose content moves on its
- * own and is meant to be watched -- a track creeping along its bar is the
- * whole point of it, and dozing over that would be like a phone locking
- * mid-video.
- */
-#define SLEEP_UNTOUCHED_AFTER_MS 60000
 
 /* Has the reading stopped moving for long enough that nobody can be here?
  * -1 (we cannot say) is NOT absence: a daemon too old to send an age must
