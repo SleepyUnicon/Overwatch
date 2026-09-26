@@ -178,13 +178,29 @@ def test_posix_pairs_are_unchanged_by_the_windows_fix(monkeypatch):
 def test_the_directory_is_replaced_before_the_bare_name(home):
     """`/.blink` is a substring of `/.blink/blink-hook.sh`. Replacing the
     directory first leaves `/.overwatch/blink-hook.sh`: wrong, and plausible
-    enough to survive a read-through."""
-    pairs = migrate._pairs()
-    keys = [a for a, _ in pairs]
-    d = os.sep + ".blink"
-    assert keys.index(d) > 0
-    for a in keys[:keys.index(d)]:
-        assert a.startswith(d + os.sep)
+    enough to survive a read-through.
+
+    Stated per separator. The old form took the slice of everything before
+    os.sep + ".blink" and required all of it to start with that same string,
+    which held only while the list carried ONE separator -- on Windows the
+    forward-slash pairs now sit in that slice and start with "/", so it failed
+    on a list that was correctly ordered.
+    """
+    keys = [a for a, _ in migrate._pairs()]
+    bare = [old for old, _ in migrate.SHIMS]
+    first_bare = min(keys.index(b) for b in bare)
+
+    for sep in dict.fromkeys(("/", os.sep)):
+        d = sep + ".blink"
+        assert d in keys, "no directory pair for separator %r" % sep
+        at = keys.index(d)
+        specific = [k for k in keys if k.startswith(d + sep)]
+        assert specific, "no specific pairs for separator %r" % sep
+        for k in specific:
+            assert keys.index(k) < at, \
+                "%r must be replaced before the bare directory %r" % (k, d)
+        assert at < first_bare, \
+            "%r must be replaced before the bare shim names" % d
 
 
 def test_the_rewrite_does_not_depend_on_how_home_is_spelled(home, settings):
@@ -196,8 +212,15 @@ def test_the_rewrite_does_not_depend_on_how_home_is_spelled(home, settings):
     `/somewhere-else/.blink/overwatch-statusline.sh` -- migrated-looking
     and broken.
     """
+    # The ESCAPED spelling. settings.json is JSON, so a Windows home is stored
+    # in it with its backslashes doubled -- C:\\Users\\k -- and replacing the
+    # single-backslash form found nothing, leaving the real home in place and
+    # this test asserting against a path it had not written. json.dumps of the
+    # string, stripped of its quotes, is exactly what the file contains; on
+    # POSIX there is nothing to escape and it is the same string as before.
+    as_written = json.dumps(str(home))[1:-1]
     settings.write_text(settings.read_text().replace(
-        str(home), "/somewhere/else"))
+        as_written, "/somewhere/else"))
     migrate.run(settings_path=str(settings))
     text = settings.read_text()
     assert ".blink" not in text
