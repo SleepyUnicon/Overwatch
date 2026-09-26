@@ -660,16 +660,27 @@ def _inventory(tmp_path):
     return path
 
 
-def test_the_shipped_inventory_holds_the_three_measured_desks():
+def test_the_shipped_inventory_describes_desks_that_exist():
+    """Every host here is a PROMISE that the machine answers at release time.
+
+    This asserted upstream's three desks by name -- local-mac holding a board
+    that is not the one on this desk, plus kfir@kfir-macbook and
+    galit@lenovo-r90r7u44.lan, which are other people's machines on another
+    network. The gate requires a clean pass from every host named, so that
+    inventory could never pass here and every release went out with
+    OVERWATCH_SKIP_FLEET=1.
+
+    So this no longer pins a list. It pins the SHAPE: at least one desk, each
+    complete, each with an interpreter named rather than assumed. Adding a
+    desk should not have to come here first; adding a BROKEN one should.
+    """
     hosts = fleet_run.load_inventory(fleet_run.DEFAULT_INVENTORY)
-    assert set(hosts) == {"local-mac", "kfir-ubuntu", "galit-win10"}
-    assert hosts["local-mac"]["ssh"] == ""
-    assert hosts["kfir-ubuntu"]["ssh"] == "kfir@kfir-macbook"
-    assert hosts["galit-win10"]["os"] == "windows"
-    # Every python named has to be one with pyserial on that machine: the
-    # agent spawns the daemon, which imports serial at module scope.
-    assert hosts["local-mac"]["python"].endswith(".venv-test/bin/python")
-    assert hosts["galit-win10"]["python"] == "python"
+    assert hosts, "a gate with no desks proves nothing"
+    for name, cfg in hosts.items():
+        missing = [k for k in fleet_run.REQUIRED_KEYS if k not in cfg]
+        assert not missing, f"{name} is missing {missing}"
+        assert cfg["os"] in fleet_run.KNOWN_OS, f"{name}: unknown os"
+        assert cfg["python"], f"{name}: no interpreter named"
 
 
 def test_the_inventory_names_no_serial_port():
@@ -680,8 +691,9 @@ def test_the_inventory_names_no_serial_port():
     """
     hosts = fleet_run.load_inventory(fleet_run.DEFAULT_INVENTORY)
     assert not any("port" in cfg for cfg in hosts.values())
-    argv = fleet_run.agent_argv(hosts["galit-win10"])
-    assert "--port" not in argv
+    # Any desk will do -- the point is that no configuration produces one.
+    for cfg in hosts.values():
+        assert "--port" not in fleet_run.agent_argv(cfg)
 
 
 def test_a_host_missing_a_key_is_refused_with_the_key_named(tmp_path):

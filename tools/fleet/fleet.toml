@@ -1,70 +1,45 @@
-# The three desks a release is proved on, as they were measured -- not as
-# they are assumed. Each holds one board and answers for one platform.
+# The desks a release is proved on, as they ARE -- not as upstream's were.
+#
+# This file listed three: local-mac holding board 20500d342b68, plus
+# kfir@kfir-macbook and galit@lenovo-r90r7u44.lan. Those are upstream's lab.
+# Two are other people's machines on another network and the third describes a
+# different Mac with a different board, so the gate in pc/fleet_gate.py could
+# never pass honestly here and every release since the fork has gone out with
+# OVERWATCH_SKIP_FLEET=1. A gate that is always overridden is not a gate; it
+# is a warning nobody reads.
+#
+# So the inventory says what is true: one desk, one board. That makes the
+# refusal meaningful again -- it now means "this release was not run on the
+# hardware that exists", which is a sentence worth stopping for.
+#
+# ADD A DESK when there is one. The gate requires a clean pass from EVERY host
+# named here, so a line added to this file is a promise that the machine will
+# answer at release time.
 #
 # There is deliberately NO port in this file. The daemon finds the board by
-# USB VID:PID (claude_usage_bridge.py:41-48, CH340 0x1A86:0x7523), which is
-# how it picks COM15 out of the Windows desk's twelve mostly-Bluetooth COM
-# ports. A port written down here would work until somebody moved the cable
-# to the next socket, and would then fail as a dead board.
+# USB VID:PID (claude_usage_bridge.py, CH340 0x1A86:0x7523), which survives
+# the cable being moved to another socket; a port written down here would not.
 #
-# `python` must be an interpreter WITH PYSERIAL on that machine: the agent
-# spawns overwatch_main.py, which imports serial at module scope. Checking that
-# is a one-liner per desk and is worth doing before blaming the hardware:
+# `python` must be an interpreter WITH PYSERIAL: the agent spawns
+# overwatch_main.py, which imports serial at module scope. Worth checking
+# before blaming the hardware:
 #
 #     <python> -c "import serial; print(serial.__version__)"
 
-[hosts.local-mac]
+[hosts.desk-mac]
 ssh = ""                    # empty = run here, with no ssh at all
 os = "darwin"
-# Measured 2026-09-07, not assumed: board 20500d342b68 on this desk is stamped
-# CODEX -- tools/burn.sh refused `--edition claude` against it, which is the
-# edition latch doing its job. The file said claude, and every scenario here
-# would have failed for the wrong reason.
-#
-# Re-confirmed 2026-09-09 after the Mac was replaced: the SAME board came with
-# it. Its boot animation is the codex one (owner's eyes) and its hello reports
-# board_id 20500d342b68, which is this line's own id. Worth stating because
-# "this desk" now means a different machine, and an id that survives the move
-# is the only thing that makes the sentence above still true.
-#
-# How to check without stamping anything: the edition is only reported in
-# answer to an `edition` message, and that message LATCHES on a unit that has
-# never been stamped -- so it is not a read. Replug the board instead. The boot
-# animation names the edition, and the hello it sends on reset carries the id.
-board = "codex"
-# Relative paths are resolved against this checkout, not the workdir. The
-# fleet venv is the only interpreter on this Mac that has pyserial, and it is
-# gitignored, so it is not inside the snapshot that gets pushed.
-python = ".venv-test/bin/python"
+
+# Board c88541e27668, the one on this desk. Never provisioned, so it holds
+# the default edition -- CFG_EDITION_CLAUDE = 0 in firmware/src/cfg_store.h.
+# Stated rather than assumed because the edition LATCHES on first write, and
+# tools/burn.sh refuses a mismatch: upstream's file said claude against a
+# board stamped codex, and every scenario failed for the wrong reason.
+board = "claude"
+
+# The repository's own venv, which has pyserial 3.5 from pc/requirements.txt.
+# Upstream named .venv-test, which does not exist here.
+python = ".venv/bin/python"
+
 workdir = "~/overwatch-fleet"
 has_claude_desktop = true
-
-[hosts.kfir-ubuntu]
-ssh = "kfir@kfir-macbook"   # Apple hardware, Ubuntu 26 on it
-os = "linux"
-# Confirmed by a passing four-scenario run on 2026-09-07.
-board = "claude"
-# System python 3.14.4, which already has pyserial 3.5 and pytest 9.0.3.
-python = "/usr/bin/python3"
-workdir = "~/overwatch-fleet"
-has_claude_desktop = false
-# The dialout problem this file used to warn about is FIXED: `id -nG` on that
-# desk lists dialout, and a full four-scenario run passed there on 2026-09-07.
-# If it ever comes back, /dev/ttyUSB0 (crw-rw---- root dialout) is refused with
-# PermissionError 13 and every scenario fails on a healthy board:
-#     sudo usermod -aG dialout kfir   # then log out and back in
-
-[hosts.galit-win10]
-ssh = "galit@lenovo-r90r7u44.lan"
-os = "windows"              # ssh lands in cmd.exe, not a POSIX shell
-# Measured 2026-09-07, not assumed: the daemon on this desk is sending
-# provider "claude" and the board (20500d33ff1c, COM25) is showing it. The
-# file said codex, which would have failed every scenario for the wrong
-# reason. Re-check whenever a board moves desks.
-board = "claude"
-python = "python"           # 3.11.2, pyserial 3.5
-# %USERPROFILE% on this machine is non-ASCII, so the workdir stays relative
-# to it and cmd.exe does the expanding. Nothing here sends that name over the
-# wire. $USERPROFILE is accepted here too and rewritten to cmd's spelling.
-workdir = "%USERPROFILE%\\overwatch-fleet"
-has_claude_desktop = false

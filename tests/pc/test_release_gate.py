@@ -397,12 +397,25 @@ def test_a_fourth_desk_in_the_inventory_refuses_an_old_three_desk_run(tmp_path):
     assert reason and "new-desk" in reason
 
 
-def test_the_real_inventory_names_the_three_desks(tmp_path):
-    # Pins the gate against the file release.sh actually hands it, so a
-    # rename in fleet.toml cannot quietly drop a desk from the check.
-    state = _state(tmp_path)
+def test_the_real_inventory_is_what_the_gate_checks(tmp_path):
+    """Pins the gate against the file release.sh actually hands it.
+
+    Not against a list of desk names any more -- those were upstream's. A
+    result naming every host in the shipped inventory must pass, and one
+    missing any of them must not, whatever the inventory happens to say.
+    That is the property worth keeping: a rename in fleet.toml cannot
+    quietly drop a desk from the check.
+    """
     real = ROOT / "tools" / "fleet" / "fleet.toml"
+    names = sorted(fleet_gate._inventory_names(real))
+    assert names, "an inventory with no desks proves nothing"
+
+    state = _state(tmp_path, hosts=_hosts(*names))
     assert gate(state, SHA, real, now=lambda: 2000.0) is None
+
+    if len(names) > 1:
+        short = _state(tmp_path, hosts=_hosts(*names[:-1]))
+        assert gate(short, SHA, real, now=lambda: 2000.0) is not None
 
 
 # --- a gate that cannot verify --------------------------------------------
