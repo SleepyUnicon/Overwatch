@@ -636,8 +636,8 @@ static void build_face_cue(lv_obj_t *scr)
 {
 	lv_obj_t *box = lv_obj_create(scr);
 
-	lv_obj_set_size(box, 28, 18);
-	lv_obj_align(box, LV_ALIGN_BOTTOM_MID, 0, -2);
+	lv_obj_set_size(box, FACE_CUE_W, FACE_CUE_H);
+	lv_obj_align(box, LV_ALIGN_BOTTOM_MID, 0, -FACE_CUE_BOTTOM_OFF);
 	lv_obj_set_style_bg_opa(box, LV_OPA_TRANSP, 0);
 	lv_obj_set_style_border_width(box, 0, 0);
 	lv_obj_set_style_pad_all(box, 0, 0);
@@ -746,16 +746,19 @@ void usage_view_init(void)
 	 * place a top affordance can go -- an arrow at TOP_MID landed on top
 	 * of the word, which is the overlap that was reported.
 	 *
-	 * -30 rather than -12: the status dot already sits 12 px in and is 12
-	 * wide, so this clears it by 6. Letter spacing drops 2 -> 1 to buy
-	 * that back, keeping the word clear of the pip wall at x=130.
+	 * BRAND_RIGHT_OFF rather than -12: the status dot already sits 12 px in
+	 * and is 12 wide, so this clears it by 6. Letter spacing drops 2 -> 1 to
+	 * buy that back, keeping the word clear of the pip wall at PIP_WALL_X.
+	 * The offset is a constant in usage_layout.h because the layout test
+	 * measures the pip row's clearance against it -- while it was a literal
+	 * here, that test was still modelling a centred wordmark.
 	 */
 	lv_obj_t *title = lv_label_create(scr);
 
 	lv_label_set_text(title, BRAND_TEXT);
 	lv_obj_set_style_text_color(title, COL_DIM, 0);
 	lv_obj_set_style_text_letter_space(title, 1, 0);
-	lv_obj_align(title, LV_ALIGN_TOP_RIGHT, -30, TITLE_Y);
+	lv_obj_align(title, LV_ALIGN_TOP_RIGHT, -BRAND_RIGHT_OFF, TITLE_Y);
 
 	dot = lv_obj_create(scr);
 	lv_obj_set_size(dot, DOT_SZ, DOT_SZ);

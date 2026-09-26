@@ -46,34 +46,40 @@
  */
 #define GAUGE_PCT_FONT_H	22
 
-/* Header: brand centred with the clock under it, pips left, dot right. */
+/* Header: brand to the RIGHT, quiet data left, the settings gear dead centre.
+ * The brand had the middle until a top affordance needed it. */
 #define TITLE_Y			6
 #define HDR_ROW_Y		8
 #define DOT_SZ			12
 #define BRAND_TEXT		"OVERWATCH"
 /*
- * How wide BRAND_TEXT actually draws, because the pip row to its left is
- * positioned against it and a guess is not good enough.
+ * How wide BRAND_TEXT actually draws, because the pip row shares its rows and
+ * is positioned against it -- a guess is not good enough.
  *
- * lv_font_montserrat_14 stores each advance in 1/16 px and LVGL rounds it to
- * whole pixels as (adv_w + 8) >> 4. B 11 + L 8 + I 4 + N 11 + K 10 = 44, plus
- * the letter_space of 2 that usage_view.c sets on the label, in each of the
- * four gaps between five letters: 52. Centred on SCR_MID_X, so the wordmark
- * begins at 134.
- *
- * An earlier comment here said 136, worked out from ".09em tracking" -- a
- * value the code has never used. Two pixels, in the direction that eats the
- * pip row's clearance, which is why this is now a constant the layout test
- * asserts rather than prose nobody re-derives.
+ * 110 is measured off a render, not summed from the font's advance table.
+ * "OVERWATCH" is nine glyphs and the hand arithmetic that used to live here
+ * added up the five of "BLINK" (44 px plus letter_space), which stopped being
+ * true at the rebrand and was not noticed because nothing derived from it
+ * failed. Conservative on purpose: too wide only makes the layout test
+ * stricter about the pip row's clearance.
  */
-/* OVERWATCH, not OVERWATCH, so this is no longer the hand-summed 52 the comment
- * above derives. 110 is measured off a render rather than added up from the
- * font's advance table - it is nine glyphs instead of five and the arithmetic
- * stopped being worth trusting. Its only consumer is the layout host test's
- * model of the brand's box; the firmware positions the label by centring it,
- * not by this. Conservative on purpose: too wide only makes the test stricter
- * about the pip row's clearance. */
 #define BRAND_W			110
+/*
+ * How far in from the right bezel the wordmark sits.
+ *
+ * A constant rather than the bare -30 usage_view.c used to pass to
+ * lv_obj_align, because the pip row's clearance is measured against it and the
+ * layout test has to see the same number the screen is built from. While it was
+ * a literal in one file and "centred on SCR_MID_X" in the comment beside
+ * BRAND_W, the test modelled a CENTRED wordmark: it computed a left edge of
+ * 105, compared it against a hardcoded 134 left over from "BLINK", and failed
+ * on both counts while the screen itself was correct (2026-09-26).
+ *
+ * 30 rather than 12: the status dot sits 12 px in and is 12 wide, so this
+ * clears it by 6. usage_view.c drops the label's letter_space from 2 to 1 to
+ * buy that back and keep the word clear of PIP_WALL_X.
+ */
+#define BRAND_RIGHT_OFF		30
 
 /*
  * The clock sits under the brand, and it does NOT own a row of its own.
@@ -254,16 +260,38 @@
  * 64 with a 100 px arc spans 46..146 and 174..274, so each edge keeps 46 px
  * clear: the strip fits with 2 px to spare.
  */
+/*
+ * The bottom edge's face cue: two eyes and a mouth in a box.
+ *
+ * Here rather than as literals in build_face_cue() because the gauges are
+ * positioned against its top edge. While the size lived only in that function
+ * and "210" lived only in a comment, the cue was redrawn from 40x26 to 28x18
+ * and the comment kept claiming 210 -- so the one number the ring's placement
+ * depended on was prose that had been wrong for a release.
+ */
+#define FACE_CUE_W		28
+#define FACE_CUE_H		18
+#define FACE_CUE_BOTTOM_OFF	2
+#define FACE_CUE_TOP_Y		(SCR_H - FACE_CUE_BOTTOM_OFF - FACE_CUE_H)
+
+/* Where the header stops and the gauges' band begins: STATUS_Y plus its line. */
+#define HDR_BOTTOM_Y		(STATUS_Y + FONT_LINE_H)
+
 #define GAUGE_CX		64
 /*
  * Centred in the band that is actually free, not in the screen.
  *
  * At 44 the arcs ran 44..144 and left 66 px of nothing between them and the
  * face cue -- the dials read as pinned to the top, which is what was
- * reported. The header ends at 40 (STATUS_Y 24 plus a 16 px line) and the
- * face box starts at 210, so the free band is 40..210 and its middle is 125.
- * A 100 px arc centred there starts at 75 and leaves 35 px clear above and
- * below, which is the same gap top and bottom.
+ * reported. The header ends at HDR_BOTTOM_Y (40) and the face cue begins at
+ * FACE_CUE_TOP_Y, so the arc is centred in the band between them.
+ *
+ * 75 was worked out when the cue was 40x26 and began at 212; it has since been
+ * drawn at 28x18 and begins at 220, which leaves 35 px above the ring and 45
+ * below rather than the same gap top and bottom. Ten pixels on a 240 px panel
+ * is well under what anyone reads as lopsided, so the ring has not been moved
+ * for it -- but the two numbers are constants now and the layout test bounds
+ * the asymmetry, so the next change to either end cannot quietly widen it.
  *
  * It also lands the arc's middle within 5 px of the side cues, which sit at
  * LV_ALIGN_*_MID and so at y=120. Those read as a row with the dials now
@@ -274,13 +302,16 @@
 /*
  * Centred on the ring, not offset from its top.
  *
- * The ring shrank from the top -- its bottom stayed pinned at GAUGE_NAME_Y -
- * 4 -- so an earlier version of this that preserved "46 px from the arc's
- * top" preserved an offset from an edge that had moved, not where the number
- * actually sits inside the ring. The reader saw a percentage sitting low in
- * its ring by about 20 px. Centring on the ring is the invariant a reader
- * can actually see, and writing it as this expression means the label
- * follows automatically if the ring's size or position ever changes again.
+ * The ring has changed size and position several times. An earlier version of
+ * this preserved "46 px from the arc's top", which preserved an offset from an
+ * edge that had moved rather than where the number actually sits inside the
+ * ring, and a reader saw a percentage sitting low in its ring by about 20 px.
+ * Centring on the ring is the invariant a reader can actually see, and writing
+ * it as an expression in GAUGE_ARC_Y and GAUGE_ARC_SZ means the pair follows
+ * automatically the next time the ring moves.
+ *
+ * What is centred is the PAIR -- the unit line and the percentage under it --
+ * not the percentage alone. The block below does that arithmetic.
  */
 /*
  * Unit over percentage, both INSIDE the ring.
@@ -316,19 +347,14 @@
  * how long until it comes back -- and frees a whole row underneath.
  */
 /*
- * The countdowns are back OUT of the ring, under the caption.
+ * There is no caption row under the gauge any more, so there is no
+ * GAUGE_NAME_Y. The caption is a line INSIDE the ring at GAUGE_UNIT_Y, above
+ * the percentage -- see the block above those two.
  *
- * They lived in the hollow while there was one of them. With two providers
- * there are two, the hollow is 76 px across, and stacking them there would put
- * four numbers inside a ring 116 px wide. Under the gauge they get a line of
- * their own and can sit side by side, each in its provider's colour, which is
- * what makes "how long has each of them got" answerable at a glance.
- *
- * The hollow keeps both PERCENTAGES -- the primary large, the second small --
- * so it is still carrying its weight rather than going back to one number and
- * a lot of nothing.
+ * It was still defined as 168 long after nothing read it, which is how the
+ * layout test came to assert that the ring's bottom (175) sat above a caption
+ * that was not there, and to fail for it.
  */
-#define GAUGE_NAME_Y		168
 /*
  * The countdowns STACK, one per provider, rather than sitting side by side.
  *

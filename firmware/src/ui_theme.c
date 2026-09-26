@@ -29,9 +29,33 @@ static const struct ui_palette light = {
 };
 
 /*
- * The dark set the widget pages shipped with. The severity colours are the
- * brighter variants: on 0x0E1116 the light set's 0x0A7A34 is nearly invisible,
- * which is the whole reason two sets exist rather than one plus a tint.
+ * The dark set. The severity colours are the brighter variants: on 0x0E1116
+ * the light set's 0x0A7A34 is nearly invisible, which is the whole reason two
+ * sets exist rather than one plus a tint.
+ *
+ * THE RAMP IS NOT THE FLAT-UI ONE, and that is deliberate. This palette
+ * shipped as 0x2ECC71 / 0xF1C40F / 0xE74C3C -- the values the widget pages had
+ * always used -- and those three break both rules the gauge screen's ramp was
+ * rebuilt to satisfy:
+ *
+ *   - amber measured 11.39:1 against this ground and red 4.95:1, a 2.30x
+ *     spread. On a dark panel brightness IS attention, so that ramp shouts
+ *     loudest at "getting close" and goes quiet at "critical" -- it inverts
+ *     its own meaning.
+ *   - green sat at 0.775 saturation and red at 0.740. At that saturation, on
+ *     this panel's gamma, the green reads as grey at 60 cm. That is the exact
+ *     complaint that produced the ramp below.
+ *
+ * The gauge screen had already been fixed once. When the ten scattered
+ * #define COL_* were gathered into this file, the dark column was taken from
+ * the widget pages instead of from the gauges, which quietly handed the fix
+ * back for every customer in dark mode. Restored here to the measured trio --
+ * 1.16x spread, saturation 0.92 and up -- which is what
+ * tests/usage_contrast/host_test.c had been recording as correct the whole
+ * time, against a file that no longer contained it (2026-09-26).
+ *
+ * Both palettes are checked by that test now. Do not retune one step of this
+ * ramp on its own; the flatness rule is between the three.
  */
 static const struct ui_palette dark = {
 	.bg        = 0x0E1116,
@@ -40,9 +64,9 @@ static const struct ui_palette dark = {
 	.text      = 0xE6E8EB,
 	.dim       = 0x8A9199,
 
-	.green     = 0x2ECC71,
-	.amber     = 0xF1C40F,
-	.red       = 0xE74C3C,
+	.green     = 0x0DA243,	/* 5.64:1, sat 0.92 */
+	.amber     = 0xBA8107,	/* 5.61:1, sat 0.96 */
+	.red       = 0xFF1900,	/* 4.85:1, sat 1.00 */
 	.grey      = 0x8A9199,
 	.other     = 0x4387DF,
 

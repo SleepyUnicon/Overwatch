@@ -1,4 +1,4 @@
-/* WCAG contrast for the gauge screen's palette, computed on the host.
+/* WCAG contrast for the panel's palettes, computed on the host.
  *
  * Build & run:
  *   cc -lm -I ../../firmware/src host_test.c -o /tmp/ctest && /tmp/ctest
@@ -16,10 +16,30 @@
  * layout test or by looking at a render. They are arithmetic, so they are
  * checked as arithmetic.
  *
- * The colours are duplicated here from usage_view.c rather than included: they
- * are #defines wrapped in lv_color_hex(), which needs LVGL. The final check in
- * this file greps the real source to prove the two lists still agree.
+ * BOTH PALETTES, AND READ RATHER THAN COPIED.
+ *
+ * This file used to carry its own list of eight colours and then grep
+ * usage_view.c to prove the two still agreed. That worked until the ten
+ * scattered #define COL_* were gathered into firmware/src/ui_theme.c: the
+ * defines in usage_view.c became lv_color_hex(ui_theme()->bg) with no value in
+ * them, so the grep found nothing, called all eight drifted, and the failure
+ * read as an eight-colour disaster rather than "the values moved house".
+ *
+ * Worse than the noise was what the noise hid. Every rule below had been
+ * running against the copy in this file, and that copy was the gauge screen's
+ * old dark set -- values which by then existed nowhere in the firmware.
+ * Meanwhile the real dark palette had been taken from the widget pages, which
+ * had never had the severity ramp fixed, so dark mode shipped a 2.30x inverted
+ * band and a green at 0.775 saturation: precisely the two faults this file
+ * exists to forbid. A test that duplicates the thing it checks can stay
+ * perfectly green about a product that is broken.
+ *
+ * So there is no copy any more. Both palettes are parsed out of ui_theme.c at
+ * run time and both are checked. If the file cannot be read, or a field cannot
+ * be found in it, that is a FAILURE and not a skip -- the old version printed
+ * SKIP and passed, which is the other half of how this went unnoticed.
  */
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,21 +48,6 @@
 static int failures;
 #define CHECK(c, m) do { if (!(c)) { printf("FAIL: %s\n", m); failures++; } \
 	else { printf("PASS: %s\n", m); } } while (0)
-
-struct swatch { const char *name; unsigned rgb; };
-
-/* Kept in step with firmware/src/usage_view.c by the check at the end. */
-static const struct swatch pal[] = {
-	{ "COL_BG",      0x0E1116 },
-	{ "COL_TEXT",    0xE6E8EB },
-	{ "COL_DIM",     0x8A9199 },
-	{ "COL_GREEN",  0x0DA243 },
-	{ "COL_AMBER",  0xBA8107 },
-	{ "COL_RED",  0xFF1900 },
-	{ "COL_GREY",    0x6B7280 },
-	{ "COL_OTHER",   0x4387DF },
-};
-#define N (int)(sizeof(pal) / sizeof(pal[0]))
 
 static double chan(unsigned c)
 {
@@ -105,100 +110,155 @@ static unsigned as_rgb565(unsigned rgb)
 	return (r << 16) | (g << 8) | b;
 }
 
-static unsigned by_name(const char *name)
+static unsigned identity(unsigned rgb)
 {
-	for (int i = 0; i < N; i++) {
-		if (strcmp(pal[i].name, name) == 0) {
-			return pal[i].rgb;
+	return rgb;
+}
+
+/* ----------------------------------------------------- reading the source -- */
+
+/* Only the roles the rules below are about. ui_theme.c carries more. */
+#define FIELDS 8
+static const char *FIELD[FIELDS] = {
+	"bg", "text", "dim", "green", "amber", "red", "grey", "other",
+};
+
+struct palette { unsigned v[FIELDS]; int seen[FIELDS]; };
+
+static unsigned at(const struct palette *p, const char *name)
+{
+	for (int i = 0; i < FIELDS; i++) {
+		if (strcmp(FIELD[i], name) == 0) {
+			return p->v[i];
 		}
 	}
-	printf("FAIL: no swatch named %s\n", name);
+	printf("FAIL: no field named %s\n", name);
 	failures++;
 	return 0;
 }
 
-/* Does the real source still define this colour as this value? */
-static int source_agrees(const char *name, unsigned rgb)
+/*
+ * Is this line the designated initialiser for `name`?
+ *
+ * The guard on the character after the name is load-bearing: ".green" is a
+ * prefix of ".green_ink" and ui_theme.c carries both, so without it the ink
+ * colour is whichever of the two the parser happened to meet first.
+ */
+static int is_field(const char *line, const char *name)
+{
+	char needle[32];
+	const char *a;
+
+	snprintf(needle, sizeof(needle), ".%s", name);
+	a = strstr(line, needle);
+	if (!a) {
+		return 0;
+	}
+	a += strlen(needle);
+	return !(*a == '_' || isalnum((unsigned char)*a));
+}
+
+static FILE *open_theme(void)
+{
+	FILE *f = fopen("firmware/src/ui_theme.c", "r");
+
+	/* The runner invokes this from the repository root; a person running
+	 * the cc line in the header above is sitting in this directory. */
+	return f ? f : fopen("../../firmware/src/ui_theme.c", "r");
+}
+
+/* Fill `out` from `static const struct ui_palette <which> = { ... }`.
+ * Returns 0, or -1 having printed and counted the reason. */
+static int load(const char *which, struct palette *out)
 {
 	char needle[64], line[512];
-	FILE *f = fopen("../../firmware/src/usage_view.c", "r");
+	FILE *f = open_theme();
+	int inside = 0;
 
+	memset(out, 0, sizeof(*out));
 	if (!f) {
-		f = fopen("firmware/src/usage_view.c", "r");
+		printf("FAIL: cannot open firmware/src/ui_theme.c\n");
+		failures++;
+		return -1;
 	}
-	if (!f) {
-		return -1;	/* cannot check from here */
-	}
-	/*
-	 * Match the NAME and the VALUE independently rather than one exact
-	 * string. The source aligns these defines with tabs, so short names get
-	 * two and long ones get one -- and a check that hardcoded the spacing
-	 * reported three false drifts the first time it ran.
-	 */
-	snprintf(needle, sizeof(needle), "#define %s", name);
+	snprintf(needle, sizeof(needle), "struct ui_palette %s", which);
 	while (fgets(line, sizeof(line), f)) {
-		char *at = strstr(line, needle);
-		char hex[16];
+		if (!inside) {
+			inside = strstr(line, needle) != NULL;
+			continue;
+		}
+		if (line[0] == '}') {
+			break;
+		}
+		for (int i = 0; i < FIELDS; i++) {
+			const char *h;
 
-		if (!at) {
-			continue;
+			if (out->seen[i] || !is_field(line, FIELD[i])) {
+				continue;
+			}
+			h = strstr(line, "0x");
+			if (!h) {
+				continue;
+			}
+			out->v[i] = (unsigned)strtoul(h, NULL, 16);
+			out->seen[i] = 1;
 		}
-		/* Guard against COL_GREEN matching COL_GREEN_INK. */
-		at += strlen(needle);
-		if (*at != ' ' && *at != '\t') {
-			continue;
-		}
-		snprintf(hex, sizeof(hex), "0x%06X", rgb);
-		fclose(f);
-		return strstr(line, hex) != NULL;
 	}
 	fclose(f);
+
+	for (int i = 0; i < FIELDS; i++) {
+		if (!out->seen[i]) {
+			printf("FAIL: the %s palette has no .%s in ui_theme.c\n",
+			       which, FIELD[i]);
+			failures++;
+			return -1;
+		}
+	}
 	return 0;
 }
 
-int main(void)
+/* ------------------------------------------------------------- the rules -- */
+
+/* Text has to clear 4.5:1; a graphic element 3:1 (WCAG 1.4.3, 1.4.11). */
+static const char *TEXT[] = { "text", "dim" };
+static const char *GRAPHIC[] = { "green", "amber", "red", "grey", "other" };
+
+/*
+ * Every ratio rule, at one bit depth.
+ *
+ * Run twice per palette: a palette that passes at 24 bits and fails at 16 is a
+ * palette that passes here and fails on the desk.
+ */
+static void ratios(const char *pal, const char *depth,
+		   const struct palette *p, unsigned (*q)(unsigned))
 {
-	unsigned bg = by_name("COL_BG");
-	char msg[128];
+	unsigned bg = q(at(p, "bg"));
+	char msg[192];
 
-	/* Text has to clear 4.5:1; a graphic element 3:1 (WCAG 1.4.3, 1.4.11). */
-	static const char *text[] = { "COL_TEXT", "COL_DIM" };
-	static const char *graphic[] = { "COL_GREEN", "COL_AMBER", "COL_RED",
-					 "COL_GREY", "COL_OTHER" };
+	for (unsigned i = 0; i < sizeof(TEXT) / sizeof(TEXT[0]); i++) {
+		double r = contrast(q(at(p, TEXT[i])), bg);
 
-	for (unsigned i = 0; i < sizeof(text) / sizeof(text[0]); i++) {
-		double r = contrast(by_name(text[i]), bg);
-
-		snprintf(msg, sizeof(msg), "%s is readable text (%.2f:1 >= 4.5)",
-			 text[i], r);
+		snprintf(msg, sizeof(msg), "%s/%s: %s is readable text"
+			 " (%.2f:1 >= 4.5)", pal, depth, TEXT[i], r);
 		CHECK(r >= 4.5, msg);
 	}
-	for (unsigned i = 0; i < sizeof(graphic) / sizeof(graphic[0]); i++) {
-		double r = contrast(by_name(graphic[i]), bg);
+	for (unsigned i = 0; i < sizeof(GRAPHIC) / sizeof(GRAPHIC[0]); i++) {
+		double r = contrast(q(at(p, GRAPHIC[i])), bg);
 
-		snprintf(msg, sizeof(msg), "%s is a visible graphic (%.2f:1 >= 3)",
-			 graphic[i], r);
+		snprintf(msg, sizeof(msg), "%s/%s: %s is a visible graphic"
+			 " (%.2f:1 >= 3)", pal, depth, GRAPHIC[i], r);
 		CHECK(r >= 3.0, msg);
 	}
-
-	/*
-	 * There are no provider colours to compare any more.
-	 *
-	 * They used to have to differ from each other in BRIGHTNESS rather than
-	 * hue alone -- the check that caught #10A37F, which cleared the
-	 * background comfortably and was still invisible as a distinction. One
-	 * provider per page retires the whole question: identity is carried by
-	 * a name under the brand and a position on the rail, and severity is
-	 * the only thing colour is spent on.
-	 */
 
 	/*
 	 * THE SEVERITY BAND MUST STAY FLAT.
 	 *
 	 * On a dark panel brightness is attention, so a ramp whose middle step
 	 * is the brightest inverts its own meaning. That is exactly what
-	 * shipped: amber at 11.39:1 against red at 4.95:1, a 2.30x spread with
-	 * the merely-getting-close colour shouting over the critical one.
+	 * shipped, twice: amber at 11.39:1 against red at 4.95:1, a 2.30x
+	 * spread with the merely-getting-close colour shouting over the
+	 * critical one -- once on the gauge screen, and then again in the dark
+	 * column of ui_theme.c once the palettes were gathered there.
 	 *
 	 * The fix was not a brighter red. A red luminous enough to outshine a
 	 * yellow is a pale salmon and stops reading as red, which is physics
@@ -206,17 +266,27 @@ int main(void)
 	 * by saturation and by the arc's own area instead -- and THIS is the
 	 * check that keeps someone from "improving" one step later.
 	 */
-	double g = contrast(by_name("COL_GREEN"), bg);
-	double a = contrast(by_name("COL_AMBER"), bg);
-	double rd = contrast(by_name("COL_RED"), bg);
-	double hi = g > a ? (g > rd ? g : rd) : (a > rd ? a : rd);
-	double lo = g < a ? (g < rd ? g : rd) : (a < rd ? a : rd);
+	{
+		double g = contrast(q(at(p, "green")), bg);
+		double a = contrast(q(at(p, "amber")), bg);
+		double r = contrast(q(at(p, "red")), bg);
+		double hi = g > a ? (g > r ? g : r) : (a > r ? a : r);
+		double lo = g < a ? (g < r ? g : r) : (a < r ? a : r);
 
-	snprintf(msg, sizeof(msg),
-		 "the severity band is flat, not inverted (%.2fx spread <= 1.35)",
-		 hi / lo);
-	CHECK(hi / lo <= 1.35, msg);
+		snprintf(msg, sizeof(msg), "%s/%s: the severity band is flat,"
+			 " not inverted (%.2fx spread <= 1.35)",
+			 pal, depth, hi / lo);
+		CHECK(hi / lo <= 1.35, msg);
+	}
+}
 
+static void check_palette(const char *pal, const struct palette *p)
+{
+	static const char *severity[] = { "green", "amber", "red" };
+	char msg[192];
+
+	ratios(pal, "24-bit", p, identity);
+	ratios(pal, "RGB565", p, as_rgb565);
 
 	/*
 	 * A SEVERITY COLOUR MUST ACTUALLY BE A COLOUR.
@@ -231,79 +301,54 @@ int main(void)
 	 * marginal: at 0.58 the green read as grey to the naked eye at 60 cm.
 	 * There is no reason for a green/amber/red ramp to sit anywhere but
 	 * near the top of the range -- flat LUMINANCE is what the band rule
-	 * below is protecting, and saturation costs it nothing.
+	 * above is protecting, and saturation costs it nothing.
 	 */
-	static const char *severity[] = { "COL_GREEN", "COL_AMBER", "COL_RED" };
-
 	for (unsigned i = 0; i < sizeof(severity) / sizeof(severity[0]); i++) {
-		double sv = saturation(by_name(severity[i]));
+		double sv = saturation(at(p, severity[i]));
 
-		snprintf(msg, sizeof(msg), "%s is saturated enough to read as a"
-			 " colour (%.2f >= 0.85)", severity[i], sv);
+		snprintf(msg, sizeof(msg), "%s: %s is saturated enough to read"
+			 " as a colour (%.2f >= 0.85)", pal, severity[i], sv);
 		CHECK(sv >= 0.85, msg);
 	}
+}
+
+int main(void)
+{
+	struct palette light, dark;
+	int got_light, got_dark;
 
 	/*
-	 * And the whole palette still holds up once the panel has quantised it.
+	 * There are no provider colours to compare any more.
 	 *
-	 * Cheap to check and it closes the gap this file had: every figure
-	 * above describes a colour in 24-bit sRGB, and the hardware displays
-	 * RGB565. A palette that passes at 24 bits and fails at 16 is a palette
-	 * that passes here and fails on the desk.
+	 * They used to have to differ from each other in BRIGHTNESS rather than
+	 * hue alone -- the check that caught #10A37F, which cleared the
+	 * background comfortably and was still invisible as a distinction. One
+	 * provider per page retires the whole question: identity is carried by
+	 * a name under the brand and a position on the rail, and severity is
+	 * the only thing colour is spent on.
 	 */
-	for (int i = 0; i < N; i++) {
-		unsigned shown = as_rgb565(pal[i].rgb);
-		double r = contrast(shown, as_rgb565(bg));
-		double want = (strcmp(pal[i].name, "COL_BG") == 0) ? 0.0
-			    : (strcmp(pal[i].name, "COL_TEXT") == 0 ||
-			       strcmp(pal[i].name, "COL_DIM") == 0) ? 4.5 : 3.0;
+	got_light = load("light", &light) == 0;
+	got_dark = load("dark", &dark) == 0;
 
-		if (want == 0.0) {
-			continue;
-		}
-		snprintf(msg, sizeof(msg), "%s survives RGB565 (%.2f:1 >= %.1f)",
-			 pal[i].name, r, want);
-		CHECK(r >= want, msg);
+	if (got_light) {
+		check_palette("light", &light);
 	}
-	{
-		double qg = contrast(as_rgb565(by_name("COL_GREEN")),
-				     as_rgb565(bg));
-		double qa = contrast(as_rgb565(by_name("COL_AMBER")),
-				     as_rgb565(bg));
-		double qr = contrast(as_rgb565(by_name("COL_RED")),
-				     as_rgb565(bg));
-		double qhi = qg > qa ? (qg > qr ? qg : qr) : (qa > qr ? qa : qr);
-		double qlo = qg < qa ? (qg < qr ? qg : qr) : (qa < qr ? qa : qr);
-
-		snprintf(msg, sizeof(msg), "the band is still flat in RGB565"
-			 " (%.2fx spread <= 1.35)", qhi / qlo);
-		CHECK(qhi / qlo <= 1.35, msg);
+	if (got_dark) {
+		check_palette("dark", &dark);
 	}
 
-	/* And the list above still matches the source it claims to mirror. */
-	int checked = 0, agreed = 0;
-
-	for (int i = 0; i < N; i++) {
-		int r = source_agrees(pal[i].name, pal[i].rgb);
-
-		if (r < 0) {
-			break;	/* run from a directory that cannot see it */
-		}
-		checked++;
-		agreed += r;
-		if (!r) {
-			printf("       %s has drifted from usage_view.c\n",
-			       pal[i].name);
-		}
-	}
-	if (checked) {
-		CHECK(agreed == checked,
-		      "this palette still matches firmware/src/usage_view.c");
-	} else {
-		printf("SKIP: usage_view.c not reachable from here\n");
+	/* Two themes, or one of them is not a theme. Cheap, and it would catch
+	 * a copy-paste of the whole struct -- which is close to what happened
+	 * when the dark column was filled in from the widget pages. */
+	if (got_light && got_dark) {
+		CHECK(at(&light, "bg") != at(&dark, "bg"),
+		      "the two palettes have different grounds");
 	}
 
-	printf(failures ? "\n%d FAILED\n" : "\nall contrast checks passed\n",
-	       failures);
-	return failures ? 1 : 0;
+	if (failures) {
+		printf("\n%d FAILED\n", failures);
+		return 1;
+	}
+	printf("\nall contrast checks passed\n");
+	return 0;
 }

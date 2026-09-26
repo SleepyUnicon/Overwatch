@@ -52,6 +52,18 @@ static struct box top_mid(const char *name, int xoff, int y, int w, int h)
 	return b;
 }
 
+/* TOP_RIGHT with a positive `in` offset from the right bezel. */
+static struct box right_top(const char *name, int in, int y, int w, int h)
+{
+	struct box b;
+	b.name = name;
+	b.x1 = SCR_W - in;
+	b.x0 = b.x1 - w;
+	b.y0 = y;
+	b.y1 = y + h;
+	return b;
+}
+
 /* BOTTOM_MID with a positive `up` offset from the bottom edge. */
 static struct box bottom_mid(const char *name, int up, int w, int h)
 {
@@ -96,10 +108,14 @@ int main(void)
 	 * montserrat_20, not the screen's default 14. */
 	struct box pct_l = top_mid("percentage L", -GAUGE_CX, GAUGE_PCT_Y,
 				   80, GAUGE_PCT_FONT_H);
+	/* The caption sits INSIDE the ring, on the line above the percentage --
+	 * it is no longer a row under the gauge, and GAUGE_NAME_Y is gone. Its
+	 * width budget is the ring's hollow, the same as the percentage's,
+	 * because anything wider paints over the coloured track. */
 	struct box name_l = top_mid("SESSION caption", -GAUGE_CX,
-				    GAUGE_NAME_Y, 110, FONT_LINE_H);
-	struct box name_r = top_mid("WEEKLY caption", GAUGE_CX, GAUGE_NAME_Y,
-				    110, FONT_LINE_H);
+				    GAUGE_UNIT_Y, GAUGE_PCT_MAX_W, FONT_LINE_H);
+	struct box name_r = top_mid("WEEKLY caption", GAUGE_CX, GAUGE_UNIT_Y,
+				    GAUGE_PCT_MAX_W, FONT_LINE_H);
 
 	/* ONE countdown per gauge. The second provider is a page now, not a
 	 * second line, so the only thing under a gauge is its own duration. */
@@ -109,8 +125,16 @@ int main(void)
 				  GAUGE_CD_Y, GAUGE_CD_MAX_W, FONT_LINE_H);
 
 	/* The brand, and the status line that took the space under it when the
-	 * provider's name moved to the bottom. */
-	struct box brand = top_mid("brand", 0, TITLE_Y, BRAND_W, FONT_LINE_H);
+	 * provider's name moved to the bottom.
+	 *
+	 * RIGHT-aligned, BRAND_RIGHT_OFF in from the bezel. This modelled a
+	 * centred wordmark long after usage_view.c stopped drawing one: the
+	 * middle became the only place a top affordance could go, so the brand
+	 * moved right and an arrow took the centre. A centred model put the
+	 * word's left edge at 105, which is LEFT of PIP_WALL_X, so the test
+	 * reported the pip row sliding under a logo that is nowhere near it. */
+	struct box brand = right_top("brand", BRAND_RIGHT_OFF, TITLE_Y,
+				     BRAND_W, FONT_LINE_H);
 	struct box status = top_mid("status", 0, STATUS_Y,
 				    STATUS_MAX_W, FONT_LINE_H);
 
@@ -155,7 +179,14 @@ int main(void)
 
 	/* --- the gauges do not meet --- */
 	CHECK(!overlaps(arc_l, arc_r), "the two gauges do not overlap");
-	CHECK(arc_l.y1 <= name_l.y0, "the caption sits below its ring");
+	/* Inside its ring, not under it. The old form asserted the ring ended
+	 * above the caption, which was true while the caption was a row below
+	 * the gauge and became a 7 px "overlap" against a constant nothing
+	 * read once it moved in. Containment is the claim now. */
+	CHECK(name_l.y0 >= arc_l.y0 && name_l.y1 <= arc_l.y1,
+	      "the caption sits inside its ring");
+	CHECK(name_l.x0 >= arc_l.x0 && name_l.x1 <= arc_l.x1,
+	      "the caption stays within its ring's hollow");
 
 	/* --- the ring hollow --- */
 	/*
@@ -211,14 +242,61 @@ int main(void)
 	 * 20 px back.
 	 */
 	EXPECT_EQ(STATUS_Y, TITLE_Y + FONT_LINE_H + 2);
-	EXPECT_EQ(GAUGE_ARC_Y, STATUS_Y + FONT_LINE_H + 4);
-	EXPECT_EQ(GAUGE_ARC_Y + GAUGE_ARC_SZ + 4, GAUGE_NAME_Y);
 
-	/* The percentage stays centre-derived rather than a literal: its
-	 * middle sits on the ring's middle, whatever the ring's size or the
-	 * font's line height. The old literal 90 was 3 px high, which is what
-	 * e7df2f2 fixed and this must not un-fix. */
-	EXPECT_EQ(GAUGE_PCT_Y + GAUGE_PCT_FONT_H / 2, GAUGE_ARC_Y + GAUGE_ARC_SZ / 2);
+	/*
+	 * The ring is centred in the band that is FREE, not pinned under the
+	 * header.
+	 *
+	 * This used to read GAUGE_ARC_Y == STATUS_Y + FONT_LINE_H + 4, which
+	 * held while the dials sat directly beneath the header at 44. They were
+	 * moved to 75 because at 44 they read as pinned to the top with 66 px
+	 * of nothing below them. The invariant that replaced it is the one the
+	 * header states: equal slack above and below, in the band between the
+	 * header's last line and the face cue.
+	 */
+	{
+		int above = GAUGE_ARC_Y - HDR_BOTTOM_Y;
+		int below = FACE_CUE_TOP_Y - (GAUGE_ARC_Y + GAUGE_ARC_SZ);
+		int skew = above > below ? above - below : below - above;
+		char msg[96];
+
+		CHECK(above > 0, "the ring clears the header");
+		CHECK(below > 0, "the ring clears the face cue");
+		/* Bounded, not equal. 75 was chosen when the cue was 26 px
+		 * tall and began at 212; it is 18 px and begins at 220 now, so
+		 * the gaps are 35 and 45. A line height is the most asymmetry
+		 * that can pass -- enough to tolerate the cue being redrawn,
+		 * nowhere near the 66 px that made the dials read as pinned to
+		 * the top, which is the fault this guards. */
+		snprintf(msg, sizeof(msg), "the ring sits near the middle of the"
+			 " free band (%d above, %d below)", above, below);
+		CHECK(skew <= FONT_LINE_H, msg);
+	}
+
+	/*
+	 * The unit-plus-percentage PAIR is centred on the ring, not the
+	 * percentage alone.
+	 *
+	 * Centre-derived rather than a literal either way: the old literal 90
+	 * was 3 px high, which e7df2f2 fixed and this must not un-fix. But the
+	 * claim moved when the unit line was stacked above the number -- the
+	 * percentage on its own now measures 9 px low, correctly, because it is
+	 * the pair that has to look centred.
+	 *
+	 * One pixel low is allowed and is the right way to miss: the ring's gap
+	 * is at the bottom.
+	 */
+	{
+		int top = GAUGE_UNIT_Y;
+		int bottom = GAUGE_PCT_Y + GAUGE_PCT_FONT_H;
+		int pair_mid = (top + bottom) / 2;
+		int ring_mid = GAUGE_ARC_Y + GAUGE_ARC_SZ / 2;
+		char msg[96];
+
+		snprintf(msg, sizeof(msg), "the unit/percentage pair centres on"
+			 " the ring (%d vs %d)", pair_mid, ring_mid);
+		CHECK(pair_mid >= ring_mid && pair_mid <= ring_mid + 2, msg);
+	}
 
 	/*
 	 * The pip row runs from the bezel to the brand, not from the clock to
@@ -231,16 +309,14 @@ int main(void)
 	/*
 	 * The clock has left this corner for the row under the brand, so the
 	 * row's left edge is now the bezel, not a time string. Its right edge
-	 * is still the wordmark, and that IS a measurement -- so it is derived
-	 * here rather than typed in, because the number that was typed in was
-	 * wrong by 2 px in the direction that matters.
+	 * is still the wordmark.
 	 *
-	 * "OVERWATCH" at lv_font_montserrat_14, whose advances LVGL rounds to
-	 * whole pixels as (adv_w + 8) >> 4: B 11 + L 8 + I 4 + N 11 + K 10 =
-	 * 44, plus the letter_space of 2 that usage_view.c sets, in each of
-	 * the four gaps = 52. Centred on SCR_MID_X, so it begins at 134 -- not
-	 * the 136 an earlier comment claimed from a tracking value the code
-	 * does not use.
+	 * Derived from the header, never typed. The literal that used to sit
+	 * below was 134: the left edge of a CENTRED "BLINK", summed by hand
+	 * from the font's advance table. The rebrand made the word nine glyphs
+	 * instead of five and a later change moved it to the right bezel, and
+	 * neither touched the number -- so this asserted a position two
+	 * revisions stale and failed for it while the screen was right.
 	 */
 	CHECK(pips.x0 >= SCR_RIGHT_MARGIN_MIN,
 	      "the pip row is not flush against the left bezel");
@@ -248,7 +324,7 @@ int main(void)
 	      "a full pip row clears the wall");
 	CHECK(PIP_WALL_X <= brand.x0,
 	      "the wall is left of the brand's real left edge");
-	EXPECT_EQ(brand.x0, 134);
+	EXPECT_EQ(brand.x0, SCR_W - BRAND_RIGHT_OFF - BRAND_W);
 	EXPECT_EQ(PIP_MAX, 11);
 	/*
 	 * Counts mode: three groups of pip + gap + one digit, with a gap
@@ -325,13 +401,32 @@ int main(void)
 	      "FONT_LINE_H still matches LV_FONT_DEFAULT_MONTSERRAT_14");
 
 	/*
-	 * A two-line hint lands on the gauges. The label must ellipsize; this
-	 * asserts the clearance that makes that non-negotiable.
+	 * The hint is one line, and it clears the gauges.
+	 *
+	 * This used to assert the opposite of its second half: that a SECOND
+	 * line would land on the arcs, "so it must ellipsize". That was true
+	 * while the arcs began at 44 -- a second line starts at 40 and there
+	 * were 4 px between them. The arcs moved to 75 and a second line now
+	 * ends at 56, clear by 19, so the claim became false and the check
+	 * failed on a layout that had got roomier.
+	 *
+	 * usage_view.c still ellipsizes, and says why: the slack "is a side
+	 * effect of a layout choice and not a promise". So the collision is not
+	 * the reason and must not be asserted as one. What is worth holding is
+	 * the clearance itself, for the line that is actually drawn -- and the
+	 * headroom is reported so a future change that eats it is visible in
+	 * the output rather than only in a pass.
 	 */
 	CHECK(STATUS_Y + FONT_LINE_H < GAUGE_ARC_Y + 4,
 	      "a one-line hint clears the gauges");
-	CHECK(STATUS_Y + 2 * FONT_LINE_H > GAUGE_ARC_Y,
-	      "a two-line hint would land on the gauges, so it must ellipsize");
+	{
+		int slack = GAUGE_ARC_Y - (STATUS_Y + 2 * FONT_LINE_H);
+		char msg[96];
+
+		snprintf(msg, sizeof(msg), "the hint line has %d px of headroom"
+			 " before the gauges", slack > 0 ? slack : 0);
+		CHECK(STATUS_Y + FONT_LINE_H <= GAUGE_ARC_Y, msg);
+	}
 
 	/* --- the status-change popup --- */
 	/*

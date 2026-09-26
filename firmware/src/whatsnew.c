@@ -12,8 +12,11 @@
  *
  *   - Sentence case, like every other string on this screen.
  *   - One line per change, "\n" between them, no trailing newline.
- *   - About 30 characters before the 270 px label wraps. A line may wrap;
- *     three wrapping lines will not fit beside two other releases.
+ *   - THIRTY-THREE characters, hard. Beyond that the label wraps, and a
+ *     wrapped line is a row the pagination arithmetic did not count, so the
+ *     text overruns its page. tests/whatsnew/host_test.c enforces it -- seven
+ *     of the 2.0.x lines below were written over the limit and shipped that
+ *     way, because nothing was running that test (2026-09-26). Aim for 30.
  *   - Two changes per release is the working limit. Pick the two a customer
  *     would notice, not the two that were hardest.
  *   - What they GET, not what was repaired. "Finished sessions leave the
@@ -31,15 +34,15 @@ static const struct {
 	const char *lines;
 } NOTES[] = {
 	{ "2.0.9", "The face stays on its own page" },
-	{ "2.0.8", "A failed update can be tried again" },
-	{ "2.0.7", "Setup screen steps aside once set up" },
+	{ "2.0.8", "A failed update can be retried" },
+	{ "2.0.7", "The setup screen steps aside" },
 	{ "2.0.6", "Scan the code to pair a computer" },
-	{ "2.0.5", "A QR to set up on any computer\nPick launcher apps from a web page" },
-	{ "2.0.4", "Setup page from the moment it starts" },
-	{ "2.0.3", "The Codex edition boots to the mark\nA smaller, cleaner boot clip" },
-	{ "2.0.2", "A face with moods when you leave it\nIt naps after a minute" },
+	{ "2.0.5", "A QR to set up on any computer\nPick launcher apps on the web" },
+	{ "2.0.4", "A setup page from the first boot" },
+	{ "2.0.3", "Codex edition boots to the mark\nA smaller, cleaner boot clip" },
+	{ "2.0.2", "A face with moods when idle\nIt naps after a minute" },
 	{ "2.0.1", "It boots to its own mark now\nUpdates arrive over the cable" },
-	{ "2.0.0", "Five pages, swipe between them\nA launcher, music, and a light theme" },
+	{ "2.0.0", "Five pages, swipe between them\nA launcher, music, a light theme" },
 	{ "1.3.3", "A dropped update finishes itself\nThe board asks again if one fails" },
 	{ "1.3.2", "Updates report honestly\nFinished sessions clear away" },
 	{ "1.3.1", "It spots an out-of-date app" },
