@@ -80,6 +80,14 @@ static bool tap_only(void)
 	return tapped;
 }
 
+/* Set by ui_sleep_show_face_until(); see its header comment. */
+static bool (*face_also)(void);
+
+static bool tap_or_also(void)
+{
+	return tapped || (face_also && face_also());
+}
+
 static bool awake_or_tap(void)
 {
 	return woken() || tapped;
@@ -267,5 +275,32 @@ void ui_sleep_show_face(void)
 	 * a stale one would end this the frame it started -- the face would
 	 * flash and vanish with no way to tell that from a crash. */
 	tapped = false;
+	face_also = NULL;
 	ui_sleep_run(tap_only, NULL);
+}
+
+void ui_sleep_show_face_until(bool (*also)(void))
+{
+	/*
+	 * The face, ended by a tap OR by `also`.
+	 *
+	 * ui_sleep_show_face() ends on a tap and nothing else, which is right
+	 * when somebody ASKED for the face: they are looking at it and a tap
+	 * is the only thing that can mean "done".
+	 *
+	 * It is wrong for a board that dozed off by itself. That one is
+	 * resting, not switched off, and the dials are the entire point of
+	 * the product -- a board that shows a face until somebody touches it
+	 * has stopped being a gauge. The fleet's sleep_wake scenario is what
+	 * said so: it stops the daemon, expects a doze and a wake, and got a
+	 * doze that nothing could end.
+	 *
+	 * `also` is the caller's "something worth showing again" -- the
+	 * reading moving, not merely the host speaking, because the host
+	 * speaks every few seconds and would leave the face no time to exist.
+	 */
+	tapped = false;
+	face_also = also;
+	ui_sleep_run(tap_or_also, NULL);
+	face_also = NULL;
 }

@@ -1607,7 +1607,25 @@ static void run_usb(void)
 						     "Waiting for the app on "
 						     "your computer.");
 				} else {
-					ui_sleep_show_face();
+					/*
+					 * Ended by a tap OR by the reading
+					 * moving. Tap-only left the board
+					 * showing a face that nothing could
+					 * end: the dials never came back
+					 * when work resumed, only when a
+					 * finger arrived. The fleet's
+					 * sleep_wake scenario caught it --
+					 * it stops the daemon, expects a
+					 * doze and a wake, and saw a doze
+					 * with no way out.
+					 *
+					 * reading_moved_again, not "the host
+					 * spoke": the host speaks every few
+					 * seconds and would leave the face
+					 * no time to exist at all.
+					 */
+					ui_sleep_show_face_until(
+						reading_moved_again);
 				}
 				continue;
 			}

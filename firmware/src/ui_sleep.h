@@ -35,4 +35,11 @@ void ui_sleep_run(bool (*awake)(void), const char *peek_note);
  */
 void ui_sleep_show_face(void);
 
+/*
+ * The same face, but it also ends when `also()` says there is something
+ * worth showing again -- for a board that dozed off by itself rather than
+ * being asked. See the note in ui_sleep.c.
+ */
+void ui_sleep_show_face_until(bool (*also)(void));
+
 #endif /* UI_SLEEP_H */
