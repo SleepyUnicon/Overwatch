@@ -551,3 +551,43 @@ reason for reading `fleet.toml` instead of the result file.
 
 So watch the panels while the run goes by. That is not ceremony: several of the
 things this suite cannot see are the things most likely to be wrong.
+
+## Fleet on this desk — where it stands (2026-09-26)
+
+The inventory now names the desk that exists, so the gate refuses for a real
+reason. It has already earned its keep: the first honest run caught the idle
+face having no way out but a tap, which was a regression in the
+untouched-for-a-minute rule and worse in use than in the test — the dials
+never came back when work resumed. Fixed and flashed.
+
+## It does not pass yet
+
+Three runs, and every one reports the same thing:
+
+    the daemon's first traffic came 14.3–14.5s after it was started, past
+    the 4s the scenario's step spacing allows
+
+Reproducible to a tenth of a second, so it is not a race. The agent's own
+message attributes it to the port still being held, and says the run proves
+nothing either way.
+
+### Ruled out
+
+- **The OTA feed.** Enabling it was the obvious suspect, since it added
+  network I/O to startup. Measured: `ota.fetch_manifest()` takes 0.9s. Not
+  it.
+
+### Where to look next
+
+The agent stops the login service and starts its own daemon. On this desk
+that service is under launchd with KeepAlive, and the daemon takes an
+exclusive flock on `~/.overwatch/bridge.lock` and waits rather than exiting
+when another holds it — see `claude_usage_bridge.py`. A service that
+restarts underneath the agent would produce exactly this: a new daemon
+sitting on the lock for a fixed interval before it can speak.
+
+`wait_for_port` also polls at 3.0s, so a delay that is a multiple of three
+is worth noticing. 14.4 is not, quite.
+
+Start by timestamping process start against the first serial write, rather
+than by reading the scenarios.
