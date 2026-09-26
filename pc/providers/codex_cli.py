@@ -94,7 +94,13 @@ def sessions_root() -> str:
     an ordinary state, handled by the reader rather than by pretending we do
     not know where to look. CODEX_HOME is honoured because Codex itself does.
     """
-    home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
+    # os.path.join, not expanduser("~/.codex"), and for the reason spelled out
+    # in install_codex_hooks.codex_home(): on Windows expanduser replaces the
+    # "~" and leaves the "/" alone, so the result is not string-equal to the
+    # same path spelled natively. These two resolve the same directory and the
+    # docstring above says so; they have to agree character for character.
+    home = os.environ.get("CODEX_HOME") or os.path.join(
+        os.path.expanduser("~"), ".codex")
     return os.path.join(home, "sessions")
 
 

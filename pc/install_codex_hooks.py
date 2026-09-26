@@ -101,7 +101,16 @@ def codex_home() -> str:
     distrusted or unread hook produces no output at all, the symptom would be
     a board that simply never mentions Codex.
     """
-    return os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
+    # os.path.join, not expanduser("~/.codex"). expanduser replaces the "~"
+    # and leaves the rest of the string alone, so on Windows that returns
+    # C:\Users\k/.codex -- a mixed-separator path. Windows opens it happily,
+    # which is why it went unnoticed, but it is not equal as a STRING to the
+    # same path spelled natively, so anything comparing or printing it
+    # disagrees with everything else. It printed that path to the user during
+    # uninstall, and one test compared the two spellings and failed on every
+    # push.
+    home = os.environ.get("CODEX_HOME")
+    return home or os.path.join(os.path.expanduser("~"), ".codex")
 
 
 def hooks_file() -> str:

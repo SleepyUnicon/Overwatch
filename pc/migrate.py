@@ -108,7 +108,7 @@ def _rewrite(path, pairs):
 
 
 def _pairs():
-    """Every string that has to change, most specific first.
+    r"""Every string that has to change, most specific first.
 
     Home-AGNOSTIC on purpose: `/.blink`, not old_home(). A rehearsal
     against a copy of a real machine caught why. settings.json holds
@@ -124,10 +124,35 @@ def _pairs():
 
     Order still matters. `/.blink` is a substring of
     `/.blink/blink-hook.sh`, so the directory must not go first.
+
+    SEPARATOR-agnostic too, and on Windows that is not a nicety -- it is the
+    difference between this function working and doing nothing at all. Every
+    string it has to rewrite on Windows is spelled with FORWARD slashes:
+
+      - the shim bodies are POSIX sh, and compute their state directory as
+        "$HOME/.blink/$sub" on every platform;
+      - the commands in settings.json and in the two markers are written by
+        install_statusline.windows_bash_path, which converts every backslash
+        to a forward slash because a backslash is an escape under Git Bash.
+
+    Built with os.sep alone, the pairs on Windows read `\.blink\blink-hook.sh`
+    and matched none of it, so a Windows migration silently moved the directory
+    and left every reference inside it pointing at ~/.blink. Five tests said so
+    on every push (2026-09-26); they had been read as "Windows path noise".
+
+    Both spellings, so a mixed path is handled too: `\.blink/blink-hook.sh`
+    loses its directory to the `\.blink` pair and its filename to the bare
+    name at the end.
     """
-    old_d, new_d = os.sep + ".blink", os.sep + ".overwatch"
-    out = [(old_d + os.sep + old, new_d + os.sep + new) for old, new in SHIMS]
-    out.append((old_d, new_d))
+    # dict.fromkeys, not a set: on POSIX os.sep IS "/" and the two collapse to
+    # one entry, and the order below is load-bearing.
+    seps = list(dict.fromkeys(("/", os.sep)))
+    out = []
+    for sep in seps:
+        out += [(sep + ".blink" + sep + old, sep + ".overwatch" + sep + new)
+                for old, new in SHIMS]
+    for sep in seps:
+        out.append((sep + ".blink", sep + ".overwatch"))
     # Last, and only now: the shims are not all direct children of the
     # state directory -- the hook shim is installed into bin/ as well.
     out += list(SHIMS)
@@ -214,16 +239,3 @@ def run_quietly(log=None):
         for line in lines:
             log("[migrate] " + line)
     return lines
-
-
-def settings_mentions_old_home(settings_path=None):
-    """Whether settings.json still points into ~/.blink.
-
-    A separate question from needed(): the directory can have been moved
-    by hand, or by an earlier partial run, leaving the references behind.
-    """
-    try:
-        with open(settings_path or cli.settings_path(), encoding="utf-8") as f:
-            return old_home() in f.read()
-    except (OSError, UnicodeDecodeError):
-        return False

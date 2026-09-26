@@ -42,20 +42,40 @@ def test_a_missing_shim_is_not_current(tmp_path):
     assert cli.shim_is_current(p, "overwatch-hook.sh") is False
 
 
-def test_an_unreadable_shim_is_not_current(tmp_path):
+def test_an_unreadable_shim_is_not_current(tmp_path, monkeypatch):
     """Answer the question rather than raising it.
 
     This runs inside the daemon's poll loop. "I cannot read it" and "it is
-    stale" lead to the same action -- rewrite it -- and a raise here would
-    take the daemon down over a file permission.
+    stale" lead to the same action -- rewrite it -- and a raise here would take
+    the daemon down over a file permission.
+
+    The unreadability is injected rather than produced with chmod(0o000).
+    Windows has no POSIX mode bits: chmod there can set the read-only flag and
+    nothing else, so the file stayed perfectly readable, shim_is_current
+    answered True, and this test failed on every push -- against code that was
+    correct. It was the setup that could not be expressed.
+
+    Failing the open is also closer to what is being tested than any particular
+    reason for it. The branch under test is `except OSError`, and a mode bit is
+    only one of the ways in: a deleted file mid-read, a dead network mount, a
+    Windows mandatory lock held by another process.
     """
     p = str(tmp_path / "overwatch-hook.sh")
     _write(p, cli._shim_source("overwatch-hook.sh"))
-    os.chmod(p, 0o000)
-    try:
-        assert cli.shim_is_current(p, "overwatch-hook.sh") is False
-    finally:
-        os.chmod(p, 0o644)
+
+    real_open = open
+
+    def refuse(path, *a, **k):
+        # Only the installed shim. _shim_source() opens the bundled copy
+        # immediately afterwards, and breaking that would send this down the
+        # "there is nothing to compare against" arm instead, which returns
+        # True and would make this test pass for the wrong reason.
+        if os.path.abspath(str(path)) == os.path.abspath(p):
+            raise OSError("cannot read it")
+        return real_open(path, *a, **k)
+
+    monkeypatch.setattr("builtins.open", refuse)
+    assert cli.shim_is_current(p, "overwatch-hook.sh") is False
 
 
 def test_line_endings_alone_make_a_shim_stale(tmp_path):

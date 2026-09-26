@@ -6,9 +6,28 @@ running it.
 """
 import json
 import os
-import tempfile
 
 from pc import protocol, widgets
+
+
+def _redirect_home(path, monkeypatch):
+    """Point expanduser("~") at `path`, on every platform.
+
+    BOTH variables, and that is the whole of what was wrong with the three
+    tests below. Python's expanduser reads HOME on POSIX and USERPROFILE on
+    Windows, so setting only HOME left Windows resolving the sandbox home that
+    tests/conftest.py had already put in USERPROFILE: the tests wrote their
+    file into one directory and then read a different one. conftest.py sets
+    both and carries a comment saying why twelve tests once needed it; these
+    three predated it and quietly opted out.
+
+    monkeypatch rather than a try/finally around os.environ, too. The old form
+    restored HOME only when it had already been set, so a failure in the body
+    leaked the redirect into every test that ran afterwards -- and it leaked a
+    temporary directory per test that nothing ever removed.
+    """
+    monkeypatch.setenv("HOME", str(path))
+    monkeypatch.setenv("USERPROFILE", str(path))
 
 
 def _lx(apps, run=None):
@@ -140,43 +159,32 @@ def test_an_empty_name_produces_no_command_at_all():
 
 # --- the config file ----------------------------------------------------
 
-def test_a_malformed_config_falls_back_instead_of_raising():
+def test_a_malformed_config_falls_back_instead_of_raising(tmp_path,
+                                                         monkeypatch):
     """A login agent must start even when the customer drops a comma."""
-    home = tempfile.mkdtemp()
-    old = os.environ.get("HOME")
-    os.environ["HOME"] = home
-    try:
-        os.makedirs(os.path.join(home, ".overwatch"), exist_ok=True)
-        with open(widgets._config_path(), "w") as fh:
-            fh.write("{ not json,,,")
-        assert len(widgets.load_apps()) == widgets.SLOTS
-    finally:
-        if old is not None:
-            os.environ["HOME"] = old
+    _redirect_home(tmp_path, monkeypatch)
+    os.makedirs(os.path.join(str(tmp_path), ".overwatch"), exist_ok=True)
+    with open(widgets._config_path(), "w") as fh:
+        fh.write("{ not json,,,")
+    assert len(widgets.load_apps()) == widgets.SLOTS
 
 
-def test_the_config_path_follows_a_redirected_home():
+def test_the_config_path_follows_a_redirected_home(tmp_path, monkeypatch):
     """Pins the CLAUDE.md sandbox hole: resolved in the function, not at
-    import, so a test can never write the developer's own apps.json."""
-    home = tempfile.mkdtemp()
-    old = os.environ.get("HOME")
-    os.environ["HOME"] = home
-    try:
-        assert widgets._config_path().startswith(home)
-    finally:
-        if old is not None:
-            os.environ["HOME"] = old
+    import, so a test can never write the developer's own apps.json.
+
+    The redirect happens AFTER import, which is the point -- a constant
+    computed at module scope could not follow it.
+    """
+    elsewhere = tmp_path / "another-home"
+    elsewhere.mkdir()
+    _redirect_home(elsewhere, monkeypatch)
+    assert widgets._config_path().startswith(str(elsewhere))
 
 
-def test_a_config_file_overrides_the_defaults():
-    home = tempfile.mkdtemp()
-    old = os.environ.get("HOME")
-    os.environ["HOME"] = home
-    try:
-        os.makedirs(os.path.join(home, ".overwatch"), exist_ok=True)
-        with open(widgets._config_path(), "w") as fh:
-            json.dump(["Ableton"], fh)
-        assert widgets.load_apps()[0] == "Ableton"
-    finally:
-        if old is not None:
-            os.environ["HOME"] = old
+def test_a_config_file_overrides_the_defaults(tmp_path, monkeypatch):
+    _redirect_home(tmp_path, monkeypatch)
+    os.makedirs(os.path.join(str(tmp_path), ".overwatch"), exist_ok=True)
+    with open(widgets._config_path(), "w") as fh:
+        json.dump(["Ableton"], fh)
+    assert widgets.load_apps()[0] == "Ableton"

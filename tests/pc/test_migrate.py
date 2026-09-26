@@ -7,6 +7,7 @@ contents `uninstall` will still recognise as ours.
 """
 import json
 import os
+import sys
 
 import pytest
 
@@ -106,6 +107,74 @@ def test_the_markers_are_rewritten_so_uninstall_still_recognises_them(home):
     assert "overwatch-hook.sh" in marker
 
 
+def _apply(pairs, text):
+    for old, new in pairs:
+        text = text.replace(old, new)
+    return text
+
+
+def test_the_rewrite_handles_the_spellings_windows_actually_uses(monkeypatch):
+    """The bug that had five of these failing on every push since the rebrand.
+
+    _pairs() was built from os.sep, which is a backslash on Windows -- but
+    every string it has to rewrite there is spelled with FORWARD slashes:
+
+      - the shims are POSIX sh and compute "$HOME/.blink/$sub" everywhere;
+      - the commands in settings.json and in both markers go through
+        install_statusline.windows_bash_path, which turns every backslash into
+        a forward slash because a backslash is an escape under Git Bash, and
+        replaces the home with a literal "$USERPROFILE".
+
+    So on Windows the pairs read `\\.blink\\blink-hook.sh`, matched nothing, and a
+    migration moved the directory while leaving every reference inside it
+    pointing at ~/.blink -- which the hook shim then recreated on the next tool
+    call. Both separators now, so the mixed form works too.
+
+    Driven through _pairs() with os.sep forced rather than through run(), so it
+    runs on every platform: a fix only Windows CI can see is a fix that comes
+    back.
+    """
+    monkeypatch.setattr(migrate.os, "sep", chr(92))
+    pairs = migrate._pairs()
+
+    for label, text in (
+            ("the shim body, always forward slashes",
+             '#!/bin/sh\nDIR="$HOME/.blink/$sub"\nexit 0\n'),
+            ("a marker written by windows_bash_path",
+             'bash "$USERPROFILE/.blink/blink-hook.sh" SessionStart'),
+            ("a native path Python wrote",
+             "C:" + chr(92) + "Users" + chr(92) + "k" + chr(92)
+             + ".blink" + chr(92) + "blink-statusline.sh"),
+            ("the two mixed together",
+             "C:" + chr(92) + "Users" + chr(92) + "k" + chr(92)
+             + ".blink/blink-hook.sh"),
+    ):
+        after = _apply(pairs, text)
+        assert ".blink" not in after, "%s: still names the old home" % label
+        assert "blink-" not in after, "%s: still names an old shim" % label
+        assert ".overwatch" in after, "%s: nothing was moved" % label
+
+
+def test_posix_pairs_are_unchanged_by_the_windows_fix(monkeypatch):
+    """Adding the second separator must not have changed POSIX behaviour.
+
+    With os.sep == "/" the two spellings collapse to one, so the list is the
+    same seven pairs in the same order it always was. Order is load-bearing --
+    the docstring on _pairs() says why -- so this pins the sequence, not just
+    the set.
+    """
+    monkeypatch.setattr(migrate.os, "sep", "/")
+    assert migrate._pairs() == [
+        ("/.blink/blink-statusline.sh", "/.overwatch/overwatch-statusline.sh"),
+        ("/.blink/blink-hook.sh", "/.overwatch/overwatch-hook.sh"),
+        ("/.blink/blink-bridge.vbs", "/.overwatch/overwatch-bridge.vbs"),
+        ("/.blink", "/.overwatch"),
+        ("blink-statusline.sh", "overwatch-statusline.sh"),
+        ("blink-hook.sh", "overwatch-hook.sh"),
+        ("blink-bridge.vbs", "overwatch-bridge.vbs"),
+    ]
+
+
 def test_the_directory_is_replaced_before_the_bare_name(home):
     """`/.blink` is a substring of `/.blink/blink-hook.sh`. Replacing the
     directory first leaves `/.overwatch/blink-hook.sh`: wrong, and plausible
@@ -135,12 +204,32 @@ def test_the_rewrite_does_not_depend_on_how_home_is_spelled(home, settings):
     assert "/somewhere/else/.overwatch/overwatch-statusline.sh" in text
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="there is no file to stat: Windows keeps its "
+                           "Scheduled Tasks in a database, so run() reports "
+                           "nothing by design. Pinned below instead.")
 def test_it_says_the_old_service_is_still_registered(home, monkeypatch):
     monkeypatch.setattr(migrate.os.path, "exists",
                         lambda p: True if ".plist" in str(p)
                         or "systemd" in str(p) else os.path.lexists(p))
     said = migrate.run()
     assert any("still registered" in line for line in said)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only behaviour")
+def test_on_windows_it_says_nothing_about_a_scheduled_task(home):
+    """The other half of the test above, and a deliberate difference.
+
+    The other three platforms register a login service as a FILE, so run() can
+    stat it and only mention it when it is really there. Windows keeps its
+    Scheduled Tasks in a database with nothing to stat, so run() says nothing
+    and leaves it to `overwatch install` to sort out -- see the comment beside
+    the "Task Scheduler" check.
+
+    Without this, the skip above is the only thing this suite says about
+    Windows here, and a skip is not a statement about behaviour.
+    """
+    assert not any("still registered" in line for line in migrate.run())
 
 
 def test_it_does_not_invent_a_service_that_was_never_installed(home):
