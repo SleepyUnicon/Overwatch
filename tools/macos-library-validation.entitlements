@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The escape hatch for hardened-runtime library validation. NOT used by
+  default, and worth understanding before it is.
+
+  What library validation does: it refuses to load any library into the
+  process whose Team ID differs from the process's own. That is a real
+  protection -- it is what stops someone dropping a replacement .dylib beside
+  the executable and having it loaded.
+
+  This project signs all 53 of its Mach-O files with one identity, so they all
+  carry one Team ID and validation should be satisfied without this file.
+  tools/macos_sign.sh only points at it if the binary it signed will not
+  start, which is the one situation where giving this up buys something.
+
+  Notarisation accepts it. Apple does not treat it as a disqualifying
+  entitlement, and it is what a good many Python bundles ship with. That is a
+  reason it is available here, not a reason to reach for it first.
+
+  Measured 2026-09-26: with an ad-hoc signature -- no Team ID at all, so
+  validation can never pass -- adding this is the difference between a binary
+  that prints its version and one that dies in dlopen.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>

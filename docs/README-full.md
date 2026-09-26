@@ -209,7 +209,9 @@ through, so nothing has to stay in your Downloads folder.
 
 *Downloading with `curl` rather than a browser is deliberate: macOS marks
 browser downloads as quarantined and refuses to run them until the app is
-notarised. `curl` does not, so this works today.*
+notarised. `curl` does not, so this works today. See
+[notarisation.md](notarisation.md) for what it would take to make the release
+page's download work too.*
 
 **Needs Claude Code 2.1.100 or newer.** Overwatch reads the usage figures from
 the status line, and older versions do not put them there - 2.1.0 has no
@@ -395,7 +397,7 @@ The things that were open before the first release, and how each was settled.
 | **What is supported** | Claude Code in a terminal or IDE extension: everything. Codex CLI: everything, on its own page. Claude Desktop alone: a five-hour countdown whenever Desktop is holding a reset time - it keeps one only while a window is running and clears it in between, so the countdown comes and goes and the fill rate covers the gaps - a weekly countdown once one has been learned, and no activity light. claude.ai in a browser: nothing. |
 | **Automatic app updates** | **Off** for the first release. The signed manifest carries the switch (`daemon.auto`), so it can be turned on for a later release - and off again within minutes - without touching any installed machine. |
 | **What the app keeps on disk** | Exactly what the table under "What the installer changes" says, readable by the user alone, sent nowhere. |
-| **Not yet** | macOS notarisation (the binary is unsigned; Gatekeeper asks once). Apple Silicon runs the full suite and the real installer in CI, but has not yet been watched by a person. (Windows has: a real Windows 10 PC with a Hebrew user name, 2026-08-29 - which found four things that CI's ASCII English runners could not, fixed in 1.0.3 and 1.0.4.) **Claude Desktop's cache location has only been seen on macOS**; on Windows (`%APPDATA%\Claude\`) and Linux (`~/.config/Claude/`) it is the Electron convention, and `overwatch status` prints the path it looked at so the first person beside a signed-in Desktop there can confirm it in one glance. |
+| **Not yet** | macOS notarisation. The pipeline is written and CI calls it (`tools/macos_sign.sh`, `tools/macos_notarize.sh`); it is dormant until six repository secrets exist, which needs a paid Apple Developer account. Until then the binary is unsigned beyond PyInstaller's ad-hoc signature and Gatekeeper refuses a BROWSER download of it -- the `curl` install line is unaffected and always was. See [notarisation.md](notarisation.md), which also records why the hardened runtime cannot simply be switched on. Apple Silicon runs the full suite and the real installer in CI, but has not yet been watched by a person. (Windows has: a real Windows 10 PC with a Hebrew user name, 2026-08-29 - which found four things that CI's ASCII English runners could not, fixed in 1.0.3 and 1.0.4.) **Claude Desktop's cache location has only been seen on macOS**; on Windows (`%APPDATA%\Claude\`) and Linux (`~/.config/Claude/`) it is the Electron convention, and `overwatch status` prints the path it looked at so the first person beside a signed-in Desktop there can confirm it in one glance. |
 
 ## Security &amp; privacy
 
