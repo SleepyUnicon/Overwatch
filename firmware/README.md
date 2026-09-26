@@ -66,6 +66,40 @@ Notes:
 - **Display SPI is pinned at 25 MHz.** The common 40 MHz CYD overclock white-screens
   some panels (init never latches) - see the overlay comment.
 
+### WiFi mode does not currently link
+
+Tried on 2026-09-26, to test the over-the-air update path. It fails at the
+link step:
+
+```
+section `.dram0.noinit' will not fit in region `dram1_0_seg'
+region `dram1_0_seg' overflowed by 18020 bytes
+```
+
+`dram1_0_seg` is 0x18000 -- 96 KB. Two obvious knobs were tried and BOTH
+were verified applied in the generated .config, and neither moved the
+overflow by a single byte:
+
+| tried | from | to | overflow |
+|---|---|---|---|
+| `CONFIG_HEAP_MEM_POOL_SIZE` | 86016 | 65536 | 18020 |
+| `CONFIG_LV_MEM_SIZE_KILOBYTES` | 64 | 44 | 18020 |
+
+An identical figure across three builds says the thing that does not fit is
+none of those -- it is something fixed in `.dram0.noinit`, most likely the
+WiFi driver's own static buffers. Whoever picks this up should start by
+reading that section out of the map rather than turning config knobs, and
+should expect this to be a memory-LAYOUT question (what lives in dram0
+against dram1 on this SoC) rather than a sizing one.
+
+Also note `west blobs fetch hal_espressif` is required first; without it
+the configure step fails on a missing `libble_app.a`.
+
+None of this is reachable in the shipped build anyway -- `ota.c` is
+compiled into every image but `ota_check()`/`ota_install()` are only called
+from `net_worker()`, which only standalone mode starts. So the over-the-air
+path has never executed on any board.
+
 ## Flash
 
 **Not every CYD is fused, so check which one you have first.** A unit whose
