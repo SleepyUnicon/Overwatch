@@ -399,7 +399,7 @@ jobs:
           shellcheck --version
       # -s sh: these must be POSIX. Checking them as bash would let a bashism
       # through that breaks the /bin/sh they actually run under.
-      - run: shellcheck -s sh tools/overwatch-statusline.sh tools/overwatch-hook.sh tools/build_binary.sh tools/macos_sign.sh tools/macos_notarize.sh tests/ci/*.sh
+      - run: shellcheck -s sh tools/overwatch-statusline.sh tools/overwatch-hook.sh tools/build_binary.sh tools/macos_sign.sh tools/macos_notarize.sh tools/make_kit.sh tests/ci/*.sh
 
       # The firmware and the daemon ship from one tag. A disagreement here is
       # invisible everywhere else -- it builds, it tests, it runs -- and only

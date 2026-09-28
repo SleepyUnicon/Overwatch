@@ -1,0 +1,72 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>Overwatch — Setting it up</title>
+<link rel="stylesheet" href="style.css"></head><body>
+
+<div style="border-bottom:3px solid #0A7A34;padding-bottom:4mm;margin-bottom:7mm">
+<div style="font-size:20pt;letter-spacing:.24em;font-weight:700">OVERWATCH</div>
+<div style="font-size:10pt;color:#5C6470;margin-top:1mm">Setting it up — about two minutes</div>
+</div>
+
+<p class="lead">This little screen shows how much of your Claude Code and Codex
+usage you have left, as two dials, always in view. It plugs into your computer
+over USB. There is no account to make, no WiFi to set up, and nothing running in
+the cloud.</p>
+
+<h2><span class="n">1</span>Open a terminal and paste one line</h2>
+<p>Pick the line for your computer. It downloads the program and sets everything
+up — you can delete the folder it leaves behind afterwards.</p>
+
+<h4>macOS — Apple Silicon (M1 and later)</h4>
+<pre class="term">curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</pre>
+<h4>macOS — Intel</h4>
+<pre class="term">curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</pre>
+<h4>Linux</h4>
+<pre class="term">curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-linux-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</pre>
+<h4>Windows — PowerShell</h4>
+<pre class="term">curl.exe -fsSL -o overwatch.zip https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-windows-x86_64.zip &amp;&amp; tar -xf overwatch.zip &amp;&amp; .\overwatch\overwatch.exe</pre>
+
+<p>Not sure which? Open <strong>sleepyunicon.github.io/Overwatch</strong> and the
+page offers the right one.</p>
+
+<div class="warn"><b>Paste the command — do not click a download link</b>
+<p>macOS marks anything downloaded by a browser as untrusted and refuses to run
+it: <em>"cannot be opened because the developer cannot be verified"</em>. The
+command above does not trip that. If you have already hit it, delete what you
+downloaded and use the command instead.</p></div>
+
+<h2><span class="n">2</span>Plug the screen in</h2>
+<p>Over USB, to the same computer. It finds itself — there is nothing to choose.
+The setup screen on the panel steps aside within a few seconds, and the dials
+come up.</p>
+
+<h2><span class="n">3</span>Open Claude Code once</h2>
+<p>The numbers come from Claude Code's own status line, so nothing appears until
+it has drawn one. Open it, run anything, and the dials fill in.</p>
+<p>You need <strong>Claude Code 2.1.100 or newer</strong>. Older versions do not
+publish the usage figures at all.</p>
+
+<h2>Using it</h2>
+<table class="tight">
+<tr><td style="width:36%"><strong>Swipe left or right</strong></td>
+    <td>music, dials, app launcher</td></tr>
+<tr><td><strong>Tap the gear</strong></td><td>settings — light or dark theme</td></tr>
+<tr><td><strong>Tap the little face</strong></td><td>it has moods</td></tr>
+<tr><td><strong>Leave it alone</strong></td><td>the face takes over the screen</td></tr>
+</table>
+
+<h2>If something looks wrong</h2>
+<table class="tight">
+<tr><td style="width:44%">Panel says "Link the PC daemon"</td>
+    <td>run <code>overwatch status</code> in a terminal</td></tr>
+<tr><td>Dials are empty</td><td>open Claude Code once</td></tr>
+<tr><td>Nothing happens when plugged in</td>
+    <td><strong>try a different USB cable.</strong> Many are charge-only.</td></tr>
+</table>
+
+<p>It updates itself from then on — both halves — and asks before it does.
+To remove it completely, <code>overwatch uninstall</code> puts everything back.</p>
+
+<hr>
+<p class="small">Overwatch @VERSION@ · open source, free, noncommercial ·
+github.com/SleepyUnicon/Overwatch</p>
+</body></html>

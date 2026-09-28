@@ -1,0 +1,58 @@
+FLASHING THE BOARD
+==================
+
+Wire it first IF you are using a separate ESP32 and panel rather than an
+all-in-one CYD board. See wiring-discrete-esp32-only.md in this folder.
+On a CYD there is nothing to wire - skip straight to the command.
+
+    *** SDO / MISO STAYS DISCONNECTED. ***
+
+    It would land on GPIO 12, which the ESP32 reads at power-on to pick
+    its flash voltage. A wire there stops the board booting at all, and
+    it is the last thing you would suspect, because somebody told you to
+    fit it.
+
+
+THE COMMAND
+-----------
+
+Plug the board in over USB, then:
+
+    overwatch flash --image overwatch-@VERSION@.bin
+
+Run it from inside this folder. It finds the board on its own, stops the
+daemon so the serial port is free, writes the image, and verifies what it
+wrote.
+
+Takes a minute or two. THE SCREEN STAYS DARK THE WHOLE TIME. That is
+normal - do not unplug it.
+
+
+AFTERWARDS
+----------
+
+The board reboots by itself and should light up.
+
+If it stays dark: the firmware has already been verified by esptool, so
+the flash is not the problem. Check the wiring, and check the panel.
+
+Optional, only for a unit that should boot to the Codex mark instead of
+the Overwatch one:
+
+    overwatch provision --edition codex
+
+
+WHY THIS FILE AND NOT THE RELEASES PAGE
+---------------------------------------
+
+overwatch-@VERSION@.bin  (this folder)   bootloader + program, one file,
+                                     flashed at offset 0. For a board
+                                     that has never run anything.
+
+overwatch-fw.bin     (releases page) program only. For a working board
+                                     updating itself over USB.
+
+Both start with "overwatch-" and end with ".bin". Only this one works on
+a blank board.
+
+SHA256SUMS in this folder is the checksum of the file that should be here.

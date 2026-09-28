@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Overwatch — Installation, Setup and Project Record</title>
+<link rel="stylesheet" href="style.css"></head><body>
+
+<section class="cover">
+  <div class="mark">OVERWATCH</div>
+  <div class="rule"></div>
+  <h1>Installation, Setup<br>and Project Record</h1>
+  <p class="sub">A desk display that shows your Claude Code and Codex usage as live
+  dials, plus a music transport, an app launcher and a face — built on an ESP32,
+  driven by a small daemon on your computer over USB.</p>
+  <div class="meta">
+    <b>Release</b> &nbsp;2.1.0 &nbsp;·&nbsp; 26 September 2026<br>
+    <b>Repository</b> &nbsp;github.com/SleepyUnicon/Overwatch<br>
+    <b>Setup page</b> &nbsp;sleepyunicon.github.io/Overwatch<br>
+    <b>Document</b> &nbsp;28 September 2026<br>
+    <b>Licence</b> &nbsp;PolyForm Noncommercial 1.0.0
+  </div>
+</section>
+
+<section class="toc">
+<h1>Contents</h1>
+<ol>
+  <li class="pt">Part I — The manual</li>
+  <li><a href="#s1">1 &nbsp;What Overwatch is</a></li>
+  <li><a href="#s2">2 &nbsp;What you need</a></li>
+  <li><a href="#s3">3 &nbsp;Installing it on a computer</a></li>
+  <li><a href="#s4">4 &nbsp;Pairing the board</a></li>
+  <li><a href="#s5">5 &nbsp;Using it</a></li>
+  <li><a href="#s6">6 &nbsp;Keeping it updated</a></li>
+  <li><a href="#s7">7 &nbsp;Uninstalling</a></li>
+  <li><a href="#s8">8 &nbsp;Troubleshooting</a></li>
+  <li class="pt">Part II — What has been built</li>
+  <li><a href="#s9">9 &nbsp;From BLINK to Overwatch</a></li>
+  <li><a href="#s10">10 &nbsp;Hardware bring-up</a></li>
+  <li><a href="#s11">11 &nbsp;The case</a></li>
+  <li><a href="#s12">12 &nbsp;Firmware</a></li>
+  <li><a href="#s13">13 &nbsp;The daemon and the web app</a></li>
+  <li><a href="#s14">14 &nbsp;Updates and release engineering</a></li>
+  <li><a href="#s15">15 &nbsp;Testing and CI</a></li>
+  <li><a href="#s16">16 &nbsp;The most recent work, in detail</a></li>
+  <li><a href="#s17">17 &nbsp;Release history</a></li>
+  <li class="pt">Part III — Reference</li>
+  <li><a href="#s18">18 &nbsp;Commands</a></li>
+  <li><a href="#s19">19 &nbsp;Where things live</a></li>
+  <li><a href="#s20">20 &nbsp;Repository layout</a></li>
+  <li><a href="#s21">21 &nbsp;Rules learned the hard way</a></li>
+  <li><a href="#s22">22 &nbsp;Open threads</a></li>
+</ol>
+</section>
+
+<h1 class="part">Part I — The manual</h1>
+
+<h2 id="s1"><span class="n">1</span>What Overwatch is</h2>
+<p class="lead">A small touchscreen that sits on your desk and tells you things
+your computer knows but hides.</p>
+
+<p>Its first page is a pair of dials showing the same numbers as Claude Code's
+<code>/usage</code> command — your <strong>5-hour session</strong> and your
+<strong>7-day week</strong> — each turning green through amber to red, with a
+countdown to when it resets. Codex and Claude Desktop are read the same way.</p>
+
+<p>Swipe left for a music transport, right for an app launcher. Tap the gear for
+settings. Leave it alone and a drawn face takes over the screen.</p>
+
+<p>It plugs in over USB. There is no WiFi to configure, no account to make, and
+no cloud service in the path: a small program on your computer reads your local
+usage files and pushes frames down the cable.</p>
+
+<h3>The two halves</h3>
+<table>
+<tr><th style="width:26%">Half</th><th>What it does</th></tr>
+<tr><td><strong>The board</strong><br><span class="small">firmware, C, Zephyr</span></td>
+    <td>Draws the pages, handles touch, plays the boot clip, applies firmware
+    updates it is offered. Knows nothing about your accounts.</td></tr>
+<tr><td><strong>The daemon</strong><br><span class="small">Python, on your computer</span></td>
+    <td>Reads Claude Code's status line, its hooks, Codex's logs and Claude
+    Desktop's cache; works out the numbers; sends them down the cable. Also
+    launches apps and reads your music player when the board asks.</td></tr>
+</table>
+
+<div class="note"><b>Licence</b>
+<p>PolyForm Noncommercial 1.0.0, with an added permission. Build one, build ten,
+change it, rewrite it, give them away. The one thing the licence forbids is
+selling it — the device, the software, or any product with it inside.</p></div>
+
+<h2 id="s2"><span class="n">2</span>What you need</h2>
+
+<h3>2.1 &nbsp;The board</h3>
+<p>Either of two things works. The firmware is written for the first and has
+been proven on the second.</p>
+
+<h4>Option A — the integrated board</h4>
+<p>An <strong>ESP32-2432S028</strong>, sold everywhere as a "Cheap Yellow
+Display" (CYD): an ESP32 with a 2.8&nbsp;inch 320×240 resistive touch panel on
+one PCB, about $12. Nothing to wire.</p>
+
+<h4>Option B — a discrete ESP32 and panel</h4>
+<p>An <strong>ESP32 DevKitC</strong> (WROOM-32) and a standalone
+<strong>KMRTM28028-SPI</strong> 2.8&nbsp;inch module, joined by 13 jumpers. This
+is the combination this project actually runs on, verified 23 September 2026:
+screen draws, colours correct, touch lands on target, daemon connects.</p>
+
+<p>The pin map is unchanged from the CYD's, so no device-tree overlay needs
+editing:</p>
+
+<table class="tight">
+<tr><th>Module pin</th><th>ESP32</th><th>Note</th></tr>
+<tr><td>VCC</td><td>3V3</td><td></td></tr>
+<tr><td>GND</td><td>GND</td><td></td></tr>
+<tr><td>RESET</td><td>EN</td><td>resets with the board</td></tr>
+<tr><td>CS</td><td>GPIO 15</td><td></td></tr>
+<tr><td>D/C</td><td>GPIO 2</td><td></td></tr>
+<tr><td>SDI (MOSI)</td><td>GPIO 13</td><td></td></tr>
+<tr><td>SCK</td><td>GPIO 14</td><td></td></tr>
+<tr><td>LED</td><td>GPIO 21</td><td>no transistor</td></tr>
+<tr><td>SDO (MISO)</td><td><strong>not connected</strong></td><td>see warning below</td></tr>
+<tr><td>T_CLK</td><td>GPIO 25</td><td></td></tr>
+<tr><td>T_CS</td><td>GPIO 33</td><td></td></tr>
+<tr><td>T_DIN</td><td>GPIO 32</td><td></td></tr>
+<tr><td>T_OUT</td><td>GPIO 39</td><td>printed <code>VN</code> on the DevKitC</td></tr>
+<tr><td>T_IRQ</td><td>GPIO 36</td><td>printed <code>VP</code> on the DevKitC</td></tr>
+</table>
+
+<div class="warn"><b>Leave SDO disconnected</b>
+<p>It would land on GPIO 12, which the ESP32 samples at reset to choose its
+flash voltage. The CYD's panel never drives MISO — the display is declared
+<code>write-only</code> — so the CYD gets away with wiring it. A module that
+does drive it <strong>stops the board booting</strong>, and the wire you were
+told to fit is the last thing you would suspect.</p>
+<p>Two more traps on the same connector: the pin is <code>T_OUT</code>, not
+<code>T_DO</code> — both spellings exist on these modules. And the DevKitC
+silkscreen calls GPIO 36 and 39 <code>VP</code> and <code>VN</code>, so they are
+not where you will look for them.</p></div>
+
+<p>The full recipe, including the two config files and the macOS and zsh
+gotchas, is in <code>firmware/WIRED.md</code>.</p>
+
+<h3>2.2 &nbsp;The computer</h3>
+<table class="tight">
+<tr><th>Requirement</th><th>Detail</th></tr>
+<tr><td>Operating system</td><td>macOS, Linux or Windows</td></tr>
+<tr><td>Claude Code</td><td><strong>2.1.100 or newer.</strong> Older versions do not put
+  the usage figures in the status line at all</td></tr>
+<tr><td>Python</td><td>None. The download is a self-contained binary</td></tr>
+<tr><td>Driver</td><td>Only on Windows, and <code>overwatch install</code> offers it</td></tr>
+</table>
+
+<h3>2.3 &nbsp;The case</h3>
+<p>A 3D print, in two designs — a Claude edition and a Codex edition — both
+snap-fit, sized to the glass rather than the lit area. Files are on MakerWorld;
+the OpenSCAD source is in <code>case/</code>.</p>
+
+<h2 id="s3"><span class="n">3</span>Installing it on a computer</h2>
+
+<h3>3.1 &nbsp;One command</h3>
+<p>Open a terminal and paste the line for your machine. It downloads the
+program, unpacks it, and runs it.</p>
+
+<h4>macOS — Apple Silicon</h4>
+<pre class="term">curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</pre>
+<h4>macOS — Intel</h4>
+<pre class="term">curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</pre>
+<h4>Linux</h4>
+<pre class="term">curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-linux-x86_64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</pre>
+<h4>Windows — PowerShell</h4>
+<pre class="term">curl.exe -fsSL -o overwatch.zip https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-windows-x86_64.zip &amp;&amp; tar -xf overwatch.zip &amp;&amp; .\overwatch\overwatch.exe</pre>
+
+<div class="warn"><b>Use the command, not a download link</b>
+<p>macOS marks anything downloaded by a <em>browser</em> as quarantined and
+Gatekeeper refuses to run it until the app is notarised — you get
+<em>"cannot be opened because the developer cannot be verified"</em>.
+<code>curl</code> sets no quarantine flag, so the line above just works. This is
+the reason the install is a command rather than a button.</p></div>
+
+<h3>3.2 &nbsp;What <code>overwatch install</code> does</h3>
+<p>Running the unpacked program with no arguments is the same as
+<code>overwatch install</code>. It is the only step, and it is reversible.</p>
+
+<table>
+<tr><th style="width:34%">Step</th><th>What changes</th></tr>
+<tr><td>Copies itself</td><td>to <code>~/.overwatch/bin/</code>, so you can delete the
+  folder you downloaded</td></tr>
+<tr><td>Status line</td><td>adds a <code>statusLine</code> entry to
+  <code>~/.claude/settings.json</code>. If you already have one it is
+  <em>chained</em>, not replaced — yours still renders</td></tr>
+<tr><td>Claude hooks</td><td>registers 10 events (SessionStart, UserPromptSubmit,
+  PreToolUse, PostToolUse, Notification, Stop and others) so the board can show
+  what each session is doing</td></tr>
+<tr><td>Codex hooks</td><td>the same, in <code>~/.codex/hooks.json</code>, if Codex is
+  present</td></tr>
+<tr><td>Driver</td><td>Windows only — offers the CH340 USB driver</td></tr>
+<tr><td>Login service</td><td>registers a background service that starts at login and
+  restarts if it dies</td></tr>
+</table>
+
+<p>It refuses rather than guesses. If <code>settings.json</code> does not parse,
+it changes nothing and says so — the alternative would be writing a fresh file
+over one you were halfway through editing.</p>
+
+<h3>3.3 &nbsp;Running at login</h3>
+<p>This is automatic, and part of <code>install</code>. On macOS it is a launchd
+<strong>LaunchAgent</strong> at
+<code>~/Library/LaunchAgents/com.overwatch.bridge.plist</code>, with
+<code>RunAtLoad</code> and <code>KeepAlive</code> set, and a 10-second throttle
+so a repeatable crash cannot become a spin. Linux gets a systemd user unit;
+Windows gets a Scheduled Task with an at-logon trigger.</p>
+
+<div class="note"><b>Login, not boot</b>
+<p>It starts when you log in, not when the machine powers on — and that is
+correct rather than a shortcut. The daemon needs your user session to read
+<code>~/.claude</code> and to hold the serial port. A boot-time daemon would
+start earlier and be unable to do its job.</p></div>
+
+<p>Confirm it with <code>overwatch status</code>, which should say
+<code>running (launchd, pid N)</code>.</p>
+
+<h2 id="s4"><span class="n">4</span>Pairing the board</h2>
+
+<p>Plug the board in over USB. The daemon finds it on its own — there is nothing
+to select.</p>
+
+<p>A board that has never seen a computer shows a <strong>setup screen</strong>
+with a QR code and an address. This exists because of a hardware fact: the board
+is an ESP32 behind a USB-to-serial chip, so to a computer it is a serial port
+and nothing else. It cannot autorun, cannot pretend to be a keyboard and type a
+URL, and cannot mount a drive with a shortcut on it. Those need native USB,
+which this silicon does not have. So the board shows the address and a person
+carries it across.</p>
+
+<h3>4.1 &nbsp;From the panel</h3>
+<ol>
+<li>Scan the QR with a phone. It opens
+    <code>sleepyunicon.github.io/Overwatch</code>.</li>
+<li>The code carries a <strong>pairing token</strong> in the URL fragment, so
+    the page opens already connected to your computer. Browsers never send a
+    fragment to a server, so the secret reaches the page without crossing the
+    network — GitHub never sees it.</li>
+<li>Follow the install command on the page.</li>
+</ol>
+<p>The address printed under the code is deliberately shorter than what the code
+carries: no scheme, no token. It is the thing a person could reasonably type.
+Anyone typing it lands unpaired and finishes from the computer instead.</p>
+
+<h3>4.2 &nbsp;From the computer</h3>
+<p>The daemon serves a small page on the loopback address only:</p>
+<pre class="term">http://127.0.0.1:8730</pre>
+<p>From there you can see whether the board is seen, start the service if it is
+stopped, and choose the launcher's tiles. The setup screen on the board steps
+aside by itself as soon as the daemon introduces itself.</p>
+
+<h2 id="s5"><span class="n">5</span>Using it</h2>
+
+<table>
+<tr><th style="width:30%">Gesture</th><th>What happens</th></tr>
+<tr><td>Swipe left / right</td><td>moves between pages — music, gauges, launcher</td></tr>
+<tr><td>Tap the gear</td><td>settings: theme, edition, the setup QR, factory reset</td></tr>
+<tr><td>Tap the face cue</td><td>the idle face, on its own page</td></tr>
+<tr><td>Tap a launcher tile</td><td>brings that app to the front on your computer</td></tr>
+<tr><td>Long-press the version line</td><td>reveals the detail behind it</td></tr>
+</table>
+
+<h3>The pages</h3>
+<ul>
+<li><strong>Gauges</strong> — session and week as two rings, with the unit and
+    percentage inside each and a countdown below. A status row appears only when
+    something wants you; the clock holds it otherwise.</li>
+<li><strong>Music</strong> — what is playing on your computer, with transport
+    controls.</li>
+<li><strong>Launcher</strong> — six tiles, each one an app. The board sends only
+    a slot number; the computer decides what that means, so the mapping changes
+    without reflashing.</li>
+<li><strong>Face</strong> — two eyes and a mouth, drawn rather than played, with
+    moods that blend into one another.</li>
+</ul>
+
+<h3>Themes</h3>
+<p>Light is the default. Dark is in settings. Switching rebuilds the screen
+rather than restyling it — LVGL keeps no back-reference from a styled object to
+the colour it was given, so a live switch would mean walking every object on
+every screen and knowing which role each colour played. Getting one wrong leaves
+a single unreadable label that nobody finds until a customer does.</p>
+<h2 id="s6"><span class="n">6</span>Keeping it updated</h2>
+
+<p>Two things update, and they ship together from one tag so they always carry
+the same version number.</p>
+
+<h3>6.1 &nbsp;The app on your computer</h3>
+<pre class="term">~/.overwatch/bin/overwatch update</pre>
+<p>It reads a signed manifest from the release feed, checks the signature
+against a public key compiled into the program, downloads the archive for your
+platform, verifies its SHA-256, replaces itself and restarts the service.</p>
+
+<h3>6.2 &nbsp;The firmware on the board</h3>
+<p>Nothing to do. When the board says hello and its version is behind the feed,
+the daemon offers the update and the board shows a prompt. Tap it. The whole
+thing takes under a minute over the cable.</p>
+
+<pre>12:48:16 [bridge] ota: offering 2.1.0 (561659 bytes)
+12:48:20 [bridge] &lt;- {'t': 'ota_flash'}
+12:48:23 [bridge] ota: flashing 2.1.0
+12:49:09 [ota] update landed: wanted 2.1.0, running 2.1.0 (from 2.0.9)</pre>
+
+<p>A failed update is retried rather than abandoned, and the board asks again
+after two minutes. If a board is running a protocol this app does not speak, no
+update is offered at all — the daemon writes the slot in place with no test boot
+behind it, so "probably fine" is not a good enough basis for the one operation
+that can leave you holding a device that does not start.</p>
+
+<div class="note"><b>After a self-update on macOS</b>
+<p>You may see <em>"the background service is not running"</em> immediately
+after <code>update</code>. It is usually wrong. Replacing the running binary
+invalidates its code signature and macOS kills the old process
+(<code>last exit reason = OS_REASON_CODESIGNING</code>); launchd restarts it a
+moment later, but the check runs during that gap. Confirm with
+<code>overwatch status</code> before running anything else.</p></div>
+
+<h2 id="s7"><span class="n">7</span>Uninstalling</h2>
+<pre class="term">~/.overwatch/bin/overwatch uninstall</pre>
+<p>Removes the login service, takes the status line and hooks back out of
+<code>settings.json</code> — restoring any status line of yours that was chained
+behind it — and leaves your own files alone.</p>
+<p>It deliberately leaves <strong>Codex's trust records</strong> in
+<code>~/.codex/config.toml</code> and says so, naming the file. Removing them
+looks tidier and is wrong: under <code>codex exec</code> a distrusted hook is
+skipped silently, with no prompt and no output, so a reinstall on a headless
+machine would produce a hook that is installed, correct, registered and
+permanently invisible.</p>
+
+<h2 id="s8"><span class="n">8</span>Troubleshooting</h2>
+<table>
+<tr><th style="width:38%">Symptom</th><th>What to do</th></tr>
+<tr><td>Board sits on "Link the PC daemon"</td>
+    <td>The daemon is not running or not paired. <code>overwatch status</code>;
+    if the bridge is not running, <code>overwatch install</code>.</td></tr>
+<tr><td>"Usage data — none yet"</td>
+    <td>Open Claude Code once so it renders its status line. Nothing is read
+    until it does.</td></tr>
+<tr><td>Board not found</td>
+    <td><strong>Try a different cable first.</strong> Many USB-C cables are
+    charge-only. Four drops in one day traced to one cable, one of them
+    reporting the serial TX path down.</td></tr>
+<tr><td>Nothing on screen after flashing by hand</td>
+    <td>Almost certainly MCUboot written into the app slot. See §21.</td></tr>
+<tr><td>"developer cannot be verified" on macOS</td>
+    <td>You downloaded through a browser. Use the <code>curl</code> line in §3.1.</td></tr>
+<tr><td>Setup screen will not leave</td>
+    <td>Fixed in 2.0.7. Update the app, then unplug and replug the board.</td></tr>
+<tr><td>Service "not running" right after an update</td>
+    <td>Usually a false alarm — see the note in §6.2.</td></tr>
+<tr><td>Nothing else works</td>
+    <td>The log is <code>~/.overwatch/bridge.log</code> and it is verbose.</td></tr>
+</table>
+
+<h1 class="part">Part II — What has been built</h1>
+
+<h2 id="s9"><span class="n">9</span>From BLINK to Overwatch</h2>
+<p class="lead">Overwatch began as a fork of <code>KfirLevy258/Blink</code> and
+stopped being one.</p>
+
+<p>Forty-eight commits separate it from upstream. The work falls into six
+strands, described in the sections that follow. The rebrand itself was a
+deliberate, complete separation rather than a change of name:</p>
+
+<table>
+<tr><th style="width:32%">What moved</th><th>From → to</th></tr>
+<tr><td>Name and wordmark</td><td>BLINK → OVERWATCH, including the boot animation</td></tr>
+<tr><td>State directory</td><td><code>~/.blink/</code> → <code>~/.overwatch/</code>,
+    with a migration that runs once on a real machine</td></tr>
+<tr><td>Release feed</td><td>upstream's releases → this fork's</td></tr>
+<tr><td>Signing key</td><td>upstream's public key → this fork's own keypair</td></tr>
+<tr><td>Version line</td><td>continued at 2.0.0 as its own product</td></tr>
+<tr><td>Repository</td><td>made public at <code>SleepyUnicon/Overwatch</code></td></tr>
+</table>
+
+<p>The migration was the delicate part. It renames the directory, then rewrites
+every string inside it that names the old one — the two markers that tell
+<code>uninstall</code> which hooks are ours, and the shims themselves. Renaming
+the files is not enough: the hook shim computes its own state directory as
+<code>$HOME/.blink/$sub</code>, so a shim that moved and was renamed still wrote
+where it always did. That recreated <code>~/.blink</code> within a minute of the
+move, on the first hook that fired afterwards.</p>
+
+<h2 id="s10"><span class="n">10</span>Hardware bring-up</h2>
+<p>The board this project runs on is not the one the firmware was written for. A
+discrete ESP32 DevKitC and a standalone 2.8&nbsp;inch module were wired on 13
+jumpers and brought up on 23 September 2026 — screen, colours, touch, daemon,
+gauges.</p>
+<p>Two findings were worth the trouble and are recorded in
+<code>firmware/WIRED.md</code>: the <code>SDO</code> wire that stops the board
+booting (§2.1), and touch arriving inverted on <strong>both</strong> axes after
+the panel change, fixed in the device-tree overlay by dropping
+<code>invert-x</code> and adding <code>invert-y</code>.</p>
+
+<h2 id="s11"><span class="n">11</span>The case</h2>
+<p>Two snap-fit designs, sized to the glass rather than the lit area, written in
+OpenSCAD and verified numerically rather than by eye — STLs were ray-cast and
+analysed for shell count and genus after every change.</p>
+<p>That verification earned its keep. Six defects were found in geometry that
+looked correct in a render:</p>
+<table>
+<tr><th style="width:34%">Defect</th><th>Cause</th></tr>
+<tr><td>USB-C port sealed shut</td><td>the cavity used the spigot's width along its
+    whole length; it now steps</td></tr>
+<tr><td>All 21 vents sealed</td><td>the extrude began at 39 against a wall spanning
+    38–40</td></tr>
+<tr><td>Port and aperture mirrored</td><td>the viewer's right is negative x — the
+    whole front had to be unmirrored</td></tr>
+<tr><td>Perch protruding 2&nbsp;mm</td><td>unclipped by the tray's inside profile</td></tr>
+<tr><td>Corner relief through the wall</td><td>only 0.323&nbsp;mm of material was
+    available; the seat radius now comes from the clearance</td></tr>
+<tr><td><code>desk_cut</code> silently deleted</td><td>an over-wide replacement span;
+    OpenSCAD only warns, so the module list is now diffed before and after</td></tr>
+</table>
+<p>The board's slot was also cut to the board — the ESP32 had been 1.6&nbsp;mm
+short — and the spigot relieved where the display's connectors begin right at
+the edge.</p>
+
+<h2 id="s12"><span class="n">12</span>Firmware</h2>
+
+<h3>12.1 &nbsp;Pages and theme</h3>
+<p>A page stack with cross navigation — gauges in the centre, music left,
+launcher right — plus settings, setup and sleep as overlays. Ten files used to
+carry their own <code>#define COL_BG</code>, which was survivable while they
+agreed and stopped being survivable the moment they did not: the gauges moved to
+white while the widget pages stayed near-black, so one swipe crossed from a
+white screen to a dark one. Colours now live in one palette structure with a
+light and a dark set.</p>
+
+<h3>12.2 &nbsp;The boot animation</h3>
+<p>The Overwatch wordmark, generated from the logo and encoded as BAN1 delta-RLE
+clips, replacing upstream's eye animation. The Codex edition gets its own
+variant with inverted ink. Frames are isolated by connected-component labelling
+so the mark is separated from its background cleanly.</p>
+
+<h3>12.3 &nbsp;The face</h3>
+<p>Two eyes and a mouth, <strong>drawn rather than played</strong>. The sleep
+screen used to play encoded clips of about 300&nbsp;KB each, which is the right
+shape for one filmed animation and the wrong one for a face with moods: eight
+expressions times five gaze directions is not a clip library, it is a sprite
+sheet nobody can edit. The face is five rectangles and a table instead — an
+expression is a set of numbers and the tick eases toward whichever is current,
+so every expression blends into every other one for free, at a cost of a few
+hundred bytes.</p>
+
+<h3>12.4 &nbsp;The setup screen and QR</h3>
+<p>A brand-new board shows where to go, because it cannot send anyone there
+itself. The QR is drawn dark-on-light whatever the theme is doing — a code the
+theme made pretty and unscannable would fail in exactly the situation it exists
+for.</p>
+
+<h2 id="s13"><span class="n">13</span>The daemon and the web app</h2>
+
+<h3>13.1 &nbsp;Extension without forking</h3>
+<p>The widget half is a <strong>subclass</strong> of the upstream bridge rather
+than an edit to it. Everything is additive, and unknown message types still fall
+through to the original handler, which ignores them exactly as before. That
+keeps upstream's releases from becoming merge conflicts.</p>
+
+<h3>13.2 &nbsp;The local page, and the security around it</h3>
+<p>The daemon serves a small page on <code>127.0.0.1:8730</code>. Making it
+useful to a page hosted on GitHub Pages meant closing several holes at once:</p>
+<ul>
+<li><strong>Origin allowlist</strong> plus loopback, rather than a wildcard.</li>
+<li><strong>A pairing token</strong> in a header, compared with a constant-time
+    comparison, stored at <code>~/.overwatch/pair.json</code> with mode 0600.</li>
+<li><strong>Private Network Access</strong> headers, so a public page is
+    permitted to reach a loopback service at all.</li>
+<li><strong>A CSRF hole closed</strong> — simple requests need no preflight, so
+    the state-changing routes were made to require the token and the pairing
+    route made same-origin only.</li>
+</ul>
+
+<h3>13.3 &nbsp;The setup site</h3>
+<p>A page on GitHub Pages that opens with the same animation the device plays,
+lays the steps out as tiles, and — once paired — mirrors the device's own UI so
+you can assign launcher tiles by clicking the picture of the thing on your desk.
+Phone detection is done in CSS rather than JavaScript, after
+<code>innerWidth</code> was measured reporting 1190 on a 375-pixel viewport.</p>
+
+<h2 id="s14"><span class="n">14</span>Updates and release engineering</h2>
+<p>A release is one tag carrying the firmware and four platform binaries, with a
+manifest signed on the maintainer's machine — the release key never reaches
+CI.</p>
+<table>
+<tr><th style="width:30%">Property</th><th>How</th></tr>
+<tr><td>Integrity</td><td>ECDSA P-256 over a manifest naming each file's SHA-256</td></tr>
+<tr><td>Firmware safety</td><td>MCUboot; signed is not the same as confirmed, and an
+    unconfirmed image reverts after 90 seconds</td></tr>
+<tr><td>Pinned downloads</td><td>fetches are pinned to the release tag, not
+    <code>/latest/</code> — a release published mid-download once produced two
+    halves of different builds</td></tr>
+<tr><td>Retry</td><td>a failed update is offered again after two minutes, through a
+    door of its own</td></tr>
+</table>
+
+<h2 id="s15"><span class="n">15</span>Testing and CI</h2>
+<p>Two suites, both gating merges.</p>
+<table>
+<tr><th style="width:34%">Suite</th><th>What it covers</th></tr>
+<tr><td><strong>installer</strong><br><span class="small">66 jobs</span></td>
+    <td>1,525 Python tests on four OS/version cells; the shipped binary built and
+    smoke-tested on three platforms; 15 real install scenarios per platform
+    including a spaced home, an unreadable settings file and install → uninstall
+    → install; self-update against a locally signed feed; the shims under dash,
+    busybox and bash; and a watch on Claude Code's status-line contract across
+    four versions</td></tr>
+<tr><td><strong>firmware host tests</strong><br><span class="small">19 suites,
+    1,370 checks</span></td>
+    <td>the firmware's pure logic compiled and run on a plain runner — parsing,
+    layout geometry, colour contrast, sleep gating, boot-clip decoding, update
+    prompts</td></tr>
+</table>
+<p>There is also a fleet harness that drives a real board on a real desk, and a
+gate that refuses to cut a release without a green run for that exact commit.
+It is currently overridden — see §22.</p>
+<h2 id="s16"><span class="n">16</span>The most recent work, in detail</h2>
+<p class="lead">Three pieces of work completed 26–28 September 2026.</p>
+
+<h3>16.1 &nbsp;macOS signing and notarisation</h3>
+<p>The pipeline is written, wired into the release workflow, and dormant. With
+no certificate in the repository's secrets every step prints why the build is
+unsigned and exits successfully — which means the credential-free path is
+exercised on <em>every</em> push rather than discovered on the first release
+after somebody adds a certificate.</p>
+
+<p>The finding that shaped it is worth stating plainly, because it would
+otherwise have surfaced at two in the morning after paying Apple:</p>
+
+<div class="warn"><b>The hardened runtime breaks a PyInstaller binary</b>
+<p>Notarisation requires the hardened runtime. The hardened runtime enables
+<em>library validation</em>, which refuses to load any library whose Team ID
+differs from the process's own. Signing all 53 Mach-O files ad-hoc with
+<code>--options runtime</code> produces a binary that <strong>does not start at
+all</strong>:</p>
+<pre>Failed to load Python shared library '.../_internal/Python':
+  ... not valid for use in process: mapping process and mapped
+  file (non-platform) have different Team IDs</pre>
+<p>An ad-hoc signature carries no Team ID, so nothing can match anything. The
+hardened runtime is therefore set only on the Developer&nbsp;ID path, where all
+53 files share one identity.</p></div>
+
+<p>Because that last part cannot be rehearsed without a paid certificate, the
+signing script's final act is to <em>run the binary it just signed</em> and
+refuse to pass it on if it does not start — naming the entitlement escape hatch
+if the failure is that one.</p>
+
+<p>Other details settled: the embedded <code>Python.framework</code> is signed
+as a <em>bundle</em>, not as the bare Mach-O inside it; every file is verified
+individually, because <code>--deep</code> says nothing about a one-directory
+build; and there is deliberately no stapling, since a ticket cannot attach to a
+loose executable or a tarball.</p>
+
+<p>Enabling it needs six repository secrets and an Apple Developer membership.
+The steps are in <code>docs/notarisation.md</code>.</p>
+
+<h3>16.2 &nbsp;The Windows test suite</h3>
+<p>The installer workflow had been red on every push for weeks: 64 passing, two
+failing, and the Windows job's 17 failures had been read as path noise. Two of
+them were the product being broken on Windows.</p>
+
+<table>
+<tr><th style="width:30%">Cause</th><th>Detail</th></tr>
+<tr><td><strong>Migration did nothing</strong><br><span class="small">real bug</span></td>
+    <td>The rewrite built its search strings from <code>os.sep</code>, so on
+    Windows it looked for <code>\.blink\blink-hook.sh</code>. Every string it has
+    to rewrite there is spelled with <em>forward</em> slashes — the shims are
+    POSIX sh, and the commands in settings.json go through a helper that converts
+    every backslash because a backslash is an escape under Git Bash. So a Windows
+    migration moved the directory and left every reference inside it pointing at
+    the old one, which the hook shim then recreated on the next tool call.</td></tr>
+<tr><td><strong>Mixed-separator path</strong><br><span class="small">real bug</span></td>
+    <td><code>expanduser("~/.codex")</code> replaces the tilde and leaves the
+    slash alone, giving <code>C:\Users\k/.codex</code>. Windows opens it happily,
+    so it went unnoticed — but it is not string-equal to the native spelling, so
+    anything comparing or printing it disagreed with everything else, including
+    the path shown to the user during uninstall.</td></tr>
+<tr><td>Tests pinned to one platform<br><span class="small">15 failures</span></td>
+    <td>Seven hardcoded <code>sh &lt;shim&gt; &lt;event&gt;</code> where Windows
+    deliberately emits <code>bash</code>; three set <code>HOME</code> but not
+    <code>USERPROFILE</code>, so they wrote to one directory and read another;
+    one used <code>chmod(0o000)</code>, which on Windows only toggles read-only;
+    one asserted behaviour that cannot exist there.</td></tr>
+</table>
+
+<p>One of the seven had been <em>passing</em> on Windows while proving nothing:
+its "customer wrapper around our command" did not mention the command at all on
+that platform.</p>
+
+<h3>16.3 &nbsp;The firmware host tests — and a real regression</h3>
+<p>Three suites had been failing. All three were telling the truth.</p>
+
+<h4>What's New overran its page</h4>
+<p>Seven release-note lines were over the 33-character limit, up to 36. Past
+that the label wraps, and a wrapped line is a row the pagination arithmetic did
+not count, so the text overruns the page it was measured for.</p>
+
+<h4>Dark mode shipped the palette the test exists to forbid</h4>
+<p>The contrast suite kept its <em>own copy</em> of eight colours and grepped the
+view source to prove they still agreed. When the scattered colour defines were
+gathered into a theme file, those defines stopped containing values — so the
+grep matched nothing and reported all eight as drifted, which read as noise
+about a file move.</p>
+
+<p>It was hiding this. Every WCAG rule had been running against the copy, and
+the copy was a set of values that by then existed nowhere. Meanwhile the real
+dark palette had been filled in from the widget pages, which had never had the
+severity ramp fixed. Dark mode was shipping:</p>
+
+<pre>band spread   2.30x   (amber 11.39:1 over red 4.95:1)   need <= 1.35
+green sat     0.775   (the "green looks grey" fault)      need >= 0.85
+red   sat     0.740</pre>
+
+<p>An inverted severity ramp — loudest at "getting close", quiet at "critical" —
+and a green that reads as grey at 60&nbsp;cm. Both had already been fixed once
+on the gauge screen; gathering the palettes handed them back.</p>
+
+<div class="good"><b>Fixed in 2.1.0</b>
+<p>The dark ramp is restored to the measured trio: 1.16x spread, saturation 0.92
+and up. The test keeps no copy — it parses both palettes out of the theme file
+and checks both, and an unreadable file is now a failure rather than a skip.</p></div>
+
+<h4>The layout test was two revisions behind a correct screen</h4>
+<p>Here the firmware was right every time. A dead constant the caption had
+stopped using; an arc position that moved deliberately and an assertion that did
+not follow; a percentage that is no longer centred alone because a unit line was
+stacked above it; and a hardcoded brand edge that was the left edge of a
+<em>centred</em> "BLINK", summed by hand from the font table, for a word that is
+now nine glyphs and sits at the right bezel.</p>
+<p>Three numbers the screen depends on were prose rather than constants, which
+is how they went stale unseen. They are constants now, and the test reads
+them.</p>
+
+<h2 id="s17"><span class="n">17</span>Release history</h2>
+<table class="tight">
+<tr><th style="width:14%">Version</th><th>What changed</th></tr>
+<tr><td><strong>2.1.0</strong></td><td>In dark mode, red means red · Update notes fit their page</td></tr>
+<tr><td>2.0.9</td><td>The face stays on its own page</td></tr>
+<tr><td>2.0.8</td><td>A failed update can be retried</td></tr>
+<tr><td>2.0.7</td><td>The setup screen steps aside</td></tr>
+<tr><td>2.0.6</td><td>Scan the code to pair a computer</td></tr>
+<tr><td>2.0.5</td><td>A QR to set up on any computer · Pick launcher apps on the web</td></tr>
+<tr><td>2.0.4</td><td>A setup page from the first boot</td></tr>
+<tr><td>2.0.3</td><td>Codex edition boots to the mark · A smaller, cleaner boot clip</td></tr>
+<tr><td>2.0.2</td><td>A face with moods when idle · It naps after a minute</td></tr>
+<tr><td>2.0.1</td><td>It boots to its own mark now · Updates arrive over the cable</td></tr>
+<tr><td>2.0.0</td><td>Five pages, swipe between them · A launcher, music, a light theme</td></tr>
+</table>
+<p class="small">Eleven releases between 25 and 26 September 2026, plus an
+initial 0.1.0 on 23 September. Each carries firmware and four platform binaries
+under one tag.</p>
+
+<h1 class="part">Part III — Reference</h1>
+
+<h2 id="s18"><span class="n">18</span>Commands</h2>
+<table>
+<tr><th style="width:28%">Command</th><th>What it does</th></tr>
+<tr><td><code>overwatch install</code></td><td>set everything up — the default if you
+    run it with no arguments</td></tr>
+<tr><td><code>overwatch uninstall</code></td><td>put it all back</td></tr>
+<tr><td><code>overwatch status</code></td><td>is the panel getting data? Add
+    <code>--wire</code> to see the frame the bridge would send</td></tr>
+<tr><td><code>overwatch update</code></td><td>fetch a newer version of the app</td></tr>
+<tr><td><code>overwatch config</code></td><td>choose which apps the launcher shows</td></tr>
+<tr><td><code>overwatch run</code></td><td>run the bridge in the foreground</td></tr>
+<tr><td><code>overwatch driver</code></td><td>install the board's USB driver (Windows)</td></tr>
+<tr><td><code>overwatch flash</code></td><td>put firmware on a blank board (kit builders)</td></tr>
+<tr><td><code>overwatch provision</code></td><td>stamp a unit's edition (factory step,
+    once)</td></tr>
+</table>
+
+<h2 id="s19"><span class="n">19</span>Where things live</h2>
+<table>
+<tr><th style="width:44%">Path</th><th>What</th></tr>
+<tr><td><code>~/.overwatch/bin/overwatch</code></td><td>the installed program — what the
+    login service runs</td></tr>
+<tr><td><code>~/.overwatch/bridge.log</code></td><td>the log, and it is verbose</td></tr>
+<tr><td><code>~/.overwatch/apps.json</code></td><td>the launcher's six slots</td></tr>
+<tr><td><code>~/.overwatch/pair.json</code></td><td>the pairing token, mode 0600</td></tr>
+<tr><td><code>~/.overwatch/board.json</code></td><td>what is known about the board</td></tr>
+<tr><td><code>~/.overwatch/*-installed-command*</code></td><td>markers proving which
+    entries in settings.json are ours</td></tr>
+<tr><td><code>~/.overwatch/overwatch-{hook,statusline}.sh</code></td><td>the shims Claude
+    Code runs</td></tr>
+<tr><td><code>~/Library/LaunchAgents/com.overwatch.bridge.plist</code></td><td>the login
+    service, macOS</td></tr>
+<tr><td><code>~/.claude/settings.json</code></td><td>edited by install; yours is chained,
+    not replaced</td></tr>
+<tr><td><code>~/.codex/hooks.json</code></td><td>the Codex registration</td></tr>
+</table>
+
+<h2 id="s20"><span class="n">20</span>Repository layout</h2>
+<table>
+<tr><th style="width:26%">Directory</th><th>Contents</th></tr>
+<tr><td><code>firmware/src/</code></td><td>the C the board runs — pages, theme, face,
+    boot clips, OTA, protocol</td></tr>
+<tr><td><code>pc/</code></td><td>the daemon: bridge, ingest, providers, widgets, install,
+    update, webconfig</td></tr>
+<tr><td><code>tests/</code></td><td>1,525 Python tests, 19 firmware host suites, CI
+    scripts, fixtures</td></tr>
+<tr><td><code>tools/</code></td><td>build, release, signing, flashing, encoders, the fleet
+    harness</td></tr>
+<tr><td><code>case/</code></td><td>OpenSCAD sources for both case designs</td></tr>
+<tr><td><code>docs/</code></td><td>the setup site, the full README, design notes, open
+    bugs</td></tr>
+</table>
+
+<h2 id="s21"><span class="n">21</span>Rules learned the hard way</h2>
+
+<div class="warn"><b>Never use <code>west flash</code> on this board</b>
+<p>It writes MCUboot into the application slot at <code>0x20000</code> and the
+screen goes dark. Flash with explicit esptool offsets instead: MCUboot at
+<code>0x1000</code>, the application at <code>0x20000</code>.</p></div>
+
+<table>
+<tr><th style="width:34%">Rule</th><th>Why</th></tr>
+<tr><td>Release notes: 33 characters, hard</td>
+    <td>Beyond that the label wraps and the page overruns. Seven lines shipped
+    over it because nothing was running the test that says so.</td></tr>
+<tr><td>Zephyr 4.3.1, SDK 0.17.4</td>
+    <td>4.4.0 <em>cannot</em> build this firmware: its mbedTLS removed the header
+    the OTA code includes, and its LVGL moved a field the settings screen
+    reads.</td></tr>
+<tr><td>Never <code>expanduser("~/x/y")</code> for a path you will compare</td>
+    <td>It leaves the slashes alone and produces a mixed-separator path on
+    Windows.</td></tr>
+<tr><td>Redirect <code>HOME</code> <em>and</em> <code>USERPROFILE</code></td>
+    <td>Python reads the first on POSIX and the second on Windows.</td></tr>
+<tr><td>A test that duplicates what it checks can be green about a broken
+    product</td>
+    <td>The contrast suite was, for weeks. Read the source; do not copy it.</td></tr>
+<tr><td>A skip is not a statement about behaviour</td>
+    <td>If a platform genuinely differs, assert the difference.</td></tr>
+<tr><td>Code that has never run does not work</td>
+    <td>A sealed port, sealed vents, a stuck setup screen, a dead retry and a
+    WiFi build that would not link all reached the tree looking correct.</td></tr>
+<tr><td>Try a different cable first</td>
+    <td>Most "the board is gone" reports were one charge-only cable.</td></tr>
+</table>
+
+<h2 id="s22"><span class="n">22</span>Open threads</h2>
+<table>
+<tr><th style="width:26%">Item</th><th>State</th></tr>
+<tr><td><strong>Notarisation</strong></td>
+    <td>Pipeline written and exercised on every CI run in its credential-free
+    mode. Needs an Apple Developer membership and six repository secrets. No code
+    changes required. Deferred on cost.</td></tr>
+<tr><td><strong>Fleet gate</strong></td>
+    <td>Fails on a reproducible ~14.4 s delay before the daemon's first traffic,
+    against a 4 s budget. The OTA feed has been ruled out at 0.9 s; the lead
+    points at the service-and-lock handover. Releases currently run with the gate
+    overridden.</td></tr>
+<tr><td><strong>WiFi OTA</strong></td>
+    <td>Parked. The image does not link — 18,020 bytes over
+    <code>dram1_0_seg</code>. Two candidate knobs were verified applied and
+    neither moved it. Needs memory-layout work.</td></tr>
+<tr><td><strong>False "service not running"</strong></td>
+    <td>Cosmetic but fires on every macOS self-update. The confirmation check
+    gives up during the gap between the code-signing kill and launchd's
+    restart.</td></tr>
+<tr><td><strong>Ring asymmetry</strong></td>
+    <td>35 px above, 45 below, after the face cue was redrawn smaller. Under what
+    anyone notices; the test bounds it rather than the dials being moved.</td></tr>
+</table>
+
+<hr>
+<p class="small">Overwatch 2.1.0 · document generated 28 September 2026 ·
+github.com/SleepyUnicon/Overwatch</p>
+
+</body></html>

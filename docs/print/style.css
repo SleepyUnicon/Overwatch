@@ -1,0 +1,117 @@
+/* Overwatch manual — print stylesheet.
+   Colours are the device's own light palette, from firmware/src/ui_theme.c. */
+:root{
+  --ink:#111418; --dim:#5C6470; --rule:#E2E6EB; --panel:#F1F3F6;
+  --green:#0A7A34; --amber:#8A5A00; --red:#C11A00; --blue:#4387DF;
+}
+@page{
+  size:A4; margin:20mm 18mm 18mm 18mm;
+  @bottom-center{
+    content:counter(page); font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:8pt; color:#8A9199;
+  }
+  @bottom-right{
+    content:"OVERWATCH 2.1.0"; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:7pt; color:#AAB1BA; letter-spacing:.06em;
+  }
+}
+@page:first{ margin:0; @bottom-center{content:none} @bottom-right{content:none} }
+
+html{font-size:10.5pt}
+body{
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  color:var(--ink); line-height:1.5; margin:0;
+  hyphens:auto;
+}
+
+/* ---------- cover ---------- */
+.cover{
+  page-break-after:always; height:297mm; box-sizing:border-box;
+  padding:55mm 22mm 20mm 22mm; background:var(--ink); color:#fff;
+}
+.cover .mark{
+  font-size:30pt; letter-spacing:.30em; font-weight:700; margin:0 0 2mm 0;
+}
+.cover .rule{width:34mm;height:3px;background:var(--green);margin:6mm 0 9mm 0}
+.cover h1{font-size:18pt;font-weight:400;line-height:1.35;margin:0 0 4mm 0;color:#E6E8EB}
+.cover .sub{font-size:10pt;color:#8A9199;margin:0 0 30mm 0;max-width:120mm}
+.cover .meta{font-size:9pt;color:#8A9199;line-height:1.9}
+.cover .meta b{color:#E6E8EB;font-weight:600}
+
+/* ---------- headings ---------- */
+h1.part{
+  page-break-before:always; font-size:9pt; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--green); border-bottom:2px solid var(--green);
+  padding-bottom:2mm; margin:0 0 8mm 0; font-weight:700;
+}
+h2{
+  font-size:14pt; font-weight:600; margin:9mm 0 3mm 0; page-break-after:avoid;
+  line-height:1.25;
+}
+h2 .n{color:var(--dim);font-weight:400;margin-right:2mm}
+h3{font-size:11pt;font-weight:600;margin:6mm 0 2mm 0;page-break-after:avoid}
+h4{font-size:9.5pt;font-weight:600;margin:4mm 0 1mm 0;color:var(--dim);
+   letter-spacing:.04em;text-transform:uppercase;page-break-after:avoid}
+p{margin:0 0 3mm 0}
+p.lead{color:var(--dim);font-size:11pt;margin-bottom:5mm}
+strong{font-weight:600}
+a{color:var(--blue);text-decoration:none}
+
+/* ---------- toc ---------- */
+.toc{page-break-after:always}
+.toc h1{font-size:9pt;letter-spacing:.22em;text-transform:uppercase;color:var(--green);
+        border-bottom:2px solid var(--green);padding-bottom:2mm;margin:0 0 7mm 0}
+.toc ol{list-style:none;margin:0;padding:0}
+.toc li{margin:0 0 1.6mm 0;font-size:10pt}
+.toc li.pt{margin-top:5mm;font-weight:700;font-size:8.5pt;letter-spacing:.14em;
+           text-transform:uppercase;color:var(--dim)}
+.toc a{color:var(--ink);text-decoration:none}
+.toc li{border-bottom:1px dotted var(--rule);padding-bottom:1.4mm}
+.toc li.pt{border-bottom:none;padding-bottom:0}
+
+/* ---------- code ---------- */
+code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:8.6pt;
+     background:var(--panel);padding:.5mm 1.2mm;border-radius:2px}
+pre{
+  font-family:"SF Mono",Menlo,Consolas,monospace; font-size:8.2pt; line-height:1.45;
+  background:var(--panel); border-left:3px solid var(--dim);
+  padding:3mm 4mm; margin:0 0 4mm 0; white-space:pre-wrap; word-wrap:break-word;
+  page-break-inside:avoid; border-radius:0 3px 3px 0;
+}
+pre code{background:none;padding:0;font-size:inherit}
+pre.term{background:var(--ink);color:#E6E8EB;border-left-color:var(--green)}
+
+/* ---------- tables ---------- */
+table{border-collapse:collapse;width:100%;margin:0 0 4mm 0;font-size:9pt;
+      page-break-inside:avoid}
+th{text-align:left;font-weight:600;font-size:8pt;letter-spacing:.06em;
+   text-transform:uppercase;color:var(--dim);border-bottom:1.5px solid var(--ink);
+   padding:0 3mm 1.5mm 0;vertical-align:bottom}
+td{padding:1.8mm 3mm 1.8mm 0;border-bottom:1px solid var(--rule);vertical-align:top}
+td code{font-size:8.2pt}
+table.tight td,table.tight th{padding-right:2mm}
+
+/* ---------- callouts ---------- */
+.note,.warn,.good{
+  padding:3mm 4mm;margin:0 0 4mm 0;font-size:9.4pt;border-radius:3px;
+  page-break-inside:avoid;
+}
+.note{background:#F1F3F6;border-left:3px solid var(--blue)}
+.warn{background:#FDECEA;border-left:3px solid var(--red)}
+.good{background:#EAF6EE;border-left:3px solid var(--green)}
+.note p:last-child,.warn p:last-child,.good p:last-child{margin-bottom:0}
+.note b,.warn b,.good b{display:block;font-size:8pt;letter-spacing:.08em;
+  text-transform:uppercase;margin-bottom:1mm}
+.warn b{color:var(--red)} .good b{color:var(--green)} .note b{color:var(--blue)}
+
+ul,ol{margin:0 0 3mm 0;padding-left:5mm}
+li{margin-bottom:1.2mm}
+hr{border:none;border-top:1px solid var(--rule);margin:6mm 0}
+.small{font-size:8.6pt;color:var(--dim)}
+
+/* Screen only: mimic the printed page's margins so a screenshot is
+   representative. @page handles this in print; this rule never applies there. */
+@media screen{
+  body{padding:0 18mm 18mm 18mm;box-sizing:border-box;background:#fff}
+  .cover{margin:0 -18mm 0 -18mm}
+}

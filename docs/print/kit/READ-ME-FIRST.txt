@@ -1,0 +1,39 @@
+OVERWATCH @VERSION@ - BUILDING ONE UNIT
+===================================
+
+Do the three folders in order. That is the whole procedure.
+
+  1-print-the-case     two printed parts. Pick ONE of the two designs.
+  2-flash-the-board    one command. Puts the software on the board.
+  3-hand-it-over       what your friend runs on their own computer.
+
+START-HERE.pdf is the same thing with pictures and detail. Print it and
+keep it on the bench.
+
+Overwatch-Manual.pdf is everything else: how it works, troubleshooting,
+what every command does. You do not need it to build a unit.
+
+
+THE ONE MISTAKE WORTH AVOIDING
+------------------------------
+
+Use the .bin in 2-flash-the-board. Do NOT download "overwatch-fw.bin"
+from the releases page and flash that.
+
+They look interchangeable and they are not. The one here contains the
+bootloader AND the program. The one on the releases page is the program
+only - it is meant for boards that already work, updating themselves.
+
+Flash the wrong one and the board stays dark with no error. It looks
+exactly like a bad solder joint, and you will spend an evening on it.
+
+
+CHECKING YOUR WORK
+------------------
+
+When the unit is finished and plugged into your friend's computer:
+
+    overwatch status
+
+The App line and the Board line must show the SAME version - @VERSION@ and
+@VERSION@. They ship together, so if they differ, one half is stale.

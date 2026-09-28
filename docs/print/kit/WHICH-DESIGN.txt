@@ -1,0 +1,20 @@
+PICK ONE. You do not need both.
+===============================
+
+upright-frame/     A picture frame. Screen stands vertical.
+                   Two parts: front_bezel + back_tray.
+                   46.2 mm front to back when assembled.
+                   Print the bezel FACE DOWN, the tray OPEN SIDE UP.
+
+wedge/             A slanted screen on a flat base. Newer design.
+                   Two parts: v2_shell + v2_base.
+                   Everything goes in from underneath, so there is no
+                   seam anywhere you look at it.
+                   Print the shell ON ITS BACK, the base FLAT.
+
+Neither needs screws. Neither needs supports if printed in the
+orientation above.
+
+notes.md in each folder has the exact dimensions, the tolerances, and
+the OpenSCAD command to regenerate the STLs if you want to change
+anything.

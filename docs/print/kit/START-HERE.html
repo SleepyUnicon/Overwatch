@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>Overwatch @VERSION@ — Build Sheet</title>
+<link rel="stylesheet" href="style.css"></head><body>
+<h1 class="part" style="page-break-before:auto">Overwatch @VERSION@ — build sheet</h1>
+<p class="lead">One unit, start to finish. Work through the three numbered
+folders in order; that is the whole procedure.</p>
+
+<table class="tight">
+<tr><th style="width:36%">Folder</th><th>What happens there</th></tr>
+<tr><td><code>1-print-the-case</code></td><td>Two printed parts. Pick <em>one</em> of
+    the two designs.</td></tr>
+<tr><td><code>2-flash-the-board</code></td><td>One command. Puts the software on the
+    board.</td></tr>
+<tr><td><code>3-hand-it-over</code></td><td>What your friend runs on their own
+    computer.</td></tr>
+<tr><td><code>Overwatch-Manual.pdf</code></td><td>Everything else. Not needed to build
+    a unit.</td></tr>
+</table>
+
+<div class="warn"><b>The one mistake worth avoiding</b>
+<p>Flash the <code>.bin</code> in <code>2-flash-the-board</code>. Do <strong>not</strong>
+download <code>overwatch-fw.bin</code> from the releases page and flash that.</p>
+<p>They look interchangeable. The file here holds the bootloader <em>and</em> the
+program. The one on the releases page is the program alone — meant for a board
+that already works, updating itself. Flash the wrong one and the board stays
+dark with no error, looking exactly like a bad solder joint.</p></div>
+
+<h2><span class="n">1</span>Print the case</h2>
+<p>Two parts, no screws, no supports in the orientation given. Choose by shape —
+<code>WHICH-DESIGN.txt</code> in that folder has the same summary:</p>
+<table class="tight">
+<tr><th style="width:26%">Design</th><th>Shape</th><th style="width:34%">Print it</th></tr>
+<tr><td><code>upright-frame</code></td><td>A picture frame, screen vertical.
+    46.2&nbsp;mm front to back assembled.</td>
+    <td>bezel <strong>face down</strong><br>tray <strong>open side up</strong></td></tr>
+<tr><td><code>wedge</code></td><td>Slanted screen on a flat base. The newer design —
+    everything enters from underneath, so there is no seam anywhere you look at
+    it.</td>
+    <td>shell <strong>on its back</strong><br>base <strong>flat</strong></td></tr>
+</table>
+<p><code>notes.md</code> in each folder carries the exact dimensions, the
+tolerances, and the OpenSCAD line to regenerate the STLs if you change
+anything.</p>
+
+<h2><span class="n">2</span>Flash the board</h2>
+<p>If you are using a separate ESP32 and panel rather than an all-in-one CYD,
+wire it first — <code>wiring-discrete-esp32-only.md</code>. On a CYD there is
+nothing to wire.</p>
+
+<div class="warn"><b>SDO / MISO stays disconnected</b>
+<p>It would land on GPIO&nbsp;12, which the ESP32 reads at power-on to choose its
+flash voltage. A wire there stops the board booting at all — and it is the last
+thing you would suspect, because the module's silkscreen invites you to fit
+it.</p></div>
+
+<p>Plug the board in over USB, then, from inside that folder:</p>
+<pre class="term">overwatch flash --image overwatch-@VERSION@.bin</pre>
+<p>It finds the board, stops the daemon so the serial port is free, writes the
+image and verifies what it wrote. A minute or two, and <strong>the screen stays
+dark the whole time</strong> — that is normal. Do not unplug it.</p>
+<p>The board reboots by itself and should light up. If it stays dark, esptool has
+already verified the firmware, so the flash is not the problem — check the
+wiring and the panel.</p>
+<p>Only for a unit that should boot to the Codex mark instead of the Overwatch
+one:</p>
+<pre class="term">overwatch provision --edition codex</pre>
+
+<h2><span class="n">3</span>Hand it over</h2>
+<p>Everything from here happens on your friend's computer. They need
+<strong>Claude Code 2.1.100 or newer</strong>. One line in a terminal — the four
+platforms are in <code>install-commands.txt</code>, and
+<code>INSTALL-CARD.pdf</code> is the page to hand over with the unit.</p>
+<pre class="term">curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz | tar xz &amp;&amp; ./overwatch/overwatch</pre>
+
+<div class="note"><b>Tell them to paste the command, not click a download link</b>
+<p>macOS quarantines browser downloads and refuses to run them —
+<em>"cannot be opened because the developer cannot be verified"</em>.
+<code>curl</code> sets no such flag. This is the single most likely thing to go
+wrong at handover.</p></div>
+
+<p>Then they plug the board in. It finds itself, the setup screen steps aside as
+soon as the software says hello, and the board keeps itself updated from then
+on. No account, no WiFi, no cloud.</p>
+
+<h2><span class="n">4</span>Check it before it leaves</h2>
+<pre class="term">overwatch status</pre>
+<pre>Bridge      running (launchd, pid N)
+App         @VERSION@
+Board       /dev/cu.usbserial-XXXX -- id XXXXXXXX, firmware @VERSION@
+Claude Code 2.1.238</pre>
+<p><strong>App and Board must show the same version.</strong> They ship from one
+tag, so a mismatch means one half is stale.</p>
+
+<h2><span class="n">5</span>Keeping their unit stable while yours is not</h2>
+<p>Boards check <code>/releases/latest/</code>, and GitHub's "latest" deliberately
+skips pre-releases. So you can experiment freely on your own unit:</p>
+<table class="tight">
+<tr><th style="width:32%">You want</th><th>Command</th></tr>
+<tr><td>Everyone gets it</td><td><code>bash tools/release.sh</code></td></tr>
+<tr><td>Only your test bed</td><td><code>OVERWATCH_PRERELEASE=1 bash tools/release.sh</code><br>
+    <span class="small">then put it on your own board by cable:
+    <code>python3 tools/package_firmware.py &amp;&amp; overwatch flash</code></span></td></tr>
+<tr><td>Promote one later</td><td><code>gh release edit vX.Y.Z --prerelease=false</code></td></tr>
+</table>
+<p>Nothing reaches a friend's board until you cut a normal release.</p>
+
+<hr>
+<p class="small">Overwatch @VERSION@ · kit image sha256 <code>@SHA256@</code></p>
+</body></html>

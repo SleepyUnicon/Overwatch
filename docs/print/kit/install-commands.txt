@@ -1,0 +1,50 @@
+WHAT YOUR FRIEND RUNS
+=====================
+
+On THEIR computer, in a terminal. One line. Pick their platform.
+
+They need Claude Code 2.1.100 or newer - older versions do not put the
+usage figures where Overwatch can read them.
+
+
+macOS, Apple Silicon (M1 and later)
+-----------------------------------
+curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-arm64.tar.gz | tar xz && ./overwatch/overwatch
+
+
+macOS, Intel
+------------
+curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-macos-x86_64.tar.gz | tar xz && ./overwatch/overwatch
+
+
+Linux
+-----
+curl -fsSL https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-linux-x86_64.tar.gz | tar xz && ./overwatch/overwatch
+
+
+Windows, in PowerShell
+----------------------
+curl.exe -fsSL -o overwatch.zip https://github.com/SleepyUnicon/Overwatch/releases/latest/download/overwatch-windows-x86_64.zip && tar -xf overwatch.zip && .\overwatch\overwatch.exe
+
+
+Or just send them here, and the page offers the right one:
+
+    sleepyunicon.github.io/Overwatch
+
+
+*** TELL THEM TO PASTE THE COMMAND, NOT TO CLICK A DOWNLOAD LINK. ***
+
+macOS marks anything downloaded by a browser as quarantined, and refuses
+to run it: "cannot be opened because the developer cannot be verified".
+curl does not set that flag, so the command above just works. This is the
+single most likely thing to go wrong when you hand a unit over.
+
+
+THEN
+----
+
+They plug the board in. It finds itself. The setup screen on the panel
+steps aside as soon as the software says hello, and the board keeps
+itself updated from then on.
+
+Nothing else to configure. No account, no WiFi, no cloud.
