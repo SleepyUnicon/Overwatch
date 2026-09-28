@@ -14,6 +14,12 @@ from pc.bridge import Bridge
 from pc.music import MusicWidget
 from pc.widgets import Launcher
 
+# V2 panels: pages whose content is described here rather than written in
+# C. Imported lazily-ish -- at module scope, but the bridge works without
+# any panel registered, so a broken import here cannot take the dials down.
+from V2 import mac_panel
+from V2.panel import Panels
+
 # How often the player is read while it is running.
 #
 # Two seconds is chosen against the local tick, not against how fast a track
@@ -27,16 +33,35 @@ MUSIC_POLL_S = 2.0
 # "still closed" is the sort of idle cost that gets a login agent noticed.
 MUSIC_IDLE_POLL_S = 15.0
 
+# How often a panel is rebuilt. Each one costs a few process spawns, and every
+# reading on the first panel -- uptime, disk, memory -- moves far too slowly
+# for anybody to catch it being ten seconds stale.
+PANEL_POLL_S = 10.0
+
+
+def _default_panels():
+    """The panels this daemon ships with.
+
+    A function rather than a constant so a test can pass its own set and never
+    spawn `pmset` -- and so the list of what is on the device is one readable
+    place rather than scattered through __init__.
+    """
+    ps = Panels()
+    ps.add(mac_panel.build, on_tap=mac_panel.on_tap)
+    return ps
+
 
 class WidgetBridge(Bridge):
-    def __init__(self, *a, launcher=None, music=None, clock=time.monotonic,
-                 **kw):
+    def __init__(self, *a, launcher=None, music=None, panels=None,
+                 clock=time.monotonic, **kw):
         super().__init__(*a, **kw)
         self._launcher = launcher or Launcher()
         self._music = music or MusicWidget()
         self._clock = clock
         self._next_track = 0.0
         self._last_track = None
+        self._panels = panels if panels is not None else _default_panels()
+        self._next_panel = 0.0
 
     def _send_checked(self, msg):
         """Every production writer uses encode_checked, never plain encode.
@@ -62,6 +87,10 @@ class WidgetBridge(Bridge):
         """
         super().greet()
         self._send_checked(self._launcher.apps_message())
+        # Panels too, and for the same reason: the board keeps no memory of
+        # them across a reboot, and until one arrives the page is not in the
+        # navigation at all.
+        self._push_panels(force=True)
 
     def poll_if_changed(self):
         """His fast tick, plus the player.
@@ -78,6 +107,20 @@ class WidgetBridge(Bridge):
             print("[widgets] launcher table reloaded", file=sys.stderr)
             self._send_checked(self._launcher.apps_message())
         self._poll_music()
+        self._poll_panels()
+
+    def _poll_panels(self):
+        now = self._clock()
+        if now < self._next_panel:
+            return
+        self._next_panel = now + PANEL_POLL_S
+        self._push_panels()
+
+    def _push_panels(self, force=False):
+        if force:
+            self._panels.forget()
+        for msg in self._panels.messages():
+            self._send_checked(msg)
 
     def _poll_music(self):
         now = self._clock()
@@ -107,6 +150,13 @@ class WidgetBridge(Bridge):
             # something and the next scheduled poll could be two seconds out,
             # which is long enough for a button to feel dead.
             self._next_track = 0.0
+            return
+        if self._panels.handles(msg):
+            self._panels.on_tap(msg)
+            # Whatever the tile did may have changed what the panel says, and
+            # the next scheduled rebuild could be ten seconds out -- which is
+            # long enough for a button to feel dead.
+            self._next_panel = 0.0
             return
         if self._launcher.handles(msg):
             reply = self._launcher.on_launch(msg)

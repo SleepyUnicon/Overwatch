@@ -174,6 +174,15 @@ class Panels:
             out.append(msg)
         return out
 
+    def forget(self):
+        """Drop the memory of what was last sent.
+
+        The board keeps no panels across a reboot, so on every connection the
+        daemon has to say it all again -- and messages() is built to stay
+        quiet when nothing changed, which on a fresh link is exactly wrong.
+        """
+        self._last.clear()
+
     def handles(self, msg):
         return msg.get("t") == "panel_tap"
 
