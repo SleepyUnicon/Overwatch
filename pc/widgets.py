@@ -45,27 +45,67 @@ DEFAULT_APPS = {
     "win32": ["claude", "illustrator", "photoshop", "spotify", "brave", "pcsx2"],
 }
 
-# The icon keys firmware/src/icons_gen.h was generated with. The board owns
-# what it can draw; this side only has to name it.
+# What the board can draw, and the app names that should get each one.
 #
-# A key the board does not have is not an error - ui_launcher.c falls back to
-# drawing the string as text - which is what lets somebody point a slot at an
-# app nobody shipped an icon for and still get a usable button.
-ICON_KEYS = ("claude", "illustrator", "photoshop", "spotify", "brave", "pcsx2")
+# The KEY is the left-hand side: it is the PNG's filename and a C identifier in
+# firmware/src/icons_gen.h, so it cannot contain spaces. The strings on the
+# right are what an app is actually CALLED. Those are two different things and
+# conflating them silently loses icons -- "vscode" is a perfectly good
+# identifier and appears nowhere in "Visual Studio Code", so an icon keyed on
+# it would simply never be found.
+#
+# A key the board does not have is not an error: ui_launcher.c falls back to
+# drawing the app's name as text, which is what lets somebody point a slot at
+# something nobody shipped an icon for and still get a usable button.
+ICON_ALIASES = {
+    "claude": ("claude",),
+    "illustrator": ("illustrator",),
+    "photoshop": ("photoshop",),
+    "spotify": ("spotify",),
+    "brave": ("brave",),
+    "pcsx2": ("pcsx2",),
+    "chrome": ("google chrome", "chrome"),
+    "vscode": ("visual studio code", "vscodium", "vscode", "code"),
+    "terminal": ("terminal",),
+    "obs": ("obs studio", "obs"),
+    "settings": ("system settings", "system preferences"),
+}
+
+ICON_KEYS = tuple(ICON_ALIASES)
+
+# Longest alias first, so a specific name beats a generic one that is inside
+# it: "visual studio code" has to be tried before "code", or VS Code gets
+# whatever "code" happens to point at.
+_ICON_MATCHES = sorted(
+    ((alias, key) for key, aliases in ICON_ALIASES.items() for alias in aliases),
+    key=lambda pair: -len(pair[0]))
 
 
 def icon_for(app):
     """The icon key for an app name, or None.
 
-    Substring, deliberately: the launcher table holds what `open -a` needs,
-    and that is "Adobe Photoshop 2026" or "PCSX2-v2.6.3" - names that carry a
-    version the icon does not. Matching on containment means a customer who
-    upgrades Photoshop keeps their icon without editing anything.
+    Containment rather than equality, deliberately: the launcher table holds
+    what `open -a` needs, and that is "Adobe Photoshop 2026" or "PCSX2-v2.6.3"
+    -- names carrying a version the icon does not. Matching on containment
+    means somebody who upgrades Photoshop keeps their icon without editing
+    anything.
+
+    But bare containment also matches inside a LONGER WORD, and that is a
+    wrong icon rather than a missing one: "obs" sits inside "Obsidian" and
+    "code" inside "Codex", so a note-taking app would come up wearing OBS
+    Studio's face. So a match may not be followed by another letter.
+
+    A digit is fine, which is what keeps "Photoshop2026" working -- the case
+    containment was chosen for in the first place.
     """
     low = (app or "").lower()
-    for k in ICON_KEYS:
-        if k in low:
-            return k
+    for alias, key in _ICON_MATCHES:
+        at = low.find(alias)
+        while at != -1:
+            after = at + len(alias)
+            if after >= len(low) or not low[after].isalpha():
+                return key
+            at = low.find(alias, at + 1)
     return None
 
 

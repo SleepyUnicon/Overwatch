@@ -35,7 +35,12 @@ AP.add_argument("--swap", action="store_true",
                 help="big-endian; wrong on this hardware, kept to reproduce it")
 A = AP.parse_args()
 
-KEYS = ["claude", "illustrator", "photoshop", "spotify", "brave", "pcsx2"]
+# The key is BOTH the PNG's filename and a C identifier (icon_<key>_map), so
+# it cannot carry spaces or hyphens -- which is why it is not also the string
+# matched against an app's name. "vscode" is a fine identifier and appears
+# nowhere in "Visual Studio Code". pc/widgets.py owns that mapping.
+KEYS = ["claude", "illustrator", "photoshop", "spotify", "brave", "pcsx2",
+        "chrome", "vscode", "terminal", "obs", "settings"]
 
 def rgb565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)

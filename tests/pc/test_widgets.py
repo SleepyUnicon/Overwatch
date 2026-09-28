@@ -93,9 +93,54 @@ def test_every_key_this_side_names_exists_on_the_board():
 
 
 def test_long_names_are_cut_to_what_the_panel_draws():
-    msg = _lx(["Visual Studio Code"]).apps_message()
-    assert msg["s0"] == "Visual Studio"
+    """A name with no icon is drawn as text, so it has to fit the button.
+
+    The example used to be "Visual Studio Code", which stopped being one the
+    day VS Code got an icon: apps_message then sends the KEY, and a key is
+    never truncated. Any long name without an icon does the job.
+    """
+    msg = _lx(["Ableton Live 12 Suite"]).apps_message()
+    assert widgets.icon_for("Ableton Live 12 Suite") is None, \
+        "pick a name with no icon, or this is testing the wrong branch"
+    assert msg["s0"] == "Ableton Live 1"
     assert len(msg["s0"]) <= widgets.LABEL_MAX
+
+
+def test_an_app_with_an_icon_sends_the_key_instead_of_its_name():
+    """The other half, and the reason the test above had to move.
+
+    A key is shorter than the name it stands for and never needs cutting --
+    which is most of why the board is sent one.
+    """
+    msg = _lx(["Visual Studio Code"]).apps_message()
+    assert msg["s0"] == "vscode"
+
+
+def test_an_icon_key_is_not_matched_inside_a_longer_word():
+    """A wrong icon is worse than none: it is confidently misleading.
+
+    "obs" sits inside "Obsidian" and "code" inside "Codex", so plain
+    containment put OBS Studio's face on a note-taking app.
+    """
+    assert widgets.icon_for("Obsidian") is None
+    assert widgets.icon_for("Codex") is None
+    assert widgets.icon_for("OBS") == "obs"
+    assert widgets.icon_for("OBS Studio") == "obs"
+
+
+def test_a_specific_name_beats_a_generic_one_inside_it():
+    assert widgets.icon_for("Visual Studio Code") == "vscode"
+    assert widgets.icon_for("Google Chrome") == "chrome"
+    assert widgets.icon_for("System Settings") == "settings"
+    assert widgets.icon_for("System Preferences") == "settings"
+
+
+def test_a_version_suffix_still_matches():
+    """What containment was chosen for. A digit after the match is fine; a
+    letter is not."""
+    assert widgets.icon_for("Adobe Photoshop 2026") == "photoshop"
+    assert widgets.icon_for("Photoshop2026") == "photoshop"
+    assert widgets.icon_for("PCSX2-v2.6.3") == "pcsx2"
 
 
 def test_a_real_board_line_round_trips_into_a_launch():
