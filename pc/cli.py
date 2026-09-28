@@ -2993,6 +2993,30 @@ def cmd_provision(args) -> int:
     return rc
 
 
+def _is_kit_image(name: str) -> bool:
+    """Is this the MERGED image, and not some other .bin that starts the same?
+
+    The distinction is not cosmetic. `overwatch-fw.bin` is what every release
+    publishes, and it is the APP SLOT ALONE -- correct for an OTA, which lands
+    in a board whose MCUboot is already there. A blank chip needs the
+    bootloader at 0x1000 as well, which is what tools/package_firmware.py
+    merges into overwatch-<version>.bin.
+
+    Both names begin "overwatch-" and end ".bin", so the old test admitted
+    both. Somebody assembling a kit downloads the release assets into dist/ --
+    the obvious thing to do -- and `overwatch flash` then writes the app image
+    at offset 0. That board does not boot and gives no clue why; it looks
+    exactly like a soldering fault, which is the class of mistake
+    package_firmware.py exists to remove.
+
+    So the middle has to be a version: three dotted numbers, nothing else.
+    """
+    if not (name.startswith("overwatch-") and name.endswith(".bin")):
+        return False
+    parts = name[len("overwatch-"):-len(".bin")].split(".")
+    return len(parts) == 3 and all(p.isdigit() for p in parts)
+
+
 def _kit_image(explicit=None):
     """Where the merged kit image is, or None.
 
@@ -3012,7 +3036,7 @@ def _kit_image(explicit=None):
             d = os.path.join(root, sub) if sub else root
             try:
                 found = [os.path.join(d, n) for n in os.listdir(d)
-                         if n.startswith("overwatch-") and n.endswith(".bin")]
+                         if _is_kit_image(n)]
             except OSError:
                 continue
             if found:

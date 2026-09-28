@@ -300,6 +300,30 @@ if [ "${OVERWATCH_RELEASE_DRAFT:-0}" = "1" ]; then
 	echo "Publish with: gh release edit $TAG --repo $REPO --draft=false"
 	exit 0
 fi
-gh release edit "$TAG" --repo "$REPO" --draft=false
+#
+# OVERWATCH_PRERELEASE=1 publishes it as a PRE-RELEASE instead.
+#
+# This is the switch that keeps a test bed away from other people's boards.
+# pc/ota.py reads the feed through /releases/latest/download/, and GitHub's
+# "latest" deliberately skips pre-releases -- so a pre-release is visible on the
+# releases page, downloadable, and permanently invisible to every board doing an
+# OTA check. Nobody is offered it and nobody has to decline it.
+#
+# The board it IS for gets it by cable, which is the loop a test bed is on
+# anyway:
+#
+#   python3 tools/package_firmware.py     # merged image into dist/
+#   overwatch flash                       # writes it at 0x0
+#
+# Promote one to a real release later with:
+#   gh release edit $TAG --repo $REPO --prerelease=false
+if [ "${OVERWATCH_PRERELEASE:-0}" = "1" ]; then
+	gh release edit "$TAG" --repo "$REPO" --draft=false --prerelease
+	echo "Pre-released $TAG ($SIZE bytes)$( for k in $ARTIFACTS; do printf ' %s' "$k"; done)"
+	echo "NOT offered over OTA: /releases/latest/ skips pre-releases."
+	echo "Put it on a board by cable:  tools/package_firmware.py && overwatch flash"
+	exit 0
+fi
+gh release edit "$TAG" --repo "$REPO" --draft=false --latest
 echo "Released $TAG ($SIZE bytes) with binaries for:$( for k in $ARTIFACTS; do printf ' %s' "$k"; done)"
 echo "Boards pick it up on their next check."
