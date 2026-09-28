@@ -83,6 +83,15 @@ void proto_send_pref(void);
 void proto_send_launch(int slot);
 
 /*
+ * A tile on a V2 panel was pressed: which panel, which tile.
+ *
+ * Numbers, never meaning -- the same rule proto_send_launch() spells out. The
+ * daemon owns the table of what a tile does, so nothing the board can say
+ * names an action the daemon has not already agreed to perform.
+ */
+void proto_send_panel_tap(int panel, int tile);
+
+/*
  * Ask the computer to drive the player: "play", "prev" or "next".
  *
  * A fixed verb from a table this file owns, never a string off the panel --

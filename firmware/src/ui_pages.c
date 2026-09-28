@@ -10,6 +10,7 @@
 #include "ui_pages.h"
 
 #include "ui_launcher.h"
+#include "ui_panel.h"
 #include "ui_music.h"
 #include "ui_swipe.h"
 #include "ui_theme.h"
@@ -44,6 +45,7 @@ static enum ui_page cur = UI_PAGE_GAUGES;
 static const enum ui_dir spoke_dir[UI_PAGE_N] = {
 	[UI_PAGE_MUSIC]    = UI_DIR_LEFT,
 	[UI_PAGE_LAUNCHER] = UI_DIR_RIGHT,
+	[UI_PAGE_PANEL]    = UI_DIR_DOWN,
 };
 
 static enum ui_dir opposite(enum ui_dir d)
@@ -71,10 +73,15 @@ static void show_only(enum ui_page p)
 	if (p != UI_PAGE_LAUNCHER) {
 		ui_launcher_close();
 	}
+	if (p != UI_PAGE_PANEL) {
+		ui_panel_close();
+	}
 	if (p == UI_PAGE_MUSIC) {
 		ui_music_open();
 	} else if (p == UI_PAGE_LAUNCHER) {
 		ui_launcher_open();
+	} else if (p == UI_PAGE_PANEL) {
+		ui_panel_open();
 	}
 	cur = p;
 }
@@ -90,7 +97,18 @@ enum ui_move ui_pages_would(enum ui_dir dir)
 		 * Every other stroke is refused rather than being taken as
 		 * "go to the page on the far side", which would turn one
 		 * mis-read gesture into two pages of travel.
+		 *
+		 * The panel page is the one exception, and it is not a new
+		 * rule so much as the same one applied a level down: with more
+		 * than one panel, left and right step between them and stay
+		 * put. There is nowhere else for them to go -- the cross is
+		 * full -- and a page that holds several of something has to be
+		 * able to say which.
 		 */
+		if (cur == UI_PAGE_PANEL && ui_panel_count() > 1
+		    && (dir == UI_DIR_LEFT || dir == UI_DIR_RIGHT)) {
+			return UI_MOVE_DONE;
+		}
 		return dir == opposite(spoke_dir[cur]) ? UI_MOVE_DONE
 						       : UI_MOVE_NONE;
 	}
@@ -101,7 +119,10 @@ enum ui_move ui_pages_would(enum ui_dir dir)
 	case UI_DIR_UP:
 		return UI_MOVE_SETTINGS;
 	case UI_DIR_DOWN:
-		return UI_MOVE_FACE;
+		/* The face keeps this direction until there is something else
+		 * to put here. A board whose daemon sends no panels navigates
+		 * exactly as it did before. */
+		return ui_panel_any() ? UI_MOVE_DONE : UI_MOVE_FACE;
 	default:
 		return UI_MOVE_NONE;
 	}
@@ -116,8 +137,30 @@ enum ui_move ui_pages_go(enum ui_dir dir)
 		 * Either way this module does not touch the overlays. */
 		return m;
 	}
+	if (cur == UI_PAGE_PANEL
+	    && (dir == UI_DIR_LEFT || dir == UI_DIR_RIGHT)) {
+		int n = ui_panel_count();
+		int at = ui_panel_current();
+
+		/* Wrap, because the alternative is a dead stroke at each end
+		 * on a panel whose touch already drops half of them. */
+		at += (dir == UI_DIR_RIGHT) ? 1 : -1;
+		if (at < 0) {
+			at = n - 1;
+		}
+		if (at >= n) {
+			at = 0;
+		}
+		ui_panel_show(at);
+		return UI_MOVE_DONE;
+	}
 	if (cur != UI_PAGE_GAUGES) {
 		show_only(UI_PAGE_GAUGES);
+		return UI_MOVE_DONE;
+	}
+	if (dir == UI_DIR_DOWN) {
+		ui_panel_show(0);
+		show_only(UI_PAGE_PANEL);
 		return UI_MOVE_DONE;
 	}
 	show_only(dir == UI_DIR_LEFT ? UI_PAGE_MUSIC : UI_PAGE_LAUNCHER);
@@ -200,8 +243,10 @@ void ui_pages_init(lv_obj_t *scr)
 	/* The strips live on the overlays, so they are hidden with them and
 	 * the gauge screen keeps the bottom edge it already uses for its own
 	 * provider zone. */
+	ui_panel_attach(scr);
 	build_home(ui_music_panel());
 	build_home(ui_launcher_panel());
+	build_home(ui_panel_panel());
 	cur = UI_PAGE_GAUGES;
 }
 
@@ -209,6 +254,7 @@ void ui_pages_detach(void)
 {
 	ui_music_detach();
 	ui_launcher_detach();
+	ui_panel_detach();
 	/* Home, not "wherever we were". The screen is going away and the mode
 	 * that rebuilds it starts at the gauges; leaving `cur` on a widget
 	 * page would show an overlay that no longer exists. */

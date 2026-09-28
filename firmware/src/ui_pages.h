@@ -52,6 +52,20 @@ enum ui_page {
 	UI_PAGE_GAUGES = 0,	/* the centre */
 	UI_PAGE_MUSIC,		/* left */
 	UI_PAGE_LAUNCHER,	/* right */
+	/*
+	 * Down, and only once the daemon has sent a panel.
+	 *
+	 * Down used to open the face. It still does on a board whose daemon
+	 * sends no panels, so nothing is taken away -- and the face was never
+	 * only a swipe: the cue at the bottom of the gauge screen is how it is
+	 * reached, and the one the 2.0.9 report said to keep. A direction that
+	 * duplicates a button is the cheapest one to spend.
+	 *
+	 * With more than one panel, left and right move BETWEEN them without
+	 * leaving the page, and up comes home. That keeps the rule the cross
+	 * exists to protect: one move out, one move back.
+	 */
+	UI_PAGE_PANEL,		/* down */
 	UI_PAGE_N,
 };
 

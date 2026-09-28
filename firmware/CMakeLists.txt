@@ -6,7 +6,14 @@ project(claude_usage_display)
 # src/mbedtls_user_config.h (CONFIG_MBEDTLS_USER_CONFIG_FILE).
 zephyr_include_directories(src)
 
+# V2/ holds pages whose CONTENT comes from the daemon rather than from C.
+# Kept out of src/ deliberately: it is where new work lives while it is still
+# being shaped, so it can be read, changed and abandoned in one place. See
+# V2/README.md.
+zephyr_include_directories(../V2/firmware)
+
 target_sources(app PRIVATE
+	../V2/firmware/ui_panel.c
 	src/main.c
 	src/proto.c
 	src/msg_parse.c

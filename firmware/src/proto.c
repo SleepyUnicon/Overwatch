@@ -10,6 +10,7 @@
 #include "proto.h"
 #include "msg_parse.h"
 #include "ui_launcher.h"
+#include "ui_panel.h"
 #include "ui_music.h"
 #include "ota.h"
 #include "version.h"
@@ -160,6 +161,16 @@ void proto_send_launch(int slot)
 	 */
 	snprintf(buf, sizeof(buf), "{\"t\":\"launch\",\"v\":%d,\"slot\":%d}",
 		 PROTO_VERSION, slot);
+	emit(buf);
+}
+
+void proto_send_panel_tap(int panel, int tile)
+{
+	char buf[64];
+
+	snprintf(buf, sizeof(buf),
+		 "{\"t\":\"panel_tap\",\"v\":%d,\"p\":%d,\"i\":%d}",
+		 PROTO_VERSION, panel, tile);
 	emit(buf);
 }
 
@@ -622,6 +633,14 @@ static void dispatch(const char *json)
 				ui_launcher_set_slot(i, name);
 			}
 		}
+	} else if (strcmp(type, "panel") == 0) {
+		/*
+		 * A V2 panel: a page whose content is described here rather
+		 * than written in C. ui_panel.c owns the parsing, because the
+		 * fields are its own and this ladder should not grow a second
+		 * copy of them. See V2/README.md.
+		 */
+		ui_panel_on_message(json);
 	} else if (strcmp(type, "launched") == 0) {
 		double sl = -1;
 		bool ok = false;
