@@ -28,7 +28,7 @@ from pc import protocol                                          # noqa: E402
 # since it cannot trust a line it did not compose -- but truncating HERE means
 # the text that arrives is the text somebody chose the end of, rather than
 # whatever fell inside the limit.
-PANEL_MAX = 2
+PANEL_MAX = 3
 ROWS_MAX = 5
 TILES_MAX = 4
 

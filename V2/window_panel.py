@@ -18,8 +18,8 @@ TILES = ("Left", "Right", "Full", "Next")
 # A short reason fits the row; where to go about it does not fit beside it.
 _WHERE_TO_FIX = {
     "Accessibility off": "Privacy settings",
-    "install xdotool for window control": "your package manager",
-    "install wmctrl for window control": "your package manager",
+    "install xdotool for window control": "package manager",
+    "install wmctrl for window control": "package manager",
 }
 
 

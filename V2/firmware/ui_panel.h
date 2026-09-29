@@ -36,13 +36,27 @@
  * taken -- a hundred bytes of margin is worth more than a sixth row, because
  * the failure when a line overruns is a panel that silently loses its tail.
  *
- * PANEL_MAX is two because RAM is the binding constraint here, not flash:
- * dram1_0_seg is already 74% full and the WiFi build fails to link by 18 KB.
- * Every panel is a fixed set of LVGL objects built once at init -- see
- * ui_panel_init -- so this number is paid whether or not the daemon ever
- * sends a panel.
+ * PANEL_MAX is how many panel PAGES the board holds. It costs one `struct
+ * panel` of TEXT each -- and NOT a set of LVGL objects each, which an earlier
+ * version of this comment claimed. There is exactly one set of widgets (panel,
+ * title_lbl, row_lbl[], tile_btn[]) and switching slots repaints it; see
+ * paint(). So the cost of a slot is the model, not the view.
+ *
+ * Measured, 2026-09-29, by reading the `model` symbol out of zephyr.elf with
+ * nm at both settings rather than trusting the summary line:
+ *
+ *   PANEL_MAX 2 -> model is 520 bytes    (0x208)
+ *   PANEL_MAX 3 -> model is 780 bytes    (0x30c)
+ *
+ * so a slot is 260 bytes, and the third one did not move the reported
+ * dram1_0_seg figure at all: 72,964 B / 74.22% before and after. Do not read
+ * that as "slots are free" -- read it as 260 bytes being smaller than the
+ * granularity that report shows. A fourth slot is affordable on this
+ * arithmetic; measure it the same way rather than trusting this paragraph,
+ * because RAM is still the binding constraint on this board and the WiFi
+ * build already fails to link by 18 KB.
  */
-#define PANEL_MAX	2
+#define PANEL_MAX	3
 #define PANEL_ROWS	5
 #define PANEL_TILES	4
 
