@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.2.0", "A page your computer can fill\nIt says why it will not link" },
 	{ "2.1.0", "In dark mode, red means red\nUpdate notes fit their page" },
 	{ "2.0.9", "The face stays on its own page" },
 	{ "2.0.8", "A failed update can be retried" },
