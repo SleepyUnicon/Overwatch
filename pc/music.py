@@ -20,6 +20,7 @@ import subprocess
 import sys
 
 from pc import macperm
+from pc import music_linux
 
 from pc import protocol
 
@@ -98,6 +99,20 @@ def _osa(script):
     return (p.stdout or "").strip(), None
 
 
+def _pretty(bus_name):
+    """"org.mpris.MediaPlayer2.spotify" -> "Spotify".
+
+    The bus name is what the page would otherwise print at somebody, and the
+    instance suffix some players add ("...firefox.instance_1_23") is noise
+    from a line with 47 characters to spend.
+    """
+    leaf = (bus_name or "").split(".")[-1]
+    if leaf.startswith("instance"):
+        parts = (bus_name or "").split(".")
+        leaf = parts[-2] if len(parts) > 1 else leaf
+    return leaf.replace("_", " ").title() or "The player"
+
+
 def _fit(s):
     return s[:TEXT_MAX].strip()
 
@@ -128,9 +143,14 @@ class MusicWidget:
     macOS Automation prompt on whoever is running the suite.
     """
 
-    def __init__(self, osa=None, players=PLAYERS):
+    def __init__(self, osa=None, players=PLAYERS, linux=None):
         self._osa = osa or _osa
         self._players = tuple(players)
+        # The Linux half. Injected for the same reason `osa` is: no test
+        # should reach a real session bus. None means "decide by platform",
+        # which is what every caller but a test wants.
+        self._linux = linux if linux is not None else (
+            music_linux if music_linux.available() else None)
         # Which player answered last. Tried FIRST next time, so a machine
         # running two of them does not flip between them between polls, and
         # a command lands on the one the panel is currently showing.
@@ -153,6 +173,9 @@ class MusicWidget:
         optimistically (ui_music.c on_cmd), so there is nothing here for an
         ack to correct.
         """
+        if self._linux is not None:
+            self._linux.command(msg.get("cmd"), self._last)
+            return None
         verb = _VERB.get(msg.get("cmd"))
         if verb is None:
             return None
@@ -167,6 +190,8 @@ class MusicWidget:
     # --- outbound ----------------------------------------------------
     def poll(self):
         """One `track` message from the first player that is running."""
+        if self._linux is not None:
+            return self._poll_linux()
         last_err = None
         for name in self._order():
             out, err = self._osa(_READ_TMPL % (name, name))
@@ -193,6 +218,27 @@ class MusicWidget:
         if last_err is not None:
             return self._unavailable(last_err)
         return self._unavailable("No music player running")
+
+    def _poll_linux(self):
+        """The same message, built from MPRIS instead of AppleScript.
+
+        Deliberately the same SHAPE -- ui_music.c and the protocol have
+        nothing macOS-specific in them, so the board does not learn that a
+        second operating system exists.
+        """
+        fields, err = self._linux.read(self._last)
+        if err is not None:
+            return self._unavailable(err)
+        if fields is None:
+            return self._unavailable("No music player running")
+        self._last = fields["player"]
+        if not fields["name"] and not fields["artist"]:
+            return self._unavailable("%s has nothing queued"
+                                     % _pretty(fields["player"]))
+        return {"t": "track", "v": protocol.VERSION,
+                "a": _fit(fields["artist"]), "n": _fit(fields["name"]),
+                "st": 1 if fields["state"] == "playing" else 0,
+                "pos": fields["pos_s"], "dur": fields["dur_s"]}
 
     def _unavailable(self, why):
         # The board keeps 47 characters of it (ui_music.h), so the sentence is
