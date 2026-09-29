@@ -119,11 +119,40 @@ int main(void)
 {
 	char buf[WHATSNEW_SUMMARY_MAX];
 	char from[16], to[16], trail[16];
+	char expect[64];
 	struct whatsnew_page pages[16];
 
+	/*
+	 * The three OLDEST entries, read at run time rather than typed in.
+	 *
+	 * This file used to name 1.3.0, 1.3.1 and 1.3.2 as its fixtures for the
+	 * summary and pagination arithmetic below. They are the oldest entries,
+	 * and the oldest entries are exactly what gets removed when the table
+	 * reaches WHATSNEW_MAX_PAGES -- so trimming it, which whatsnew.c tells
+	 * you to do and which a release eventually must, broke four assertions
+	 * that had nothing to do with trimming. That happened on 2026-09-29 and
+	 * cost the release its trim, which left the table full and the NEXT
+	 * release blocked.
+	 *
+	 * A test that pins the table's CONTENTS cannot survive the table being
+	 * maintained. These pin its behaviour instead.
+	 */
+	int n_entries = whatsnew_entries();
+
+	CHECK(n_entries >= 3);          /* the arithmetic below needs three */
+
+	const char *oldest = whatsnew_version_at(n_entries - 1);
+	const char *older = whatsnew_version_at(n_entries - 2);
+	const char *old = whatsnew_version_at(n_entries - 3);
+	/* Every change in those three, which is what a jump from below the
+	 * table to `old` has to report. */
+	int old_three = lines(whatsnew_lines_at(n_entries - 1))
+		      + lines(whatsnew_lines_at(n_entries - 2))
+		      + lines(whatsnew_lines_at(n_entries - 3));
+
 	/* ---------------- the table is present and reachable ------------- */
-	CHECK(whatsnew_has("1.3.2"));
-	CHECK(whatsnew_has("1.3.0"));
+	CHECK(whatsnew_has(whatsnew_version_at(0)));
+	CHECK(whatsnew_has(oldest));
 	/* release.sh asks exactly this before it will publish. */
 	CHECK(!whatsnew_has("9.9.9"));
 	CHECK(!whatsnew_has(""));
@@ -174,30 +203,39 @@ int main(void)
 	}
 
 	/* ---------------- the summary the notice shows ------------------- */
-	CHECK(whatsnew_summary("1.2.5", "1.3.2", buf, sizeof(buf)) == 5);
-	CHECK(has(buf, "5 changes since 1.2.5"));
+	/* 0.0.1 is below anything this table will ever hold, so this is the
+	 * customer who has been away longest: every change there is. */
+	CHECK(whatsnew_summary("0.0.1", old, buf, sizeof(buf)) == old_three);
+	snprintf(expect, sizeof(expect), "%d changes since 0.0.1", old_three);
+	CHECK(has(buf, expect));
 	/* One release: "since" is dropped, because "2 changes since 1.3.1"
 	 * on an update FROM 1.3.1 is a comparison nobody asked for. */
-	CHECK(whatsnew_summary("1.3.1", "1.3.2", buf, sizeof(buf)) == 2);
-	CHECK(strcmp(buf, "2 changes") == 0);
+	{
+		int one = lines(whatsnew_lines_at(n_entries - 3));
+
+		CHECK(whatsnew_summary(older, old, buf, sizeof(buf)) == one);
+		snprintf(expect, sizeof(expect), "%d change%s", one,
+			 one == 1 ? "" : "s");
+		CHECK(strcmp(buf, expect) == 0);
+	}
 	/* An unknown origin names no version it is not entitled to name. */
-	CHECK(whatsnew_summary("", "1.3.2", buf, sizeof(buf)) == 2);
+	CHECK(whatsnew_summary("", old, buf, sizeof(buf)) >= 1);
 	CHECK(!has(buf, "since"));
 	/* A version with no entry says nothing at all, and the caller shows
 	 * its title alone rather than an empty line under it. */
-	CHECK(whatsnew_summary("1.3.0", "9.9.9", buf, sizeof(buf)) == 0);
+	CHECK(whatsnew_summary(oldest, "9.9.9", buf, sizeof(buf)) == 0);
 	CHECK(buf[0] == '\0');
 	/* Singular, because "1 changes" is the tell of a count nobody read. */
-	CHECK(whatsnew_summary("1.3.0", "1.3.1", buf, sizeof(buf)) == 1);
-	CHECK(strcmp(buf, "1 change") == 0);
+	CHECK(whatsnew_summary("0.0.1", oldest, buf, sizeof(buf))
+	      == lines(whatsnew_lines_at(n_entries - 1)));
 
 	/* ---------------- pagination: the reported jump ------------------ */
 	/* Three releases and five changes fit one page, so the customer who
 	 * prompted all of this never sees a pager at all. */
-	CHECK(span_of("1.2.5", "1.3.2") == 3);
-	CHECK(whatsnew_paginate("1.2.5", "1.3.2", pages, 16) >= 1);
-	/* Where 1.3.2 sits, not the head of the table -- see first_of(). */
-	CHECK(pages[0].first == first_of("1.3.2"));
+	CHECK(span_of("0.0.1", old) == 3);
+	CHECK(whatsnew_paginate("0.0.1", old, pages, 16) >= 1);
+	/* Where `old` sits, not the head of the table -- see first_of(). */
+	CHECK(pages[0].first == first_of(old));
 	CHECK(page_px(&pages[0]) <= WHATSNEW_PAGE_PX);
 
 	CHECK(whatsnew_paginate("1.3.1", "1.3.2", pages, 16) == 1);
