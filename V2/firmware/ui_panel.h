@@ -23,6 +23,13 @@
 /*
  * How many panels the board will hold, and how much fits in one.
  *
+ * FOUR tiles, not three. Both of the first two panels that wanted them wanted
+ * exactly four -- left/right/full/next for a window, and mute/camera/share/
+ * leave for a call -- and a fourth costs 20 bytes of line. At four they are
+ * 66 px wide, which is about eight characters of montserrat_14: PANEL_TILE_MAX
+ * is still 12, so a long label on a four-tile panel overflows its button. The
+ * daemon picks the words; keep them short.
+ *
  * PANEL_ROWS and PANEL_TILES are budgeted against proto.c's LINE_MAX of 512:
  * one panel has to arrive in one line, and five rows with three tiles is 409
  * bytes at the field lengths below. Six rows also fits, at 467, and was not
@@ -37,7 +44,7 @@
  */
 #define PANEL_MAX	2
 #define PANEL_ROWS	5
-#define PANEL_TILES	3
+#define PANEL_TILES	4
 
 #define PANEL_TITLE_MAX	20
 #define PANEL_LABEL_MAX	14

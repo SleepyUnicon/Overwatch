@@ -27,8 +27,6 @@ import time
 
 from V2.panel import Panel, Row
 
-POLL_S = 10.0
-
 # Warn on what is LEFT, not on a percentage.
 #
 # A percentage cannot be computed honestly from statvfs on macOS: an APFS

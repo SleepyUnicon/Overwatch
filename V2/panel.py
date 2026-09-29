@@ -30,7 +30,7 @@ from pc import protocol                                          # noqa: E402
 # whatever fell inside the limit.
 PANEL_MAX = 2
 ROWS_MAX = 5
-TILES_MAX = 3
+TILES_MAX = 4
 
 TITLE_MAX = 20
 LABEL_MAX = 14

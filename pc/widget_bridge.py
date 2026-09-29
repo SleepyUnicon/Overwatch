@@ -18,6 +18,7 @@ from pc.widgets import Launcher
 # C. Imported lazily-ish -- at module scope, but the bridge works without
 # any panel registered, so a broken import here cannot take the dials down.
 from V2 import host_panel
+from V2 import window_panel
 from V2.panel import Panels
 
 # How often the player is read while it is running.
@@ -48,6 +49,7 @@ def _default_panels():
     """
     ps = Panels()
     ps.add(host_panel.build, on_tap=host_panel.on_tap)
+    ps.add(window_panel.build, on_tap=window_panel.on_tap)
     return ps
 
 
