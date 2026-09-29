@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.2.5", "The panel names your machine\nTemperature and fans on Linux" },
 	{ "2.2.4", "The desk panel works on Linux" },
 	{ "2.2.3", "The launcher finds Linux apps" },
 	{ "2.2.2", "Music really works on Linux now" },
@@ -47,7 +48,6 @@ static const struct {
 	{ "2.0.4", "A setup page from the first boot" },
 	{ "2.0.3", "Codex edition boots to the mark\nA smaller, cleaner boot clip" },
 	{ "2.0.2", "A face with moods when idle\nIt naps after a minute" },
-	{ "2.0.1", "It boots to its own mark now\nUpdates arrive over the cable" },
 };
 
 #define N_NOTES ((int)(sizeof(NOTES) / sizeof(NOTES[0])))

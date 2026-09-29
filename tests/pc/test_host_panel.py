@@ -16,6 +16,8 @@ import pytest
 
 from V2 import host_panel as hp
 
+_real_hostname = hp._hostname
+
 
 @pytest.fixture
 def linux(monkeypatch, tmp_path):
@@ -37,6 +39,14 @@ def linux(monkeypatch, tmp_path):
     power = tmp_path / "power_supply"
     power.mkdir()
     monkeypatch.setattr(hp, "POWER_SUPPLY", str(power))
+
+    # No sensors by default. The ones that want them build their own, so a
+    # test about memory is not also a test about hwmon.
+    empty = tmp_path / "hwmon"
+    empty.mkdir()
+    monkeypatch.setattr(hp, "HWMON", str(empty))
+    monkeypatch.setattr(hp, "THERMAL", str(tmp_path / "thermal-none"))
+    monkeypatch.setattr(hp, "_hostname", lambda: "testbox")
 
     def no_subprocess(*a, **kw):
         raise AssertionError("Linux must not spawn a process for these")
@@ -65,11 +75,24 @@ def test_linux_reads_files_and_never_spawns_anything(linux):
     _battery(linux)
     panel = hp.build()
     assert panel is not None
-    assert [r.label for r in panel.rows] == ["Uptime", "Disk", "Memory",
-                                             "Battery"]
+    assert [r.label for r in panel.rows] == ["Disk free", "RAM free",
+                                             "Battery", "Uptime"]
 
 
-def test_the_panel_is_not_called_this_mac_on_linux(linux):
+def test_the_panel_is_named_after_the_machine(linux, monkeypatch):
+    """"This Mac" was wrong the moment the board was plugged into the Linux
+    box, and would be ambiguous between two Macs anyway. The board moves --
+    that is the whole reason this panel exists."""
+    monkeypatch.setattr(hp, "_hostname", hp._hostname.__wrapped__
+                        if hasattr(hp._hostname, "__wrapped__")
+                        else _real_hostname)
+    monkeypatch.setattr(hp.socket, "gethostname", lambda: "HackBookPro.local")
+    assert hp.build().title == "HackBookPro"
+
+
+def test_a_machine_with_no_name_falls_back_to_the_platform(linux, monkeypatch):
+    monkeypatch.setattr(hp, "_hostname", _real_hostname)
+    monkeypatch.setattr(hp.socket, "gethostname", lambda: "")
     assert hp.build().title == "This PC"
 
 
@@ -93,19 +116,27 @@ def test_a_short_uptime_reads_in_minutes(linux, tmp_path):
     assert hp._uptime() == "15m"
 
 
-def test_memory_uses_memavailable_not_memfree(linux):
+def test_memory_uses_memavailable_not_memfree(linux, monkeypatch):
     """MemFree excludes the cache Linux hands back on demand, and reads as
-    alarmingly small -- 1.9% here against a true 50%."""
+    alarmingly small -- 1.9% here against a true 50%, which is the difference
+    between a calm row and a red one."""
+    monkeypatch.setattr(hp, "_physical_ram_gb", lambda: 15.6)
     text, tone = hp._memory()
-    assert text == "50% free"
+    assert text == "7.8 of 16 GB"
     assert tone is None
 
 
-def test_low_memory_is_toned(linux, tmp_path):
+def test_low_memory_is_toned(linux, tmp_path, monkeypatch):
     p = tmp_path / "mem2"
-    p.write_text("MemTotal: 1000 kB\nMemAvailable: 50 kB\n")
-    hp.PROC_MEMINFO = str(p)
-    assert hp._memory() == ("5% free", "bad")
+    p.write_text("MemTotal: 16000000 kB\nMemAvailable: 800000 kB\n")
+    monkeypatch.setattr(hp, "PROC_MEMINFO", str(p))
+    # Pinned, or the total comes from whatever machine is running the suite:
+    # sysconf is the authority for installed RAM and correctly overrides
+    # MemTotal, which is what test_memory_uses_memavailable pins.
+    monkeypatch.setattr(hp, "_physical_ram_gb", lambda: 15.3)
+    text, tone = hp._memory()
+    assert tone == "bad"
+    assert text == "0.8 of 15 GB"
 
 
 def test_a_battery_is_read_from_sysfs(linux):
@@ -193,3 +224,120 @@ def test_a_tap_on_a_tile_that_is_not_there_does_nothing(linux, monkeypatch):
     monkeypatch.setattr(hp, "_run", lambda *a: ran.append(a) or "")
     hp.on_tap(2)
     assert not ran
+
+
+# --- temperature and fans ---------------------------------------------
+
+
+def _hwmon(tmp_path, monkeypatch, sensors):
+    """A /sys/class/hwmon tree. `sensors` is {file: (value, label)}."""
+    root = tmp_path / "hwmon"
+    root.mkdir(exist_ok=True)
+    chip = root / "hwmon0"
+    chip.mkdir()
+    (chip / "name").write_text("coretemp\n")
+    for fname, (value, label) in sensors.items():
+        (chip / fname).write_text(str(value) + "\n")
+        if label is not None:
+            stem = fname[:-len("_input")]
+            (chip / (stem + "_label")).write_text(label + "\n")
+    monkeypatch.setattr(hp, "HWMON", str(root))
+    return chip
+
+
+def test_the_cpu_package_is_preferred_over_other_sensors(linux, tmp_path,
+                                                         monkeypatch):
+    """A machine publishes a dozen: the NVMe drive, the wifi card, each core.
+    The one a person means is the package."""
+    _hwmon(tmp_path, monkeypatch, {
+        "temp1_input": (31000, "NVMe Composite"),
+        "temp2_input": (54000, "Package id 0"),
+        "temp3_input": (49000, "Core 1"),
+    })
+    assert hp._temperature() == ("54 C", None)
+
+
+def test_a_hot_cpu_is_toned(linux, tmp_path, monkeypatch):
+    _hwmon(tmp_path, monkeypatch, {"temp1_input": (93000, "Tctl")})
+    assert hp._temperature() == ("93 C", "bad")
+    _hwmon2 = tmp_path / "hwmon" / "hwmon0" / "temp1_input"
+    _hwmon2.write_text("81000\n")
+    assert hp._temperature() == ("81 C", "warn")
+
+
+def test_thermal_zone_is_the_fallback(linux, tmp_path, monkeypatch):
+    """Every ARM board and most laptops have one even with no hwmon."""
+    z = tmp_path / "thermal" / "thermal_zone0"
+    z.mkdir(parents=True)
+    (z / "temp").write_text("47000\n")
+    monkeypatch.setattr(hp, "THERMAL", str(tmp_path / "thermal"))
+    assert hp._temperature() == ("47 C", None)
+
+
+def test_a_sensor_talking_nonsense_is_ignored(linux, tmp_path, monkeypatch):
+    _hwmon(tmp_path, monkeypatch, {"temp1_input": (9999000, "Package id 0")})
+    assert hp._temperature() == (None, None)
+
+
+def test_the_fastest_fan_is_the_one_reported(linux, tmp_path, monkeypatch):
+    """Three fans means two idling and one working, and the working one
+    answers "is it struggling"."""
+    _hwmon(tmp_path, monkeypatch, {
+        "fan1_input": (0, None),
+        "fan2_input": (2400, None),
+        "fan3_input": (1100, None),
+    })
+    assert hp._fan() == ("2400 rpm", None)
+
+
+def test_fans_at_rest_say_so(linux, tmp_path, monkeypatch):
+    _hwmon(tmp_path, monkeypatch, {"fan1_input": (0, None)})
+    assert hp._fan() == ("idle", "dim")
+
+
+def test_a_fanless_machine_has_no_fan_row(linux):
+    assert hp._fan() == (None, None)
+    assert "Fan" not in [r.label for r in hp.build().rows]
+
+
+def test_macos_offers_no_temperature_or_fan(monkeypatch):
+    """Both live behind the SMC, and every way to read them needs root
+    (`sudo powermetrics`) or a third-party helper. A login service that set
+    itself up with one command gets to assume neither, so the rows are absent
+    rather than guessed at.
+    """
+    monkeypatch.setattr(hp, "_LINUX", False)
+    monkeypatch.setattr(hp, "_DARWIN", True)
+    assert hp._temperature() == (None, None)
+    assert hp._fan() == (None, None)
+
+
+def test_sensors_push_uptime_off_the_panel(linux, tmp_path, monkeypatch):
+    """Six candidates, five rows. Uptime goes last because it is the least
+    actionable thing here -- pleasant to know, and nobody ever did anything
+    about it."""
+    _hwmon(tmp_path, monkeypatch, {
+        "temp1_input": (55000, "Package id 0"),
+        "fan1_input": (1800, None),
+    })
+    _battery(linux)
+    labels = [r.label for r in hp.build().rows]
+    assert labels == ["Disk free", "RAM free", "Temp", "Fan", "Battery"]
+    assert "Uptime" not in labels
+
+
+def test_the_panel_still_fits_one_line_with_every_row(linux, tmp_path,
+                                                      monkeypatch):
+    """Five rows, a tile and a long hostname, against proto.c's 512."""
+    from pc import protocol
+    from V2 import panel as P
+
+    _hwmon(tmp_path, monkeypatch, {
+        "temp1_input": (55000, "Package id 0"),
+        "fan1_input": (1800, None),
+    })
+    _battery(linux, capacity="87", status="Charging")
+    monkeypatch.setattr(hp, "_hostname", lambda: "W" * P.TITLE_MAX)
+    msg = hp.build().message(0)
+    assert P.too_long(msg) == 0
+    assert len(protocol.encode(msg)) < protocol.MAX_LINE_BYTES
