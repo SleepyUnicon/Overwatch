@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.3.0", "Mute your mic from the desk\nSnap windows where you want" },
 	{ "2.2.5", "The panel names your machine\nTemperature and fans on Linux" },
 	{ "2.2.4", "The desk panel works on Linux" },
 	{ "2.2.3", "The launcher finds Linux apps" },
