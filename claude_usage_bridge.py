@@ -380,6 +380,13 @@ def autodetect_port():
 # only has to cover the round trip. It did not always: the reply this relied
 # on was the once-per-boot ota_query, so from the second connection of a boot
 # onwards the board was silent here and got reset anyway.
+# How often an UNCHANGED open failure is repeated into the log.
+#
+# Not spam and not silence. See the block that uses it: the first version said
+# a thing once and a customer's board sat dead overnight with a log that read
+# as healthy.
+ERR_REPEAT_S = 300.0
+
 PROBE_S = 1.5
 
 # ...and how long to listen on the SECOND pass, when nothing answered quickly.
@@ -845,6 +852,7 @@ def main(argv=None):
     poll_every = poll_interval()
 
     last_err = None
+    last_err_at = 0.0
     explicit_port = bool(args.port)
 
     # What we learned last time. A machine that has connected before opens the
@@ -1021,15 +1029,39 @@ def main(argv=None):
                        " back in")
             else:
                 err = f"open {port} failed: {e}"
-            if err != last_err:
-                print(f"[bridge] {err}", file=sys.stderr)
+            # Deduplicated, but NOT silenced forever.
+            #
+            # The first version printed an unchanged error once and never
+            # again, and `last_err` was only cleared by a successful open. So
+            # a permission problem on /dev/ttyUSB0 -- the commonest Linux
+            # failure there is -- said its piece at 16:59 and then went
+            # completely quiet while the daemon retried every three seconds
+            # for sixteen hours. The journal showed "board found at
+            # /dev/ttyUSB0" (wait_for_port, printing on a replug) and nothing
+            # else, which reads as a daemon that is working.
+            #
+            # Measured on a real machine, 2026-09-29. The board sat on "Link
+            # the PC daemon" overnight and the log said nothing was wrong.
+            #
+            # So the same error repeats, quietly, on a slow clock: often
+            # enough that it is the last thing in the log when somebody looks,
+            # rare enough that it is not spam. Three seconds of retry becomes
+            # one line every five minutes.
+            now = time.monotonic()
+            if err != last_err or now - last_err_at >= ERR_REPEAT_S:
+                if err == last_err:
+                    print(f"[bridge] still: {err}", file=sys.stderr)
+                else:
+                    print(f"[bridge] {err}", file=sys.stderr)
                 last_err = err
+                last_err_at = now
             time.sleep(3)
             port = wait_for_port(args.port, on_wait=_upkeep)
             continue
         # Cleared on success so a later, genuine failure is reported again
         # rather than silenced by having happened once before.
         last_err = None
+        last_err_at = 0.0
         print(f"[bridge] connected on {port}", file=sys.stderr)
         reader = protocol.LineReader()
         console = logbook.ConsoleEcho()

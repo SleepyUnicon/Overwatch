@@ -75,6 +75,25 @@ def log_path():
     return os.path.join(overwatch_home(), "bridge.log")
 
 
+def log_hint():
+    """Where to actually READ the log on this platform.
+
+    Not the same as log_path(), and the difference cost a person sixteen
+    hours. launchd is told StandardOutPath and writes bridge.log; the systemd
+    unit says nothing about output, so on Linux everything goes to the journal
+    and bridge.log is never created. `install` printed the path anyway, so a
+    Linux user following their own install output finds no such file, and
+    concludes the daemon never ran -- while it is running, and has been
+    logging the reason it cannot work, somewhere else.
+
+    Windows keeps the file: the Scheduled Task runs the daemon through a shim
+    that redirects into it.
+    """
+    if sys.platform.startswith("linux"):
+        return "journalctl --user -u overwatch-bridge"
+    return log_path()
+
+
 def launcher_path():
     """The script the Scheduled Task runs, so the bridge starts with no window.
 
@@ -2139,7 +2158,7 @@ def cmd_install(_args) -> int:
     print(f"  Set it up:  {webconfig.URL}")
     print("              the launcher's tiles, and whether the board is seen")
     print()
-    print(f"  Log:     {log_path()}")
+    print(f"  Log:     {log_hint()}")
     print(f"  Check:   {installed_bin()} status")
     print(f"  Undo:    {installed_bin()} uninstall")
     print()
