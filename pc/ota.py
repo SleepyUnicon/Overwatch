@@ -302,6 +302,51 @@ def flash_encrypted_chip(port, run=subprocess.run):
 FLASH_BAUD = 115200
 
 
+def _verify(exe, port, img, run):
+    """Read the app slot back off the chip and compare it. (ok, why).
+
+    Only ever called when write_flash has ALREADY reported failure, so its
+    cost -- an uncompressed read-back, about two minutes on a 1.3 MB image --
+    is paid on a path that is in trouble anyway. An earlier version of this
+    file ran it after every SUCCESSFUL write and was right to remove it; this
+    is the opposite case.
+
+    Underscore spelling, like write_flash: esptool 5's help prints
+    `verify-flash`, and both 4.x and 5.x accept either. Checked rather than
+    assumed, against esptool 5.3.1 -- both forms got past argument parsing to
+    the port-open stage.
+    """
+    return _esptool_run(exe, port, FLASH_BAUD,
+                        ["verify_flash", APP_OFFSET, img], run)
+
+
+def recovery_note(port, version=""):
+    """What a human has to do when the app slot is left unwritable.
+
+    Printed at the moment the flash gives up, NOT saved for the board to show:
+    there is no auto-revert behind slot0, so the board this would be telling
+    is the one that no longer boots. A reason that can only be delivered to a
+    dark screen is a reason nobody gets -- which is exactly what happened on
+    2026-09-29, where the daemon held "FAILED: No more data to read from the
+    serial port" and the board sat hung with nothing on it.
+    """
+    what = version or "the release"
+    return "\n".join((
+        "[bridge] ota: the app slot may be half-written, and there is no",
+        "         automatic revert behind it -- slot0 is written in place.",
+        "         The board will not boot until it is rewritten by hand:",
+        "",
+        "           overwatch -m esptool --port %s --baud 115200 \\" % port,
+        "               write_flash 0x20000 <overwatch-fw.bin>",
+        "",
+        "         Get a known-good overwatch-fw.bin from any earlier release",
+        "         and check its sha256 against that release's manifest.json",
+        "         first. Once the board boots, the daemon will offer %s"
+        % what,
+        "         again on its own.",
+    ))
+
+
 def _esptool_run(exe, port, baud, args, run, timeout=900):
     """(ok, last 200 chars of output) for one esptool invocation."""
     try:
@@ -362,13 +407,39 @@ def flash(port, blob, run=subprocess.run):
         ok, why = _esptool_run(exe, port, FLASH_BAUD, write, run)
         if ok:
             return True, "written and verified"
+
+        # ESPTOOL'S EXIT CODE IS NOT THE VERDICT.
+        #
+        # It resets the board when it finishes, and on a CP210x that reset can
+        # drop the port out from under it -- so it exits non-zero with "No more
+        # data to read from the serial port" AFTER writing every byte and
+        # verifying the MD5. A genuinely bad write looks identical from here.
+        #
+        # Measured, 2026-09-29: an OTA from 2.2.5 to 2.3.0 reported exactly
+        # that, the daemon declared FAILED, and MCUboot then loaded the image
+        # and printed `Image version: v2.3.0`. The bytes were fine. The board
+        # was left unusable for a quarter of an hour on the strength of an exit
+        # status.
+        #
+        # So ask the chip. A read-back is slow and this path is already slow.
+        vok, _vwhy = _verify(exe, port, img, run)
+        if vok:
+            return True, "written; esptool lost the port on reset"
+
         # One retry. A single failure is usually a bad block or a blip on the
         # line, and a rewrite is far cheaper than a customer holding a board
         # that will not boot.
-        ok, why = _esptool_run(exe, port, FLASH_BAUD, write, run)
+        ok, why2 = _esptool_run(exe, port, FLASH_BAUD, write, run)
         if ok:
             return True, "written and verified on the second try"
-        return False, why
+        vok, _vwhy = _verify(exe, port, img, run)
+        if vok:
+            return True, "written on the second try; esptool lost the port"
+        # Both writes failed AND the chip disagrees with the image. This is the
+        # case where the board really is left half-written, so say so in the 47
+        # characters proto.c keeps -- the caller prints recovery_note() for the
+        # human, since the board itself may no longer be able to show anything.
+        return False, (why2 or why or "flash failed")
     except Exception as e:
         return False, str(e)
     finally:

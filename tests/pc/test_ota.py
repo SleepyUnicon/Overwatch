@@ -316,6 +316,12 @@ class TestFlashGuards(unittest.TestCase):
             if "write_flash" in joined:
                 state["writes"] += 1
                 rc = 1 if state["writes"] == 1 else 0   # the second one lands
+            elif "verify_flash" in joined:
+                # The read-back disagrees, so the first failure was REAL and a
+                # retry is the right answer. Without this the verify would
+                # overrule the exit code and there would be no second write --
+                # which is correct behaviour, and has its own test above.
+                rc = 1
 
             class R:
                 returncode = rc
@@ -330,11 +336,15 @@ class TestFlashGuards(unittest.TestCase):
         self.assertEqual(state["writes"], 2)
 
     def test_a_write_that_never_lands_reports_failure(self):
+        """Both writes fail AND the chip disagrees with the image. Only here is
+        the board really left half-written."""
         def run(cmd, **kw):
             joined = " ".join(cmd)
 
             class R:
-                returncode = 1 if "write_flash" in joined else 0
+                # write_flash AND verify_flash both fail; the efuse probe does
+                # not, or flash() would decline before reaching either.
+                returncode = 0 if "efuse_probe" in joined else 1
                 stdout = ("flash_encryption disabled\n"
                           if "efuse_probe" in joined else "ok")
                 stderr = "content mismatch at 0x20000"
@@ -343,6 +353,80 @@ class TestFlashGuards(unittest.TestCase):
         ok, why = ota.flash("/dev/null", b"x", run=run)
         self.assertFalse(ok)
         self.assertIn("mismatch", why)
+
+    def test_a_write_that_verifies_is_a_success_whatever_esptool_exited(self):
+        """THE bug this path had. esptool resets the board when it finishes,
+        and on a CP210x that reset can drop the port -- so it exits non-zero
+        with "No more data to read from the serial port" after writing every
+        byte. Measured on a real unit, 2026-09-29: the daemon declared FAILED
+        and MCUboot then loaded the image and printed `Image version: v2.3.0`.
+
+        A genuinely bad write is indistinguishable from here, so the chip is
+        asked rather than the exit status believed.
+        """
+        seen = []
+
+        def run(cmd, **kw):
+            joined = " ".join(cmd)
+            seen.append(joined)
+
+            class R:
+                # The write "fails" the way a post-write reset looks; the
+                # read-back agrees with the image.
+                returncode = 1 if "write_flash" in joined else 0
+                stdout = ("flash_encryption disabled\n"
+                          if "efuse_probe" in joined else "ok")
+                stderr = ("A fatal error occurred: No more data to read from"
+                          " the serial port.")
+            return R()
+
+        ok, why = ota.flash("/dev/null", b"x", run=run)
+        self.assertTrue(ok, why)
+        self.assertIn("lost the port", why)
+        # And it did not waste a second write on a chip that was already right.
+        self.assertEqual(sum(1 for c in seen if "write_flash" in c), 1)
+        self.assertTrue(any("verify_flash" in c for c in seen))
+
+    def test_the_read_back_is_not_run_when_the_write_succeeds(self):
+        """It is an uncompressed read of the whole slot -- about two minutes on
+        a 1.3 MB image. An earlier version of ota.py ran it after every good
+        write and was right to drop it; this must stay on the failure path
+        only, or every update doubles the time the screen is dark."""
+        seen = []
+
+        def run(cmd, **kw):
+            joined = " ".join(cmd)
+            seen.append(joined)
+
+            class R:
+                returncode = 0
+                stdout = ("flash_encryption disabled\n"
+                          if "efuse_probe" in joined else "ok")
+                stderr = ""
+            return R()
+
+        ok, _ = ota.flash("/dev/null", b"x", run=run)
+        self.assertTrue(ok)
+        self.assertFalse(any("verify_flash" in c for c in seen))
+
+    def test_the_recovery_note_names_the_command_and_the_offset(self):
+        """A reason that can only be delivered to a dark screen is a reason
+        nobody gets. slot0 is written in place, so when a flash truly fails the
+        board this would have told is the one that no longer boots -- the note
+        goes to the log, and it has to be enough to act on."""
+        note = ota.recovery_note("/dev/cu.usbserial-0001", "2.3.0")
+        self.assertIn("/dev/cu.usbserial-0001", note)
+        self.assertIn("write_flash 0x20000", note)
+        self.assertIn("overwatch-fw.bin", note)
+        # Says to check the hash, because the fix for a bad image must not be
+        # another unchecked image.
+        self.assertIn("sha256", note)
+        self.assertIn("2.3.0", note)
+
+    def test_the_recovery_note_works_without_a_version(self):
+        note = ota.recovery_note("/dev/ttyUSB0")
+        self.assertIn("/dev/ttyUSB0", note)
+        self.assertIn("the release", note)
 
 
 if __name__ == "__main__":

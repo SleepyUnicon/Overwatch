@@ -593,6 +593,42 @@ def probe_is_our_board(ser, timeout=PROBE_S, tap=None):
     return False
 
 
+# How long to let a freshly flashed board stay silent before saying so.
+#
+# A write can VERIFY and the image still not run -- a bad build does exactly
+# that, and slot0 has no revert behind it. In that case ota.flash() is right to
+# report success and there is nothing else in the system that ever mentions the
+# board again: the daemon reconnects, waits for a hello that is never coming,
+# and the log simply stops. Measured on 2026-09-29, that silence read as a
+# wedged daemon and cost about fifteen minutes of looking in the wrong place.
+#
+# Ninety seconds because the board reboots in five and MCUboot's own revert
+# window is ninety; anything still quiet after that is not merely slow.
+SILENT_AFTER_FLASH_S = 90.0
+
+
+def silent_since_flash(flashed_at, warned, alive, now,
+                       limit=SILENT_AFTER_FLASH_S):
+    """Should we say the board never came back? (say_it, still_pending).
+
+    Pulled out of the reconnect loop so it can be tested: the loop it lives in
+    needs a serial port, a board, and a failed flash to reach, which is three
+    things a test has none of.
+
+    `still_pending` is what the caller keeps -- None once the board is back, so
+    a later flash starts the clock again rather than inheriting this one's.
+    """
+    if flashed_at is None:
+        return False, None
+    if alive:
+        return False, None          # it came back; nothing to say
+    if warned:
+        return False, flashed_at    # said once is enough
+    if now - flashed_at <= limit:
+        return False, flashed_at    # still within its own reboot time
+    return True, flashed_at
+
+
 def wait_for_port(explicit=None, poll_s=3.0, on_wait=None):
     """Block until there is a board to talk to, then return its device path.
 
@@ -738,6 +774,11 @@ def main(argv=None):
     # reconnection.
     next_update = time.monotonic() + UPDATE_FIRST_CHECK_S
     report_failure = None       # a flash failure waiting for the board to return
+    # When a flash last handed the board back, and whether we have already
+    # remarked on the board not coming back from it. See SILENT_AFTER_FLASH_S.
+    flashed_at = None
+    flashed_version = ""
+    flash_warned = False
 
     # Outside the reconnect loop for the same reason next_update is: its
     # interval and its give-up counter describe this machine, not this cable.
@@ -1125,9 +1166,13 @@ def main(argv=None):
             board is back -- the first moment it can be shown at all.
             """
 
-            def __init__(self, why=None):
+            def __init__(self, why=None, version=""):
                 super().__init__(why or "")
                 self.why = why
+                # Which version was just written. Carried for the same reason
+                # `why` is -- the loop body that has to talk about it is a
+                # different one from the body that did it.
+                self.version = version
 
         def flash_image(blob, version):
             # Let the board paint its warning first. esptool resets it into
@@ -1145,7 +1190,19 @@ def main(argv=None):
             ok, why = ota_mod.flash(port, blob)
             print(f"[bridge] ota: {'flashed ' + version if ok else 'FAILED: ' + why}",
                   file=sys.stderr)
-            raise Reflashed(None if ok else why)
+            if not ok:
+                # Print the recovery instructions HERE, not on the reconnect.
+                #
+                # Reflashed carries `why` out so the board can be told once it
+                # is back -- which works for every failure that leaves the
+                # board bootable, and not at all for the one that does not.
+                # slot0 is written in place with no revert behind it, so the
+                # screen this reason is queued for may be the screen that never
+                # comes back. On 2026-09-29 that is exactly what happened: the
+                # daemon held the reason, the board sat hung, and the log said
+                # nothing a person could act on.
+                print(ota_mod.recovery_note(port, version), file=sys.stderr)
+            raise Reflashed(None if ok else why, version)
 
         def self_update(version, artifact):
             """Replace this program, then hand the cable to the new one.
@@ -1285,6 +1342,28 @@ def main(argv=None):
                     # made the sizes disagree, the refusal was correct, and
                     # the prompt never returned.
                     bridge.retry_offer_if_failed()
+                    # Did the board come back from the last flash at all?
+                    #
+                    # board_alive() is the only honest answer to that, and
+                    # until this existed nobody asked. A verified write of an
+                    # image that does not run leaves the daemon reconnecting
+                    # into silence for ever, saying nothing -- see
+                    # SILENT_AFTER_FLASH_S.
+                    say, flashed_at = silent_since_flash(
+                        flashed_at, flash_warned, bridge.board_alive(),
+                        time.monotonic())
+                    if flashed_at is None:
+                        flash_warned = False
+                    if say:
+                        flash_warned = True
+                        print("[bridge] ota: the board has not said anything"
+                              " since it was flashed"
+                              f" {int(time.monotonic() - flashed_at)}s ago."
+                              " The image was written and verified, so it is"
+                              " the firmware that is not running.",
+                              file=sys.stderr)
+                        print(ota_mod.recovery_note(port, flashed_version),
+                              file=sys.stderr)
                 if time.monotonic() >= next_fast_poll:
                     # The fast tick, after the heartbeat on purpose: when both
                     # come due in the same pass the heartbeat has already sent
@@ -1321,6 +1400,9 @@ def main(argv=None):
             # ("chip has flash encryption", "esptool not found") in its log and
             # no way to say it.
             report_failure = r.why
+            flashed_at = time.monotonic()
+            flashed_version = r.version
+            flash_warned = False
             time.sleep(2)
             continue
         except (serial.SerialException, OSError) as e:
