@@ -382,9 +382,20 @@ document.getElementById('againLink').onclick = e => {
 };
 
 /* ---------- the launcher, drawn as the panel draws it ---------- */
-function iconFor(name){
-  if (!name) return null;
-  const k = (state.icons||[]).find(k => name.toLowerCase().includes(k));
+/* A slot is a string (an app) or an object (a keystroke or a command).
+ * These two turn either into something to draw, so the rest of the page
+ * never has to know which it is holding -- and, crucially, the page keeps
+ * passing the ORIGINAL back, so an action written by hand survives somebody
+ * editing a different tile. */
+function slotLabel(app){
+  if (!app) return '';
+  if (typeof app === 'string') return app;
+  return app.label || app.app || '';
+}
+function iconFor(app){
+  if (!app) return null;
+  if (typeof app === 'object') return app.icon || iconFor(app.app || '');
+  const k = (state.icons||[]).find(k => app.toLowerCase().includes(k));
   return k || null;
 }
 function draw(){
@@ -397,8 +408,9 @@ function draw(){
     /* Icon when the panel has one for this program, initial when it does
      * not -- which is exactly what the board falls back to, so what you
      * choose here looks the same in both places. */
-    d.innerHTML = `<span class="ic">${ic ? '&#9679;' : (app ? app[0].toUpperCase() : '+')}</span>
-                   <span class="nm">${app || 'empty'}</span>`;
+    const nm = slotLabel(app);
+    d.innerHTML = `<span class="ic">${ic ? '&#9679;' : (nm ? nm[0].toUpperCase() : '+')}</span>
+                   <span class="nm">${nm || 'empty'}</span>`;
     d.onclick = () => openSlot(i);
     g.appendChild(d);
   });
@@ -413,7 +425,7 @@ function openSlot(i){
   const sel = document.getElementById('sel');
   sel.innerHTML = '<option value="">— empty —</option>' +
     (state.installed||[]).map(a =>
-      `<option${a === state.apps[i] ? ' selected' : ''}>${a}</option>`).join('');
+      `<option${a === slotLabel(state.apps[i]) ? ' selected' : ''}>${a}</option>`).join('');
   dlg.showModal();
 }
 document.getElementById('cancel').onclick = () => dlg.close();

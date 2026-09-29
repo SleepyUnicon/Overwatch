@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 
+from pc import actions
 from pc import apps_linux
 from pc import macperm
 
@@ -110,6 +111,73 @@ def icon_for(app):
     return None
 
 
+def clean_entry(raw):
+    """One slot, validated, or None to leave the slot empty.
+
+    A slot was a string and is now a string OR an action. Strings behave
+    exactly as they did -- that is most of the point, since every existing
+    apps.json is a list of them.
+
+        "Terminal"                                  an app
+        {"app": "Terminal"}                         the same, spelled out
+        {"keys": "cmd+shift+4", "label": "Shot"}    a keystroke
+        {"run": ["pactl", "..."], "label": "Mute"}  a command
+
+    Anything else is dropped rather than raised on. This file is hand-edited
+    by customers and load_apps() already promises that a dropped comma gets
+    the stock grid back, not a service that will not start.
+    """
+    if isinstance(raw, str):
+        return raw or None
+    if not isinstance(raw, dict):
+        return None
+
+    icon = raw.get("icon")
+    icon = icon if isinstance(icon, str) and icon in ICON_KEYS else None
+    label = raw.get("label")
+    label = label.strip() if isinstance(label, str) else ""
+
+    if isinstance(raw.get("app"), str) and raw["app"].strip():
+        return {"app": raw["app"].strip(), "label": label, "icon": icon}
+    if isinstance(raw.get("keys"), str) and raw["keys"].strip():
+        return {"keys": raw["keys"].strip(),
+                "label": label or raw["keys"].strip(), "icon": icon}
+    run = raw.get("run")
+    if isinstance(run, list) and run and all(isinstance(a, str) for a in run):
+        # A label is not optional for a command: the alternative is a tile
+        # showing a path, and nobody can read /usr/bin/pactl at a glance.
+        return {"run": list(run), "label": label or os.path.basename(run[0]),
+                "icon": icon}
+    return None
+
+
+def entry_app(entry):
+    """The app name this entry launches, or None if it is an action."""
+    if isinstance(entry, str):
+        return entry
+    if isinstance(entry, dict):
+        return entry.get("app")
+    return None
+
+
+def entry_face(entry):
+    """What the board should draw: an icon key, or a short label.
+
+    The same rule the launcher has always used -- icon where one exists,
+    text where one does not -- extended so an action can name its own icon.
+    """
+    if isinstance(entry, str):
+        return icon_for(entry) or _short(entry)
+    if not isinstance(entry, dict):
+        return ""
+    if entry.get("icon"):
+        return entry["icon"]
+    app = entry.get("app")
+    if app:
+        return icon_for(app) or _short(entry.get("label") or app)
+    return _short(entry.get("label") or "")
+
+
 def _config_path():
     """~/.overwatch/apps.json -- resolved HERE, never at module scope.
 
@@ -146,9 +214,10 @@ def load_apps():
     except (OSError, ValueError):
         return apps[:SLOTS]
     if isinstance(got, list):
-        for i, name in enumerate(got[:SLOTS]):
-            if isinstance(name, str):
-                apps[i] = name
+        for i, raw in enumerate(got[:SLOTS]):
+            entry = clean_entry(raw)
+            if entry is not None:
+                apps[i] = entry
     return apps[:SLOTS]
 
 
@@ -270,10 +339,12 @@ class Launcher:
         the names they replace, so this message got cheaper, not dearer.
         """
         msg = {"t": "apps", "v": protocol.VERSION}
-        for i, name in enumerate(self._apps[:SLOTS]):
-            if not name:
+        for i, entry in enumerate(self._apps[:SLOTS]):
+            if not entry:
                 continue
-            msg["s%d" % i] = icon_for(name) or _short(name)
+            face = entry_face(entry)
+            if face:
+                msg["s%d" % i] = face
         return msg
 
     # --- inbound -----------------------------------------------------
@@ -293,18 +364,20 @@ class Launcher:
             return None
         if not 0 <= slot < SLOTS:
             return None
-        name = self._apps[slot] if slot < len(self._apps) else ""
-        if not name:
+        entry = self._apps[slot] if slot < len(self._apps) else ""
+        if not entry:
             # An unassigned slot. The board already refuses to send these, so
             # arriving here means the two sides disagree about the table --
             # answer false rather than silently doing nothing.
             return {"t": "launched", "v": protocol.VERSION,
                     "slot": slot, "ok": False}
         return {"t": "launched", "v": protocol.VERSION,
-                "slot": slot, "ok": bool(self._run(name))}
+                "slot": slot, "ok": bool(self._run(entry))}
 
-    def _spawn(self, name):
-        """Toggle the app: hide it if it is in front, otherwise bring it up.
+    def _spawn(self, entry):
+        """Perform the slot: an app toggled, a keystroke sent, a command run.
+
+        Toggle the app: hide it if it is in front, otherwise bring it up.
 
         Three states, and `open -a` already handles two of them - it launches
         an app that is not running and raises one that is. The only thing it
@@ -315,6 +388,18 @@ class Launcher:
         A tap that hides counts as success. The board lights the tile green
         either way, because both outcomes are the tap doing what was asked.
         """
+        if isinstance(entry, dict) and ("keys" in entry or "run" in entry):
+            ok, why = actions.perform(entry)
+            print("[widgets] %s: %s"
+                  % (entry.get("label") or "action", why or "done"),
+                  file=sys.stderr)
+            return ok
+
+        name = entry_app(entry)
+        if not name:
+            print("[widgets] a slot with nothing to do", file=sys.stderr)
+            return False
+
         if sys.platform == "darwin":
             where, ok, why = _osa(_STATE % {"n": name})
             if ok and where == "front":

@@ -383,7 +383,16 @@ class Handler(BaseHTTPRequestHandler):
             # sends a SLOT NUMBER and the daemon turns it into a program, so
             # what lands here decides what a tap can start - it is checked
             # rather than trusted, even from loopback.
-            apps = [a for a in apps if isinstance(a, str)][:widgets.SLOTS]
+            # Validated, not filtered to strings.
+            #
+            # A slot may now be an action -- a keystroke or a command -- and
+            # this used to keep only strings. The page echoes back every slot
+            # it was given and changes one, so that filter would have wiped
+            # every hand-written action tile the moment somebody used the
+            # picker to change a different slot. Silent, total, and
+            # discovered only by the board going quiet.
+            apps = [widgets.clean_entry(a) for a in apps][:widgets.SLOTS]
+            apps = [a if a is not None else "" for a in apps]
             apps += [""] * (widgets.SLOTS - len(apps))
             path = widgets._config_path()
             os.makedirs(os.path.dirname(path), exist_ok=True)
