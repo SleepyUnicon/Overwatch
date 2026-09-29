@@ -102,7 +102,9 @@ def test_a_missing_key_is_none_rather_than_an_error():
 
 def test_only_mpris_names_are_players(monkeypatch):
     _patch(monkeypatch, FakeGdbus())
-    assert music_linux.players() == [
+    names, err = music_linux.players()
+    assert err is None
+    assert names == [
         "org.mpris.MediaPlayer2.spotify",
         "org.mpris.MediaPlayer2.firefox.instance_1_23",
     ]
@@ -110,7 +112,7 @@ def test_only_mpris_names_are_players(monkeypatch):
 
 def test_a_bus_with_no_player_is_empty(monkeypatch):
     _patch(monkeypatch, FakeGdbus(names="(['org.freedesktop.DBus'],)"))
-    assert music_linux.players() == []
+    assert music_linux.players() == ([], None)
 
 
 # --- choosing between players ----------------------------------------
@@ -260,3 +262,46 @@ def test_a_mac_is_untouched_by_any_of_this(monkeypatch):
     w = music.MusicWidget(osa=osa, linux=None)
     assert w.poll()["why"] == "No music player running"
     assert calls, "the AppleScript path was not taken"
+
+
+# --- the regression that sent a Linux user to buy a Mac ---------------
+
+
+def test_the_backend_is_chosen_by_platform_alone(monkeypatch):
+    """available() used to also run `gdbus --version` and demand a zero exit.
+
+    That assumed a flag nobody had checked against a real gdbus -- and when
+    the probe failed, pc/music.py fell through to the AppleScript path, so a
+    Linux desktop was told "Spotify control needs a Mac". Wrong, and pointing
+    at the wrong operating system.
+    """
+    monkeypatch.setattr(music_linux.sys, "platform", "linux")
+    assert music_linux.available() is True
+    monkeypatch.setattr(music_linux.sys, "platform", "darwin")
+    assert music_linux.available() is False
+
+
+def test_no_gdbus_says_install_gdbus_not_buy_a_mac(monkeypatch):
+    """The sentence a Linux user gets when the tool is missing has to name the
+    tool they are missing."""
+    def no_gdbus(*args, **kw):
+        raise FileNotFoundError("gdbus")
+
+    monkeypatch.setattr(music_linux.subprocess, "run", no_gdbus)
+    w = music.MusicWidget(linux=music_linux)
+    why = w.poll().get("why", "")
+    assert "gdbus" in why
+    assert "Mac" not in why
+
+
+def test_a_linux_widget_never_reaches_applescript(monkeypatch):
+    """The structural version of the bug: whatever goes wrong on Linux, the
+    macOS branch must not be the thing that answers."""
+    called = []
+
+    monkeypatch.setattr(music_linux.sys, "platform", "linux")
+    w = music.MusicWidget(osa=lambda s: called.append(s) or ("closed", None))
+    _patch(monkeypatch, FakeGdbus(names="(['org.freedesktop.DBus'],)"))
+    msg = w.poll()
+    assert not called, "the AppleScript path ran on Linux"
+    assert msg["why"] == "No music player running"

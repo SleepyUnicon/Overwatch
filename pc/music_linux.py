@@ -39,15 +39,27 @@ _NAME_OK = re.compile(r"^org\.mpris\.MediaPlayer2\.[A-Za-z0-9._-]+$")
 
 
 def available():
-    """Is there a gdbus to talk through?"""
-    if not sys.platform.startswith("linux"):
-        return False
-    try:
-        p = subprocess.run(["gdbus", "--version"], capture_output=True,
-                           timeout=TIMEOUT_S)
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return p.returncode == 0
+    """Is this the platform this backend is for?
+
+    PLATFORM ONLY. It used to also run `gdbus --version` and demand a zero
+    exit, which was wrong twice over.
+
+    First, it assumed a flag. `--version` was never checked against a real
+    gdbus, and a probe that fails because the tool does not take the argument
+    is indistinguishable here from one that fails because the tool is absent.
+
+    Second, and worse, is what the false answer caused. pc/music.py falls back
+    to the AppleScript path when this returns False -- so a Linux machine was
+    told "Spotify control needs a Mac", a sentence that is not merely unhelpful
+    but points at the wrong operating system entirely. Reported from a Linux
+    desktop, 2026-09-29.
+
+    There is nothing to probe for. _gdbus() turns a missing binary into
+    "Install gdbus (glib) for media control", which is the true sentence and
+    the actionable one, and it does it at the moment somebody is actually
+    asking for music.
+    """
+    return sys.platform.startswith("linux")
 
 
 def _gdbus(*args):
@@ -68,12 +80,21 @@ def _gdbus(*args):
 
 
 def players():
-    """Every MPRIS name on the session bus, in the order the bus gives them."""
+    """(names, err). Every MPRIS name on the session bus, bus order kept.
+
+    The error is RETURNED, not swallowed. This used to answer an empty list
+    for any failure, so a machine with no gdbus at all reported "No music
+    player running" -- true-sounding, completely misleading, and it sends
+    somebody to look at their music app instead of installing glib. Same
+    family of fault as the one that told a Linux desktop it needed a Mac.
+    """
     out, err = _gdbus("call", "--session", "--dest", "org.freedesktop.DBus",
                       "--object-path", "/org/freedesktop/DBus",
                       "--method", "org.freedesktop.DBus.ListNames")
-    if err is not None or not out:
-        return []
+    if err is not None:
+        return [], err
+    if not out:
+        return [], None
     found = re.findall(r"org\.mpris\.MediaPlayer2\.[A-Za-z0-9._-]+", out)
     # Deduplicated, order kept: a player can appear twice when it owns both a
     # well-known name and an instance-suffixed one.
@@ -82,7 +103,7 @@ def players():
         if name not in seen and _NAME_OK.match(name):
             seen.add(name)
             keep.append(name)
-    return keep
+    return keep, None
 
 
 # ------------------------------------------------------------ GVariant bits
@@ -179,7 +200,9 @@ def read(prefer=None):
     -- the one last talked to -- so the page does not flicker between two
     paused players as the bus reorders them.
     """
-    names = players()
+    names, err = players()
+    if err is not None:
+        return None, err
     if not names:
         return None, None
 
@@ -205,10 +228,14 @@ def command(verb, prefer=None):
     method = _VERB.get(verb)
     if method is None:
         return None
-    fields, _ = read(prefer)
+    fields, err = read(prefer)
+    if err is not None:
+        return err
     target = fields["player"] if fields else None
     if target is None:
-        names = players()
+        names, err = players()
+        if err is not None:
+            return err
         target = names[0] if names else None
     if target is None:
         return "No music player running"
@@ -231,7 +258,10 @@ def _main():
     if not available():
         print("no gdbus on PATH -- media control needs glib installed")
         return 1
-    names = players()
+    names, err = players()
+    if err is not None:
+        print("error: %s" % err)
+        return 1
     print("players on the bus: %d" % len(names))
     for name in names:
         print("  %s" % name)

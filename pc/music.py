@@ -149,6 +149,10 @@ class MusicWidget:
         # The Linux half. Injected for the same reason `osa` is: no test
         # should reach a real session bus. None means "decide by platform",
         # which is what every caller but a test wants.
+        # On Linux this is ALWAYS the Linux backend. Falling through to the
+        # AppleScript path there produced "Spotify control needs a Mac" on a
+        # Linux desktop -- a sentence that sends somebody to fix the wrong
+        # thing. If the backend cannot work it says so in its own words.
         self._linux = linux if linux is not None else (
             music_linux if music_linux.available() else None)
         # Which player answered last. Tried FIRST next time, so a machine

@@ -3128,6 +3128,36 @@ def cmd_flash(args) -> int:
     return 0
 
 
+def cmd_music(_args) -> int:
+    """What this machine's media players look like, with nothing else in the way.
+
+    A board, a daemon and a panel between a person and a wrong answer is three
+    places for the fault to be. This asks the same question the transport page
+    asks and prints what came back.
+
+    It exists because the equivalent was `python3 -m pc.music_linux`, which
+    needs the source -- and the machine with the problem has a frozen binary
+    and no checkout. A diagnostic only runnable where the problem is not is
+    not a diagnostic.
+    """
+    if sys.platform == "darwin":
+        from pc.music import MusicWidget
+
+        msg = MusicWidget().poll()
+        if "why" in msg:
+            print("No player: %s" % msg["why"])
+            return 1
+        print("%s -- %s" % (msg.get("n", ""), msg.get("a", "")))
+        print("  %s, %ss of %ss"
+              % ("playing" if msg.get("st") else "paused",
+                 msg.get("pos"), msg.get("dur")))
+        return 0
+
+    from pc import music_linux
+
+    return music_linux._main()
+
+
 def cmd_config(_args) -> int:
     """Open the launcher's config page in the browser.
 
@@ -3214,6 +3244,8 @@ def main(argv=None) -> int:
     flash_p.add_argument("--image", default=None,
                          help="Firmware image (default: the one that shipped)")
     sub.add_parser("config", help="Choose which apps the launcher shows")
+    sub.add_parser("music",
+                   help="What media players this machine has, and what they say")
     run_p = sub.add_parser("run", help="Run the bridge in the foreground")
     run_p.add_argument("--port", default=None,
                        help="Serial port (default: find the board)")
@@ -3245,6 +3277,7 @@ def main(argv=None) -> int:
         "provision": cmd_provision,
         "flash": cmd_flash,
         "config": cmd_config,
+        "music": cmd_music,
         "run": cmd_run,
     }[args.cmd](args)
 
