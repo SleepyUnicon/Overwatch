@@ -33,6 +33,7 @@ if __package__ in (None, ""):
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from pc import apps_linux
 from pc import cli, widgets
 
 HOST, PORT = "127.0.0.1", 8730
@@ -87,6 +88,18 @@ APP_DIRS = ("/Applications", os.path.expanduser("~/Applications"),
 
 
 def installed_apps():
+    """Every application this machine can launch, by the name it is known as.
+
+    On Linux that is the freedesktop desktop entries -- see pc/apps_linux.py.
+    The .app scan below means nothing there, so the picker offered an empty
+    list and there was no way to choose anything at all.
+    """
+    if sys.platform.startswith("linux"):
+        return apps_linux.names()
+    return _installed_apps_macos()
+
+
+def _installed_apps_macos():
     """Every .app on this Mac, by the name `open -a` wants.
 
     That is the BUNDLE name without .app - not the display name, not the path.

@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 
+from pc import apps_linux
 from pc import macperm
 
 from pc import protocol
@@ -209,6 +210,13 @@ def _argv_for(name):
         # `start` is a cmd builtin, so it needs cmd -- but the name is still a
         # separate argv entry, not interpolated into the command string.
         return ["cmd", "/c", "start", "", name]
+    if sys.platform.startswith("linux"):
+        # The command out of the application's own desktop entry. This used to
+        # be `[name]` -- running the display name as if it were an executable,
+        # which works for "firefox" by accident and for almost nothing else.
+        # None when the app is not installed, which _spawn reports as such
+        # rather than as a command that failed.
+        return apps_linux.argv_for(name)
     return [name]
 
 
@@ -324,7 +332,37 @@ class Launcher:
 
         argv = _argv_for(name)
         if not argv:
+            # Silent before. A tile that lights red and writes nothing is the
+            # hardest thing to diagnose from the other side of a serial cable,
+            # which is the whole reason the line below this one exists.
+            print("[widgets] %s: no such application installed" % name,
+                  file=sys.stderr)
             return False
+
+        if sys.platform.startswith("linux"):
+            # Started and LET GO, not waited for.
+            #
+            # `open -a` and `cmd /c start` hand the app to the desktop and
+            # return in milliseconds, which is what the timeout below is sized
+            # for. A desktop entry's Exec IS the application -- waiting on it
+            # means waiting until the user quits Firefox, so the call would
+            # hit LAUNCH_TIMEOUT_S and report a failure for an app that had
+            # started perfectly well.
+            #
+            # start_new_session, so the app does not die with the daemon. A
+            # launcher whose apps close when the service restarts for an
+            # update is worse than no launcher.
+            try:
+                subprocess.Popen(argv, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL,
+                                 start_new_session=True)
+            except (OSError, subprocess.SubprocessError) as e:
+                print("[widgets] %s: launch failed (%s)"
+                      % (name, type(e).__name__), file=sys.stderr)
+                return False
+            print("[widgets] %s: launched" % name, file=sys.stderr)
+            return True
+
         try:
             rc = subprocess.call(argv, timeout=LAUNCH_TIMEOUT_S,
                                  stdout=subprocess.DEVNULL,

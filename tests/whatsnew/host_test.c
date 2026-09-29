@@ -238,18 +238,21 @@ int main(void)
 	CHECK(pages[0].first == first_of(old));
 	CHECK(page_px(&pages[0]) <= WHATSNEW_PAGE_PX);
 
-	CHECK(whatsnew_paginate("1.3.1", "1.3.2", pages, 16) == 1);
+	/* One release: one page holding one entry. Derived like the rest --
+	 * these were the last three literals in this file, and they failed the
+	 * first time the table was trimmed past them. */
+	CHECK(whatsnew_paginate(older, old, pages, 16) == 1);
 	CHECK(pages[0].count == 1);
 	/* An unknown origin yields the one release we know is running. */
-	CHECK(whatsnew_paginate("", "1.3.2", pages, 16) == 1);
+	CHECK(whatsnew_paginate("", old, pages, 16) == 1);
 	CHECK(pages[0].count == 1);
-	CHECK(whatsnew_paginate("1.3.0", "9.9.9", pages, 16) == 0);
+	CHECK(whatsnew_paginate(oldest, "9.9.9", pages, 16) == 0);
 
 	/* ---------------- pagination: the rules, at sizes we can build --- */
 	/* Every page inside its budget, and no release ever split across a
 	 * page turn -- so the counts have to add back up to the whole span. */
 	for (int px = 40; px <= 200; px += 7) {
-		int n = whatsnew_paginate_px("1.2.5", "1.3.2", pages, 16, px);
+		int n = whatsnew_paginate_px("0.0.1", old, pages, 16, px);
 		int total = 0;
 
 		CHECK(n >= 1);
@@ -263,16 +266,16 @@ int main(void)
 			}
 			CHECK(pages[i].first == (i ? pages[i - 1].first
 						 + pages[i - 1].count
-					     : first_of("1.3.2")));
+					     : first_of(old)));
 			total += pages[i].count;
 		}
-		CHECK(total == span_of("1.2.5", "1.3.2"));
+		CHECK(total == span_of("0.0.1", old));
 	}
 
 	/* A budget too small for two releases gives one page each. */
-	CHECK(whatsnew_paginate_px("1.2.5", "1.3.2", pages, 16, 50)
-	      == span_of("1.2.5", "1.3.2"));
-	for (int i = 0; i < span_of("1.2.5", "1.3.2") && i < 16; i++) {
+	CHECK(whatsnew_paginate_px("0.0.1", old, pages, 16, 50)
+	      == span_of("0.0.1", old));
+	for (int i = 0; i < span_of("0.0.1", old) && i < 16; i++) {
 		CHECK(pages[i].count == 1);
 	}
 
@@ -282,13 +285,13 @@ int main(void)
 	{
 		struct whatsnew_page one[1];
 
-		CHECK(whatsnew_paginate_px("1.2.5", "1.3.2", one, 1, 50)
-		      == span_of("1.2.5", "1.3.2"));
+		CHECK(whatsnew_paginate_px("0.0.1", old, one, 1, 50)
+		      == span_of("0.0.1", old));
 		CHECK(one[0].count == 1);
 	}
 	/* A NULL out is legal, for a caller that only wants the count. */
-	CHECK(whatsnew_paginate_px("1.2.5", "1.3.2", NULL, 0, 50)
-	      == span_of("1.2.5", "1.3.2"));
+	CHECK(whatsnew_paginate_px("0.0.1", old, NULL, 0, 50)
+	      == span_of("0.0.1", old));
 
 	/* ---------------- the breadcrumb ---------------------------------- */
 	/* 16 is CFG_OTA_VER_MAX, the real field this has to live in. */
