@@ -168,27 +168,28 @@ def test_a_power_supply_that_is_not_a_battery_is_ignored(linux):
     assert hp._battery() == (None, None)
 
 
-# --- disk, which is the same syscall on both --------------------------
+# --- disk, which is the same call on all three ------------------------
+
+GB = 1024 ** 3
+
+
+def _usage(free_gb, total_gb=400):
+    """What shutil.disk_usage returns: a (total, used, free) named tuple."""
+    import collections
+    U = collections.namedtuple("usage", "total used free")
+    return U(int(total_gb * GB), int((total_gb - free_gb) * GB),
+             int(free_gb * GB))
 
 
 def test_disk_warns_on_space_left_not_a_percentage(monkeypatch):
-    """A percentage cannot be computed honestly from statvfs on macOS: an
-    APFS volume sits in a container, so f_blocks is the whole container. df
-    reported 21% here where the same arithmetic that is right on ext4 said
-    90% -- and 90% paints a row red for no reason.
+    """A percentage cannot be computed honestly on macOS: an APFS volume sits
+    in a container, so the total is the whole container. df reported 21% here
+    where the same arithmetic that is right on ext4 said 90% -- and 90% paints
+    a row red for no reason.
     """
-    class FakeStat:
-        f_frsize = 4096
-        f_blocks = 100000000
-
-        def __init__(self, avail):
-            self.f_bavail = avail
-            self.f_bfree = avail
-
     for avail_gb, want in ((100, None), (15, "warn"), (5, "bad")):
-        monkeypatch.setattr(
-            os, "statvfs",
-            lambda _p, g=avail_gb: FakeStat(int(g * (1024 ** 3) / 4096)))
+        monkeypatch.setattr(hp.shutil, "disk_usage",
+                            lambda _p, g=avail_gb: _usage(g))
         _, gb = hp._disk()
         assert round(gb) == avail_gb
         tone = None
@@ -199,6 +200,32 @@ def test_disk_warns_on_space_left_not_a_percentage(monkeypatch):
         assert tone == want, avail_gb
 
 
+def test_the_disk_is_read_with_a_call_that_exists_on_windows(monkeypatch):
+    """os.statvfs DOES NOT EXIST on Windows -- it raises AttributeError, which
+    _disk's except clause never caught, so build() died and took the whole
+    desk panel with it on a platform this project ships a signed binary for.
+    Eleven tests said so on every push for a day.
+
+    Asserting the absence of the old call, because "it works on my Mac" is
+    exactly how it survived.
+    """
+    import V2.host_panel as mod
+    src = open(mod.__file__, encoding="utf-8").read()
+    # The CALL, not the word: the docstring explains why statvfs was dropped
+    # and should go on saying so.
+    assert "os.statvfs(" not in src
+    assert "shutil.disk_usage(" in src
+
+
+def test_the_boot_volume_is_not_hardcoded_to_a_slash():
+    """"/" is not the boot volume on Windows -- it is a path on whatever drive
+    happens to be current."""
+    import V2.host_panel as mod
+    src = open(mod.__file__, encoding="utf-8").read()
+    assert 'disk_usage("/")' not in src
+    assert "os.path.abspath(os.sep)" in src
+
+
 # --- failure behaviour ------------------------------------------------
 
 
@@ -207,7 +234,7 @@ def test_a_machine_that_answers_nothing_leaves_the_board_alone(monkeypatch):
     where a page that stops changing looks like a quiet machine."""
     monkeypatch.setattr(hp, "_LINUX", False)
     monkeypatch.setattr(hp, "_DARWIN", False)
-    monkeypatch.setattr(os, "statvfs",
+    monkeypatch.setattr(hp.shutil, "disk_usage",
                         lambda _p: (_ for _ in ()).throw(OSError()))
     assert hp.build() is None
 

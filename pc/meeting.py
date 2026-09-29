@@ -33,6 +33,9 @@ import sys
 
 TIMEOUT_S = 6
 
+# Eighteen characters; see the same constant in mic.py.
+_NOT_HERE = "not on this OS"
+
 # (label, url pattern, title pattern, native process names)
 #
 # The url pattern must match a host AND something after it, so an idle landing
@@ -268,7 +271,7 @@ def detect():
         return _linux_detect()
     if sys.platform == "darwin":
         return _mac_detect()
-    return None, "call detection is macOS and X11 only"
+    return None, _NOT_HERE
 
 
 def show(call):
@@ -279,4 +282,4 @@ def show(call):
         return _linux_show(call)
     if sys.platform == "darwin":
         return _mac_show(call)
-    return False, "call detection is macOS and X11 only"
+    return False, _NOT_HERE

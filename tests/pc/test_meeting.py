@@ -532,3 +532,32 @@ def test_every_error_this_module_can_report_fits_a_row():
     for text in ("mic has no level", "install pactl for mute control"[:18],
                  "could not read the mixer"[:18]):
         assert len(text) <= panel_mod.VALUE_MAX
+
+
+# --- a platform with neither control ----------------------------------
+
+
+def test_a_platform_with_no_controls_offers_no_tiles(monkeypatch):
+    """Windows has neither pactl nor osascript. The first version still put a
+    Sound tile on the panel -- appended unconditionally, one line under the
+    comment explaining why the mic tile is not. A button that cannot work is
+    the thing this panel exists to avoid, and that applies to both of them."""
+    monkeypatch.setattr(meeting.sys, "platform", "win32")
+    monkeypatch.setattr(mic.sys, "platform", "win32")
+    p = meeting_panel.build()
+    assert p.tiles == []
+
+
+def test_the_refusal_fits_a_row_on_every_platform(monkeypatch):
+    """"mute control is macOS and Linux only" is thirty-six characters against
+    a row's eighteen, so a Windows user would have read "mute control is m…"
+    on three rows at once."""
+    from V2 import panel as panel_mod
+    monkeypatch.setattr(meeting.sys, "platform", "win32")
+    monkeypatch.setattr(mic.sys, "platform", "win32")
+    assert len(mic.muted()[1]) <= panel_mod.VALUE_MAX
+    assert len(meeting.detect()[1]) <= panel_mod.VALUE_MAX
+    for r in meeting_panel.build().rows:
+        # Nothing truncated: an ellipsis on the glass means the words that
+        # explain the problem are the ones that got cut.
+        assert "…" not in r.value, r.label

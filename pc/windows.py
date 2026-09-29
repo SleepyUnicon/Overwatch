@@ -19,6 +19,11 @@ import sys
 
 TIMEOUT_S = 5
 
+# Eighteen characters, because that is what a panel row holds. The long form
+# ("window control is macOS and X11 only", 36) arrived on the glass as
+# "window control is\u2026" -- cutting away the half that says what to do.
+_NOT_HERE = "not on this OS"
+
 # Where a window can be put. Deliberately four, matching the four tiles a
 # panel has: any more and the labels stop fitting a 66 px button.
 PLACES = ("left", "right", "full", "next")
@@ -299,7 +304,7 @@ def current():
         return _x11_current()
     if sys.platform == "darwin":
         return _mac_current()
-    return None, "window control is macOS and X11 only"
+    return None, _NOT_HERE
 
 
 def place(where):
@@ -310,4 +315,4 @@ def place(where):
         return _x11_place(where)
     if sys.platform == "darwin":
         return _mac_place(where)
-    return False, "window control is macOS and X11 only"
+    return False, _NOT_HERE

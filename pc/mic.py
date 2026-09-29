@@ -28,6 +28,12 @@ import sys
 
 TIMEOUT_S = 4
 
+# Eighteen characters, because that is what a row holds. The first
+# version said "mute control is macOS and Linux only" (36) and a
+# Windows user would have read "mute control is m\u2026" on three rows at
+# once. The long form belongs in a log, not on a 320 px screen.
+_NOT_HERE = "not on this OS"
+
 # pactl speaks to PulseAudio and to PipeWire's pipewire-pulse layer, which
 # between them is every desktop Linux worth naming.
 _SOURCE = "@DEFAULT_SOURCE@"
@@ -181,7 +187,7 @@ def muted():
         return _linux_muted("source")
     if sys.platform == "darwin":
         return _mac_mic_muted()
-    return None, "mute control is macOS and Linux only"
+    return None, _NOT_HERE
 
 
 def set_muted(want):
@@ -197,7 +203,7 @@ def set_muted(want):
     if sys.platform == "darwin":
         _, err = _osa("set volume input volume %d" % (0 if want else 100))
         return (err is None), err
-    return False, "mute control is macOS and Linux only"
+    return False, _NOT_HERE
 
 
 def out_muted():
@@ -206,7 +212,7 @@ def out_muted():
         return _linux_muted("sink")
     if sys.platform == "darwin":
         return _mac_out_muted()
-    return None, "mute control is macOS and Linux only"
+    return None, _NOT_HERE
 
 
 def set_out_muted(want):
@@ -217,7 +223,7 @@ def set_out_muted(want):
         _, err = _osa("set volume output muted %s"
                       % ("true" if want else "false"))
         return (err is None), err
-    return False, "mute control is macOS and Linux only"
+    return False, _NOT_HERE
 
 
 def _flip(read, write):

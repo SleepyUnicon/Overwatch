@@ -20,6 +20,7 @@ connection handshake.
 No new dependency, and nothing in pc/requirements.txt changes.
 """
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -123,21 +124,33 @@ def _uptime():
 def _disk():
     """(free text, free GB) for the boot volume, on any platform.
 
-    statvfs rather than parsing `df`: one syscall, no process, and no output
+    shutil.disk_usage rather than parsing `df`: no process, and no output
     format to keep up with -- df's columns move between platforms, which is
     the class of thing this file was already getting wrong.
+
+    And rather than os.statvfs, which this used and which DOES NOT EXIST ON
+    WINDOWS. The claim "on any platform" in this docstring was false for a
+    day: statvfs raises AttributeError there, not OSError, so the except below
+    did not catch it and `build()` died -- taking the whole desk panel with it
+    on a platform this project ships a signed binary for. Eleven tests said so
+    on every push and nobody read them. shutil.disk_usage is the same syscall
+    underneath on macOS and Linux (verified: 43.20 GB of 460.43 GB either way)
+    and a real implementation on Windows.
+
+    The root is os.sep made absolute, because "/" is not the boot volume on
+    Windows -- it is a path on whatever drive happens to be current.
 
     Only the SPACE LEFT is taken from it. See DISK_WARN_GB for why the
     percentage is not.
     """
     try:
-        st = os.statvfs("/")
-    except OSError:
+        st = shutil.disk_usage(os.path.abspath(os.sep))
+    except (OSError, ValueError):
         return None, None
-    if not st.f_blocks:
+    if not st.total:
         return None, None
-    gb = (st.f_bavail * st.f_frsize) / (1024.0 ** 3)
-    total = (st.f_blocks * st.f_frsize) / (1024.0 ** 3)
+    gb = st.free / (1024.0 ** 3)
+    total = st.total / (1024.0 ** 3)
     # "47 of 494 GB" says how full it is AND how much is left, in the 18
     # characters the row has. A bare percentage says neither usefully -- see
     # DISK_WARN_GB for why the percentage cannot be trusted here anyway.

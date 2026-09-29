@@ -99,7 +99,7 @@ def _plan():
 
     mic_row, is_muted = _mic_row()
     rows.append(mic_row)
-    sound_row, _out_muted = _sound_row()
+    sound_row, out_state = _sound_row()
     rows.append(sound_row)
 
     if call and call.get("where"):
@@ -112,7 +112,13 @@ def _plan():
         tiles.append(("Unmute" if is_muted else "Mute", MIC))
     # else: no tile at all. A button that cannot report what it did is the
     # exact thing this panel exists to avoid.
-    tiles.append((SOUND, SOUND))
+    #
+    # And the same test for the speakers, which the first version did NOT do:
+    # it appended Sound unconditionally, one line below the comment explaining
+    # why that is wrong. On Windows -- where neither control exists -- the
+    # panel offered a Sound button that could never work.
+    if out_state is not None:
+        tiles.append((SOUND, SOUND))
     if call:
         tiles.append((SHOW, SHOW))
 
