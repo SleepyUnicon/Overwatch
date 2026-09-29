@@ -147,14 +147,30 @@ class MusicWidget:
         self._osa = osa or _osa
         self._players = tuple(players)
         # The Linux half. Injected for the same reason `osa` is: no test
-        # should reach a real session bus. None means "decide by platform",
-        # which is what every caller but a test wants.
-        # On Linux this is ALWAYS the Linux backend. Falling through to the
-        # AppleScript path there produced "Spotify control needs a Mac" on a
-        # Linux desktop -- a sentence that sends somebody to fix the wrong
+        # should reach a real session bus.
+        #
+        # THREE values, not two, and the third is why this comment is long:
+        #   None      -- decide by platform, which is what every caller but a
+        #                test wants.
+        #   False     -- explicitly no Linux backend: take the AppleScript
+        #                path whatever machine this is running on.
+        #   a module  -- use that one.
+        #
+        # `False` exists because `None` could not say it. A test that wanted
+        # the AppleScript path wrote `linux=None`, meaning "no Linux backend",
+        # and got "decide by platform" -- which on a Linux CI runner is the
+        # Linux backend, so eleven tests in test_music.py and one in
+        # test_music_linux.py failed on ubuntu and passed on every developer's
+        # Mac. They had been red on every push for a day (2026-09-29).
+        #
+        # On Linux the default is ALWAYS the Linux backend. Falling through to
+        # the AppleScript path there produced "Spotify control needs a Mac" on
+        # a Linux desktop -- a sentence that sends somebody to fix the wrong
         # thing. If the backend cannot work it says so in its own words.
-        self._linux = linux if linux is not None else (
-            music_linux if music_linux.available() else None)
+        if linux is None:
+            self._linux = music_linux if music_linux.available() else None
+        else:
+            self._linux = linux or None
         # Which player answered last. Tried FIRST next time, so a machine
         # running two of them does not flip between them between polls, and
         # a command lands on the one the panel is currently showing.

@@ -1,7 +1,14 @@
-"""The transport widget's daemon half.
+"""The transport widget's daemon half -- the AppleScript one.
 
 Every test injects `osa`, so nothing here talks to a real player or trips the
 macOS Automation prompt on whoever runs the suite.
+
+`linux=False`, not `linux=None`, and the difference is the whole reason this
+file was red on ubuntu and green on every Mac for a day: None means "decide by
+platform", so on a Linux runner these tests silently got the MPRIS backend and
+the injected `osa` was never called. False means "no Linux backend", which is
+what a test of the AppleScript path has to be able to say. See MusicWidget's
+constructor. The Linux half has its own file, test_music_linux.py.
 """
 from pc import protocol, music
 
@@ -11,7 +18,7 @@ def _w(out=None, err=None, log=None):
         if log is not None:
             log.append(script)
         return out, err
-    return music.MusicWidget(osa=osa)
+    return music.MusicWidget(osa=osa, linux=False)
 
 
 def _playing(name="Midnight Train", artist="Sauti Sol", pos="93", dur="241000",
@@ -91,7 +98,7 @@ def test_it_falls_through_to_the_next_player():
         if "Spotify" in script:
             return ("closed", None)
         return ("playing\nKuliko Jana\nSauti Sol\n41\n254", None)
-    msg = music.MusicWidget(osa=osa).poll()
+    msg = music.MusicWidget(osa=osa, linux=False).poll()
     assert msg["n"] == "Kuliko Jana" and msg["dur"] == 254
 
 
@@ -107,7 +114,7 @@ def test_the_answering_player_is_tried_first_next_time():
     def osa(script):
         seen.append(script)
         return ("closed", None) if "Spotify" in script else ("idle", None)
-    w = music.MusicWidget(osa=osa)
+    w = music.MusicWidget(osa=osa, linux=False)
     w.poll(); seen.clear(); w.poll()
     assert "Music" in seen[0]
 

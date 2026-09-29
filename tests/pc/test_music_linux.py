@@ -259,7 +259,10 @@ def test_a_mac_is_untouched_by_any_of_this(monkeypatch):
         calls.append(script)
         return "closed", None
 
-    w = music.MusicWidget(osa=osa, linux=None)
+    # False, not None: None asks the platform, and on a Linux CI runner the
+    # platform answers "the Linux backend" -- which is correct of it, and made
+    # this test fail on ubuntu while passing on the Mac it was written on.
+    w = music.MusicWidget(osa=osa, linux=False)
     assert w.poll()["why"] == "No music player running"
     assert calls, "the AppleScript path was not taken"
 
@@ -305,3 +308,27 @@ def test_a_linux_widget_never_reaches_applescript(monkeypatch):
     msg = w.poll()
     assert not called, "the AppleScript path ran on Linux"
     assert msg["why"] == "No music player running"
+
+
+def test_no_linux_backend_can_be_asked_for_explicitly(monkeypatch):
+    """`linux=False` must mean "no Linux backend" ON A LINUX MACHINE too.
+
+    This is the regression guard for a day of red CI. `linux=None` means
+    "decide by platform", and twelve tests across two files used it meaning
+    "no Linux backend" -- so they passed on every Mac, where the platform
+    agrees, and failed on ubuntu, where it does not. The distinction has to be
+    sayable, and it has to not consult the platform when it is said.
+    """
+    monkeypatch.setattr(music.music_linux, "available", lambda: True)
+    w = music.MusicWidget(osa=lambda s: ("closed", None), linux=False)
+    assert w._linux is None
+
+
+def test_none_still_means_decide_by_platform(monkeypatch):
+    """The other half of the same distinction: the default must keep picking
+    the Linux backend on Linux, which is what stopped the panel telling a
+    Linux user that Spotify control needs a Mac."""
+    monkeypatch.setattr(music.music_linux, "available", lambda: True)
+    assert music.MusicWidget(linux=None)._linux is music.music_linux
+    monkeypatch.setattr(music.music_linux, "available", lambda: False)
+    assert music.MusicWidget(linux=None)._linux is None

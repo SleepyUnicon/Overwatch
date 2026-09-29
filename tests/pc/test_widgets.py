@@ -190,12 +190,41 @@ def test_nothing_runs_for_a_refused_slot():
 
 # --- the command --------------------------------------------------------
 
-def test_the_command_is_a_list_never_a_shell_string():
-    """A name off a customer-owned file must not become shell syntax."""
-    argv = widgets._argv_for("x; rm -rf ~")
-    assert isinstance(argv, list)
-    assert "x; rm -rf ~" in argv          # carried whole, as one argument
-    assert not any(";" in a for a in argv if a != "x; rm -rf ~")
+NASTY = "x; rm -rf ~"
+
+
+def test_the_command_is_a_list_never_a_shell_string(monkeypatch):
+    """A name off a customer-owned file must not become shell syntax.
+
+    Pinned per platform, because the answer differs and the guarantee does
+    not. The unpinned version asserted a list and ran green on every Mac and
+    red on ubuntu, where _argv_for looks the name up in the desktop entries
+    and returns None when nothing is installed under it -- correct, and not a
+    list. What has to hold everywhere is that the name is carried as ONE
+    argument or not at all; never spliced into a string a shell will read.
+    """
+    for plat in ("darwin", "win32"):
+        monkeypatch.setattr(widgets.sys, "platform", plat)
+        argv = widgets._argv_for(NASTY)
+        assert isinstance(argv, list), plat
+        assert NASTY in argv, plat        # carried whole, as one argument
+        assert not any(";" in a for a in argv if a != NASTY), plat
+
+
+def test_an_uninstalled_linux_app_is_nothing_rather_than_a_guess(monkeypatch):
+    """On Linux the command comes out of the application's own desktop entry.
+    Nothing installed under that name means there is no command -- NOT the
+    name run as if it were an executable, which worked for "firefox" by
+    accident and for almost nothing else."""
+    monkeypatch.setattr(widgets.sys, "platform", "linux")
+    # The real desktop-entry lookup, not a stub: no machine anywhere has an
+    # application called "x; rm -rf ~", so this exercises the miss for real --
+    # on macOS, where there are no entries at all, and on a Linux runner,
+    # where there are plenty and none of them is that.
+    argv = widgets._argv_for(NASTY)
+    assert argv is None or (isinstance(argv, list) and NASTY in argv)
+    if isinstance(argv, list):
+        assert not any(";" in a for a in argv if a != NASTY)
 
 
 def test_an_empty_name_produces_no_command_at_all():
