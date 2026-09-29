@@ -258,8 +258,38 @@ done
 # Hash what was actually published, not what CI said it built. This is the
 # whole value of signing locally: the signature covers bytes this machine has
 # seen, from the same URL a customer will fetch.
+#
+# Retried, because the network is not part of the release.
+#
+# Two runs of 2.2.4 died here, on different assets, with "net/http: TLS
+# handshake timeout" against release-assets.githubusercontent.com. A single
+# blip on one of five downloads threw away a release that had already spent
+# forty minutes building four binaries -- and, before the guard above learned
+# about drafts, cost a version number as well.
+#
+# Five attempts with a growing pause. If GitHub is genuinely down this still
+# fails, and should; what it no longer does is fail because one TCP connection
+# out of five was unlucky.
+download_artifact() {
+	file=$1
+	n=0
+	while [ "$n" -lt 5 ]; do
+		if gh release download "$TAG" --repo "$REPO" -p "$file" \
+			-D "$TMP" --clobber; then
+			return 0
+		fi
+		n=$((n + 1))
+		[ "$n" -lt 5 ] || break
+		echo "  $file: attempt $n failed, retrying in $((n * 5))s" >&2
+		sleep $((n * 5))
+	done
+	echo "FATAL: could not download $file after 5 attempts." >&2
+	echo "       The draft keeps everything; re-run this script to resume." >&2
+	return 1
+}
+
 for k in $ARTIFACTS; do
-	gh release download "$TAG" --repo "$REPO" -p "$(artifact_file "$k")" -D "$TMP"
+	download_artifact "$(artifact_file "$k")" || exit 1
 done
 
 # The document itself comes from pc/manifest.py, which is the only place its
