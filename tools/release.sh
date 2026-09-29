@@ -65,10 +65,31 @@ PROTO=$(sed -n 's/^#define OVERWATCH_PROTO_VERSION \([0-9][0-9]*\).*$/\1/p' \
 [ -z "$(git -C "$ROOT" status --porcelain)" ] || {
 	echo "FATAL: working tree dirty -- releases come from committed code only"; exit 1; }
 # The firmware feed lives on the same release as the source tag ($TAG). Refuse
-# to overwrite an existing firmware asset -- bump version.h for a new build.
-gh release view "$TAG" --repo "$REPO" --json assets \
-	-q '.assets[].name' 2>/dev/null | grep -qx overwatch-fw.bin && {
-	echo "FATAL: $TAG already carries overwatch-fw.bin -- bump version.h"; exit 1; }
+# to overwrite the firmware of a PUBLISHED release -- bump version.h for a new
+# build.
+#
+# Published, not merely existing. A run that dies partway -- and one did, on a
+# TLS timeout while downloading a binary to hash it (2026-09-29) -- leaves a
+# DRAFT carrying every artifact and no manifest. That is precisely the state
+# this script knows how to finish, and the guard refused it: the only way out
+# was to burn a version number on a release that had already been built and
+# was sitting there complete but for its signature.
+#
+# A draft is nobody's yet. No board can see it, no `overwatch update` can
+# reach it, and the binaries are re-uploaded with --clobber below, so the
+# manifest is computed from whatever ends up attached. Overwriting one is
+# safe; overwriting a published one is what this exists to stop.
+if gh release view "$TAG" --repo "$REPO" --json assets \
+	-q '.assets[].name' 2>/dev/null | grep -qx overwatch-fw.bin; then
+	if [ "$(gh release view "$TAG" --repo "$REPO" --json isDraft \
+		-q .isDraft 2>/dev/null)" = "true" ]; then
+		echo "NOTE: resuming the unfinished draft of $TAG."
+	else
+		echo "FATAL: $TAG is published and already carries" \
+		     "overwatch-fw.bin -- bump version.h" >&2
+		exit 1
+	fi
+fi
 
 # The popup a customer sees after this update has to be able to describe it.
 # whatsnew.c carries one short entry per release, compiled into the image,
