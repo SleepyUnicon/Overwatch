@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.3.2", "No false alarm after updating" },
 	{ "2.3.1", "Updates know when they worked\nA stuck one says what to do" },
 	{ "2.3.0", "Mute your mic from the desk\nSnap windows where you want" },
 	{ "2.2.5", "The panel names your machine\nTemperature and fans on Linux" },
