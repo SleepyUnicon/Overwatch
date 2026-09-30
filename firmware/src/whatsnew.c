@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.4.1", "Panels say what they need\nAnd where to switch it on" },
 	{ "2.4.0", "Your app's tools on the desk\nSix buttons on a panel now" },
 	{ "2.3.2", "No false alarm after updating" },
 	{ "2.3.1", "Updates know when they worked\nA stuck one says what to do" },
