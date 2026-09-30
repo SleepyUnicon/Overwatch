@@ -6,6 +6,7 @@
 
 #include "msg_parse.h"
 #include "proto.h"
+#include "ui_swipe.h"
 #include "ui_theme.h"
 #include "usage_layout.h"
 
@@ -74,6 +75,8 @@ static lv_obj_t *row_val[PANEL_ROWS];
 static lv_obj_t *tile_btn[PANEL_TILES];
 static lv_obj_t *tile_lbl[PANEL_TILES];
 static lv_obj_t *empty_lbl;
+static lv_obj_t *nav_btn;
+static lv_obj_t *pos_lbl;
 
 static lv_color_t tone_colour(uint8_t tone)
 {
@@ -150,6 +153,26 @@ static void paint(void)
 
 	lv_label_set_text(title_lbl, p->used ? p->title : "");
 
+	/* Only with somewhere to go. On a single panel the counter would be
+	 * furniture describing a control that does nothing. */
+	if (ui_panel_count() > 1) {
+		/* Two ints and a slash. Both are bounded by PANEL_MAX and
+		 * cannot reach two digits, but the compiler cannot see that
+		 * and warns -- and sizing a buffer for what the types allow
+		 * rather than for what the values happen to be is the cheaper
+		 * habit. */
+		char pos[24];
+
+		snprintf(pos, sizeof pos, "%d/%d", showing + 1,
+			 ui_panel_count());
+		lv_label_set_text(pos_lbl, pos);
+		lv_obj_clear_flag(pos_lbl, LV_OBJ_FLAG_HIDDEN);
+		lv_obj_clear_flag(nav_btn, LV_OBJ_FLAG_HIDDEN);
+	} else {
+		lv_obj_add_flag(pos_lbl, LV_OBJ_FLAG_HIDDEN);
+		lv_obj_add_flag(nav_btn, LV_OBJ_FLAG_HIDDEN);
+	}
+
 	/*
 	 * A panel that has arrived but says nothing is still a page somebody
 	 * swiped to. Saying so is better than a blank screen, which reads as a
@@ -201,6 +224,48 @@ static void paint(void)
 	}
 }
 
+/*
+ * THE TAP PATH BETWEEN PANELS.
+ *
+ * ui_pages.c opens with the rule this had been ignoring: a sliding finger on
+ * this panel loses contact, one stroke arrives as five or six presses, and
+ * ui_swipe.c lands "about half the time" -- so every navigation on this device
+ * has a tap path. Panel-to-panel had none. Left and right swipes were the only
+ * way between them, which on four panels means three successful strokes in a
+ * row to reach the last one.
+ *
+ * The owner reported the fourth panel as missing. It was not missing; it was
+ * three coin-flips away, and an afternoon went into permissions before anyone
+ * asked how they were supposed to get there.
+ *
+ * The whole title band, because it is the one piece of this page with room.
+ * 320 x 48 against the 72 x 48 that ui_settings.c measured as reliably
+ * hittable here -- over four times the width of the floor, on the axis where
+ * the misses happen, since the thumb arrives from the side of the case.
+ *
+ * Forward only, wrapping. A second control would halve the target and save at
+ * most one tap out of four.
+ */
+#define PANEL_NAV_H	48
+
+static void on_nav_tap(lv_event_t *e)
+{
+	ARG_UNUSED(e);
+
+	/* A tap that followed a stroke is not a tap -- the same guard
+	 * ui_pages.c's home strip needs, for the same reason: LVGL sends
+	 * CLICKED on release and does not withdraw it because the touch turned
+	 * out to be a swipe. Without this, a swipe starting on the title moves
+	 * twice. */
+	if (ui_swipe_dragging()) {
+		return;
+	}
+	if (ui_panel_count() > 1) {
+		ui_panel_show((ui_panel_current() + 1) % ui_panel_count());
+	}
+}
+
+
 /* ------------------------------------------------------------------- taps */
 
 static void on_tile(lv_event_t *e)
@@ -243,6 +308,26 @@ void ui_panel_attach(lv_obj_t *scr)
 	lv_label_set_text(title_lbl, "");
 	lv_obj_set_style_text_color(title_lbl, COL_DIM, 0);
 	lv_obj_align(title_lbl, LV_ALIGN_TOP_MID, 0, PANEL_TITLE_Y);
+
+	/* Under the title label, added first so the label draws on top of it.
+	 * Transparent: the furniture is the position counter, not a box. */
+	nav_btn = lv_btn_create(panel);
+	lv_obj_set_size(nav_btn, SCR_W, PANEL_NAV_H);
+	lv_obj_set_pos(nav_btn, 0, 0);
+	lv_obj_set_style_bg_opa(nav_btn, LV_OPA_TRANSP, 0);
+	lv_obj_set_style_border_width(nav_btn, 0, 0);
+	lv_obj_set_style_shadow_width(nav_btn, 0, 0);
+	lv_obj_add_flag(nav_btn, LV_OBJ_FLAG_GESTURE_BUBBLE);
+	lv_obj_add_event_cb(nav_btn, on_nav_tap, LV_EVENT_CLICKED, NULL);
+
+	/* "2/4", so the page says both where you are and that there is more.
+	 * Without it the title band is an invisible control, which is worse
+	 * than no control -- see the rail ui_pages.c replaced, which drew dots
+	 * that said there were other pages and never said what they were. */
+	pos_lbl = lv_label_create(panel);
+	lv_label_set_text(pos_lbl, "");
+	lv_obj_set_style_text_color(pos_lbl, COL_DIM, 0);
+	lv_obj_align(pos_lbl, LV_ALIGN_TOP_RIGHT, -PANEL_SIDE, PANEL_TITLE_Y);
 
 	empty_lbl = lv_label_create(panel);
 	lv_label_set_text(empty_lbl, "Nothing to show yet");
@@ -324,6 +409,7 @@ lv_obj_t *ui_panel_panel(void)
 void ui_panel_detach(void)
 {
 	panel = title_lbl = empty_lbl = NULL;
+	nav_btn = pos_lbl = NULL;
 	for (int i = 0; i < PANEL_ROWS; i++) {
 		row_lbl[i] = row_val[i] = NULL;
 	}

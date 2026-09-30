@@ -20,6 +20,7 @@
 #define SCR_W	320
 #define SCR_H	240
 #define ALL_ROWS	5
+#define PANEL_NAV_H	48
 
 /* About eight pixels a character at montserrat_14, measured off the existing
  * four-tile row: 66 px held "Sleep screen" at twelve characters only because
@@ -118,6 +119,20 @@ int main(void)
 	      "four tiles still leave all five text rows");
 	CHECK(PANEL_TEXT_ROWS_FOR(5, ALL_ROWS) < ALL_ROWS,
 	      "wrapping costs text rows, and says so");
+
+	/* --- the tap path has to be reachable ------------------------- */
+	{
+		/* ui_settings.c measured 72 x 48 as the point where a control
+		 * becomes reliably hittable on this panel. The nav band is the
+		 * full width, because the misses that matter here are
+		 * horizontal -- the thumb arrives from the side of the case. */
+		CHECK(SCR_W >= 72, "the nav band clears the hittable width");
+		CHECK(PANEL_NAV_H >= 48, "the nav band clears the hittable height");
+		/* And it must not sit on top of the first text row, or the
+		 * page loses a row to furniture. */
+		CHECK(PANEL_NAV_H <= PANEL_ROW_TOP,
+		      "the nav band stops before the first text row");
+	}
 
 	if (failures) {
 		printf("\n%d check(s) failed\n", failures);
