@@ -152,9 +152,43 @@ def _x11_place(where):
 # ---------------------------------------------------------------- macOS
 
 # Accessibility, not Automation. System Events can already be ASKED what is
-# frontmost with the grant `install` requests; MOVING a window is a separate
-# permission, and macOS refuses with -25211 until it is given.
-_AX_DENIED = ("-25211", "-1719", "-1728")
+# frontmost with the grant `install` requests; reading a window's geometry is a
+# separate permission, and macOS refuses until it is given.
+#
+# WHICH CODES MEAN "DENIED", AND WHICH DO NOT.
+#
+# This list used to contain -1719 and -1728, and both were wrong:
+#
+#   -25211  kAXErrorAPIDisabled     Accessibility really is off.
+#   -1743   errAEEventNotPermitted  Automation is off. A DIFFERENT permission
+#                                   with a different cure, so not here.
+#   -1719   errAEIllegalIndex       There is no window at that index.
+#   -1728   errAENoSuchObject       There is no such object.
+#
+# The last two fire when the frontmost application simply HAS NO WINDOW -- a
+# Finder with everything closed, an agent with only a menu bar item. Treating
+# them as a permission failure means the panel says "Accessibility off" on a
+# machine where Accessibility is perfectly fine, and sends the owner to a
+# settings pane to switch on something that is already on. Which is exactly
+# what happened here, twice, including once after they had removed and re-added
+# the entry on my advice.
+#
+# The text is matched as well as the code, because AppleScript's wording is the
+# thing that is actually stable across macOS versions: "not allowed assistive
+# access".
+_AX_DENIED = ("-25211",)
+_AX_DENIED_TEXT = ("assistive access", "not authorized to send apple events")
+
+# Not a permission problem: there is nothing in front with a window.
+_NO_WINDOW = ("-1719", "-1728")
+
+
+def _ax_denied(stderr):
+    """Is this stderr a PERMISSION refusal, as opposed to an empty desktop?"""
+    text = (stderr or "").lower()
+    if any(c in text for c in _AX_DENIED):
+        return True
+    return any(t in text for t in _AX_DENIED_TEXT)
 
 # How often to repeat a refusal that is not going to change on its own.
 #
@@ -229,9 +263,17 @@ def _osa(script):
     except (OSError, subprocess.SubprocessError):
         return None, "could not reach System Events"
     if p.returncode != 0:
-        if any(c in (p.stderr or "") for c in _AX_DENIED):
+        if _ax_denied(p.stderr):
             _say_denied()
             return None, "Accessibility off"
+        if any(c in (p.stderr or "") for c in _NO_WINDOW):
+            return None, "nothing in front"
+        # The raw code, trimmed, because every time this has gone wrong the
+        # answer was in an error nobody was printing. Not the whole stderr:
+        # the script names what the owner has open.
+        code = re.search(r"\(-?\d{3,5}\)", p.stderr or "")
+        print("[windows] System Events refused: %s"
+              % (code.group(0) if code else "no code"), file=sys.stderr)
         return None, "the window did not move"
     return (p.stdout or "").strip(), None
 

@@ -253,3 +253,62 @@ def test_nothing_is_recorded_off_mac(tmp_path, monkeypatch):
     monkeypatch.setattr(windows.sys, "platform", "linux")
     windows._record_ax(False)
     assert macperm.ax_last_known() is None
+
+
+# --- which errors actually mean "denied" ------------------------------
+
+
+def test_only_a_real_refusal_counts_as_denied():
+    """-1719 and -1728 were in this list and should never have been.
+
+        -25211  kAXErrorAPIDisabled     Accessibility really is off
+        -1719   errAEIllegalIndex       no window at that index
+        -1728   errAENoSuchObject       no such object
+        -1743   errAEEventNotPermitted  AUTOMATION is off, a different cure
+
+    The middle two fire when the frontmost application simply has no window --
+    a Finder with everything closed, an agent with only a menu bar item. As a
+    permission failure they make the panel say "Accessibility off" on a machine
+    where it is fine, and send the owner to switch on something already on.
+    Which happened here, twice, the second time after they had removed and
+    re-added the entry on my advice.
+    """
+    from pc import windows
+    assert windows._ax_denied("execution error: ... (-25211)")
+    assert windows._ax_denied("osascript is not allowed assistive access.")
+    assert not windows._ax_denied("execution error: ... (-1719)")
+    assert not windows._ax_denied("execution error: ... (-1728)")
+    assert not windows._ax_denied("execution error: ... (-1743)")
+
+
+def test_an_empty_desktop_is_reported_as_an_empty_desktop(monkeypatch):
+    """Not as a permission problem. The cure for one is a settings pane and
+    the cure for the other is opening a window."""
+    from pc import windows
+
+    class P:
+        returncode = 1
+        stdout = ""
+        stderr = "System Events got an error: ... (-1719)"
+
+    monkeypatch.setattr(windows.subprocess, "run", lambda *a, **k: P())
+    out, err = windows._osa("anything")
+    assert out is None
+    assert err == "nothing in front"
+
+
+def test_an_unrecognised_refusal_logs_its_code(monkeypatch, capsys):
+    """Every time this has gone wrong the answer was in an error nobody was
+    printing. The code only -- the script names what the owner has open."""
+    from pc import windows
+
+    class P:
+        returncode = 1
+        stdout = ""
+        stderr = "System Events got an error: something new (-9999)"
+
+    monkeypatch.setattr(windows.subprocess, "run", lambda *a, **k: P())
+    windows._osa("anything")
+    err = capsys.readouterr().err
+    assert "(-9999)" in err
+    assert "something new" not in err, "the script's text must not be logged"
