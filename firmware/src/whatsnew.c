@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.4.0", "Your app's tools on the desk\nSix buttons on a panel now" },
 	{ "2.3.2", "No false alarm after updating" },
 	{ "2.3.1", "Updates know when they worked\nA stuck one says what to do" },
 	{ "2.3.0", "Mute your mic from the desk\nSnap windows where you want" },
@@ -47,8 +48,6 @@ static const struct {
 	{ "2.0.8", "A failed update can be retried" },
 	{ "2.0.7", "The setup screen steps aside" },
 	{ "2.0.6", "Scan the code to pair a computer" },
-	{ "2.0.5", "A QR to set up on any computer\nPick launcher apps on the web" },
-	{ "2.0.4", "A setup page from the first boot" },
 };
 
 #define N_NOTES ((int)(sizeof(NOTES) / sizeof(NOTES[0])))

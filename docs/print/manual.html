@@ -281,8 +281,8 @@ aside by itself as soon as the daemon introduces itself.</p>
 </ul>
 
 <h3>The panels</h3>
-<p>Three pages whose contents come from the computer, not the firmware. The
-board reserves three slots and draws whatever rows and tiles arrive; it is told
+<p>Four pages whose contents come from the computer, not the firmware. The
+board reserves four slots and draws whatever rows and tiles arrive; it is told
 nothing about what they mean, and a tap goes back as a slot number and a tile
 number. So a new panel is a Python file on the computer — no firmware build, no
 release, no reflash.</p>
@@ -300,6 +300,11 @@ release, no reflash.</p>
 <li><strong>Meeting</strong> — whether you are in a call, and whether your
     microphone is live. <code>Mute</code> toggles it, <code>Sound</code> silences
     the speakers, and <code>Show</code> brings the call back to the front.</li>
+<li><strong>Tools</strong> — the tools of whichever application is in FRONT,
+    six to a page. Bring Illustrator forward and the panel becomes Illustrator;
+    tap <code>Pen</code> and it selects the pen. It follows the front window
+    rather than the launcher, so it also works after you switch with the
+    keyboard, or for an application that was open before Overwatch was.</li>
 </ul>
 
 <div class="note"><b>Mute means the system microphone</b>
@@ -335,9 +340,56 @@ tabs to the window manager, so a call in a background tab will not be seen.</p>
     itself needs nothing.</td>
     <td><code>pactl</code> for the microphone, <code>wmctrl</code> to see the
     call.</td></tr>
+<tr><td>Tools</td>
+    <td><strong>Accessibility</strong>, to send the keystroke at all.</td>
+    <td><code>xdotool</code>, and <strong>X11</strong>.</td></tr>
 </table>
 <p class="small">On Windows both panels say "not on this OS" and show no tiles.
 Only the machine panel works there.</p></div>
+
+<div class="note"><b>Six tiles wrap, and cost two rows</b>
+<p>Up to four tiles sit in one row. Five or six wrap to a second row of three,
+because six across a 320 px screen would be 41 pixels a button — about five
+characters, which fits neither "Select" nor "Direct". Three across is 90 pixels
+and fits everything worth writing.</p>
+<p>The second row of buttons stands where the fourth and fifth text rows would
+be, so a panel with more than four tiles shows three rows of text instead of
+five. Both halves enforce that: the computer trims the extra rows before
+sending them and the board declines to draw them.</p></div>
+
+<h3>The tools panel</h3>
+<p>Overwatch ships tool sets for Adobe Illustrator, Photoshop and InDesign. Any
+other application shows "none set" until you name it in
+<code>~/.overwatch/tools.json</code>:</p>
+
+<pre>{
+  "Blender": [
+    {"label": "Move",   "keys": "g"},
+    {"label": "Rotate", "keys": "r"},
+    {"label": "Scale",  "keys": "s"}
+  ]
+}</pre>
+
+<p>Naming an application <em>replaces</em> its shipped set rather than adding to
+it, so you can remove a tile you do not want. Six is the limit; a seventh would
+be accepted and never drawn, so it is dropped here instead.</p>
+
+<div class="note"><b>Why the shipped tiles only change tools</b>
+<p>Every default is a single key that selects a tool and does nothing else.
+That is deliberate, and the reasoning is worth knowing before you add your own.
+A tool shortcut is <em>idempotent</em> — pressing it twice is pressing it once —
+and <em>visible</em>, because the palette changes where you can see it. Press
+the wrong one and the next tap undoes it.</p>
+<p>Nothing that writes to a document has either property, and a tile is one tap
+away from work you have not saved. So Overwatch refuses
+<code>delete</code>, <code>cmd+s</code>, <code>cmd+w</code>, <code>cmd+q</code>
+and <code>cmd+z</code> even when a config file asks for them. If you want one of
+those on your desk, put it on a launcher <code>keys</code> tile, where you have
+had to think about it.</p></div>
+
+<p>Sending a keystroke needs the same Accessibility permission the window panel
+does — see the table above, and the note in §6.2 about losing it on every
+update.</p>
 
 <h3>Launcher tiles that are not apps</h3>
 <p>The six launcher slots live in <code>~/.overwatch/apps.json</code>, and a slot
@@ -766,7 +818,8 @@ them.</p>
 <h2 id="s17"><span class="n">17</span>Release history</h2>
 <table class="tight">
 <tr><th style="width:14%">Version</th><th>What changed</th></tr>
-<tr><td><strong>2.3.2</strong></td><td>No false alarm after updating</td></tr>
+<tr><td><strong>2.4.0</strong></td><td>Your app's tools on the desk · Six buttons on a panel now</td></tr>
+<tr><td>2.3.2</td><td>No false alarm after updating</td></tr>
 <tr><td>2.3.1</td><td>Updates know when they worked · A stuck one says what to do</td></tr>
 <tr><td>2.3.0</td><td>Mute your mic from the desk · Snap windows where you want</td></tr>
 <tr><td>2.2.5</td><td>The panel names your machine · Temperature and fans on Linux</td></tr>
@@ -787,7 +840,7 @@ them.</p>
 <tr><td>2.0.1</td><td>It boots to its own mark now · Updates arrive over the cable</td></tr>
 <tr><td>2.0.0</td><td>Five pages, swipe between them · A launcher, music, a light theme</td></tr>
 </table>
-<p class="small">Twenty releases between 25 and 30 September 2026, plus an
+<p class="small">Twenty-one releases between 25 and 30 September 2026, plus an
 initial 0.1.0 on 23 September. Each carries firmware and four platform binaries
 under one tag. The board shows the same notes on its own screen, sixteen releases
 deep; older entries are trimmed from the tail as new ones arrive, because the

@@ -12,7 +12,7 @@ import json
 import pathlib
 import re
 
-from pc import widgets
+from pc import apptools, widgets
 
 MANUAL = (pathlib.Path(__file__).resolve().parent.parent
           / "docs" / "print" / "manual.html")
@@ -96,3 +96,51 @@ def test_the_cover_does_not_carry_a_hand_typed_version():
     release = [l for l in cover.splitlines() if "<b>Release</b>" in l][0]
     assert not re.search(r"\b\d+\.\d+\.\d+\b", release), (
         "a literal version number is back on the cover: %s" % release.strip())
+
+
+# --- the tools.json example -------------------------------------------
+
+
+def _tools_example():
+    html = MANUAL.read_text(encoding="utf-8")
+    m = re.search(r"<pre>(\{\s*\n.*?)</pre>", html, re.S)
+    assert m, "the tools.json example has gone from the manual"
+    return json.loads(_unescape(m.group(1)))
+
+
+def test_the_tools_example_is_valid_json():
+    _tools_example()
+
+
+def test_every_tool_in_the_example_survives_the_real_validator():
+    """Same bargain as the apps.json example: the reader cannot tell a bad one
+    from a good one, and the kit goes to people who cannot read the source."""
+    for app, tools in _tools_example().items():
+        assert tools, app
+        for t in tools:
+            assert apptools.clean_tool(t) is not None, (app, t)
+
+
+def test_the_example_stays_inside_the_tile_limit():
+    for app, tools in _tools_example().items():
+        assert len(tools) <= apptools.MAX_TOOLS, app
+
+
+def test_the_manual_names_the_shortcuts_that_are_refused():
+    """If the document says Overwatch refuses these, it has to be refusing
+    exactly these -- a promise about safety that drifts is worse than none."""
+    html = MANUAL.read_text(encoding="utf-8")
+    # The refusal SENTENCE only. The paragraph after it says to use a
+    # launcher `keys` tile instead, and "keys" is not a shortcut.
+    section = html.split("Why the shipped tiles only change tools")[1]
+    section = section.split("So Overwatch refuses")[1].split(".")[0]
+    named = set(re.findall(r"<code>([a-z+]+)</code>", section))
+    assert named, "the manual stopped naming the refused shortcuts"
+    for keys in named:
+        assert apptools.clean_tool({"label": "X", "keys": keys}) is None, keys
+
+
+def test_the_manual_agrees_about_how_many_tiles_there_are():
+    html = MANUAL.read_text(encoding="utf-8")
+    assert "six to a page" in html or "Six is the limit" in html
+    assert apptools.MAX_TOOLS == 6
