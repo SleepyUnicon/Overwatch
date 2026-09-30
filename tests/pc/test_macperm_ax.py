@@ -169,3 +169,59 @@ def test_opening_the_pane_is_refused_off_mac(monkeypatch):
     monkeypatch.setattr(macperm.sys, "platform", "linux")
     ok, err = macperm.ax_open_pane()
     assert not ok and "macOS" in err
+
+
+# --- whose answer is it, anyway ---------------------------------------
+
+
+def test_the_daemon_records_a_refusal_it_hits(tmp_path, monkeypatch):
+    """THE correction. macOS attributes a TCC grant to the RESPONSIBLE
+    process, so `overwatch status` run from a terminal inherits the
+    terminal's Accessibility -- it said "granted" while the daemon was
+    logging the refusal in the same second, from the same executable at the
+    same path. Measured 2026-09-30.
+
+    So the daemon writes down what IT sees, and status reads that.
+    """
+    from pc import windows
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(windows.sys, "platform", "darwin")
+    monkeypatch.setattr(windows, "_osa", lambda s: (None, "Accessibility off"))
+    windows._mac_current()
+    assert macperm.ax_last_known() is False
+
+
+def test_the_daemon_records_a_grant_when_it_actually_reads_a_window(tmp_path,
+                                                                   monkeypatch):
+    """Proof rather than assumption: reading a window's geometry is the thing
+    Accessibility gates, so getting it back is the evidence."""
+    from pc import windows
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(windows.sys, "platform", "darwin")
+    monkeypatch.setattr(windows, "_osa",
+                        lambda s: ("Finder\nDesktop\n0\n0\n800\n600", None))
+    fields, err = windows._mac_current()
+    assert err is None and fields["app"] == "Finder"
+    assert macperm.ax_last_known() is True
+
+
+def test_bookkeeping_never_takes_down_a_panel(tmp_path, monkeypatch):
+    """A panel builds every few seconds. Failing to write a note about
+    permissions must not be what stops the screen updating."""
+    from pc import windows
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(windows.sys, "platform", "darwin")
+    monkeypatch.setattr(macperm, "ax_note",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError()))
+    monkeypatch.setattr(windows, "_osa",
+                        lambda s: ("Finder\nDesktop\n0\n0\n800\n600", None))
+    fields, err = windows._mac_current()
+    assert err is None and fields["app"] == "Finder"
+
+
+def test_nothing_is_recorded_off_mac(tmp_path, monkeypatch):
+    from pc import windows
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(windows.sys, "platform", "linux")
+    windows._record_ax(False)
+    assert macperm.ax_last_known() is None

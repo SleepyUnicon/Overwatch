@@ -18,6 +18,8 @@ import subprocess
 import sys
 import time
 
+from pc import macperm
+
 TIMEOUT_S = 5
 
 # Eighteen characters, because that is what a panel row holds. The long form
@@ -271,6 +273,28 @@ def _mac_screen():
     return (x1, y1, x2 - x1, y2 - y1)
 
 
+def _record_ax(granted):
+    """Write down what THIS process can see.
+
+    The daemon is the only process whose answer matters, and it is the only
+    one that cannot be asked from a terminal: macOS attributes a TCC grant to
+    the RESPONSIBLE process, so the same binary run from a shell inherits the
+    shell's grant and reports "granted" while the launchd copy is refused.
+    Measured on 2026-09-30 -- `overwatch status` said granted, the daemon was
+    logging the refusal at the same moment, and both were the same executable
+    at the same path.
+
+    So `status` no longer probes. It reads what the daemon put here.
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        macperm.ax_note(granted)
+    except Exception:
+        # Never let bookkeeping take down a panel build.
+        pass
+
+
 def _mac_current():
     out, err = _osa(_FRONT)
     if err:
@@ -278,6 +302,7 @@ def _mac_current():
         # else means this process has no ordinary window -- a full-screen
         # app, a palette -- and the app's name is still worth showing.
         if "Accessibility" in err:
+            _record_ax(False)
             return None, err
         name, nerr = _osa(_FRONT_APP)
         if nerr or not name:
@@ -292,6 +317,10 @@ def _mac_current():
         x, y, w, h = (int(v) for v in lines[2:6])
     except ValueError:
         return None, "no window in front"
+    # Reading a window's geometry is the thing Accessibility gates, so getting
+    # it back is proof of the grant rather than an assumption about it.
+    _record_ax(True)
+    clear_denied_notice()
     return {"wid": "", "app": lines[0], "title": lines[1],
             "screen": 0, "screens": 1,
             "x": x, "y": y, "w": w, "h": h}, None

@@ -2617,22 +2617,27 @@ def cmd_status(args) -> int:
     # requirement of an ad-hoc signature is a content hash. The long version
     # is in pc/macperm.py.
     if sys.platform == "darwin":
-        granted, ax_state = macperm.ax_check()
-        changed = macperm.ax_note(granted)
-        if granted:
+        # READ what the daemon recorded; do not probe.
+        #
+        # macOS attributes a TCC grant to the RESPONSIBLE process, so this
+        # command -- run from a terminal -- inherits the terminal's
+        # Accessibility and answers for that instead of for the daemon. The
+        # first version of this row probed locally and said "granted" while
+        # the daemon was logging the refusal in the same second, from the same
+        # executable at the same path. Measured 2026-09-30.
+        seen = macperm.ax_last_known()
+        if seen is True:
             print("Access      Accessibility granted")
-        elif changed == "lost":
-            print("Access      Accessibility LOST since the last check")
+        elif seen is False:
+            print("Access      Accessibility NOT granted for the background"
+                  " service --")
+            print("            window snapping and tool tiles will not work.")
             for line in textwrap.wrap(macperm.AX_LOST, 60):
                 print(f"            {line}")
-        elif ax_state == "denied":
-            print("Access      Accessibility not granted -- window snapping"
-                  " and tool tiles")
-            print("            will not work. Turn it on in System Settings >")
-            print("            Privacy & Security > Accessibility.")
         else:
-            print("Access      could not check Accessibility (Automation is"
-                  " off)")
+            print("Access      Accessibility not checked yet -- swipe to the"
+                  " Window panel")
+            print("            on the board, then run this again.")
 
     if getattr(args, "wire", False):
         _wire_line()
