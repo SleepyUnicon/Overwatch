@@ -25,15 +25,14 @@
  * gauge screen, and this file redefined it -- a warning today and, the moment
  * the two numbers differ, a page that draws its title somewhere its own
  * header does not describe. */
-#define PANEL_TITLE_Y	16
-#define PANEL_ROW_TOP	52
-#define PANEL_ROW_H	26
-#define PANEL_SIDE	16
-#define PANEL_TILE_H	34
-#define PANEL_TILE_GAP	8
-#define PANEL_TILE_Y	(SCR_H - PANEL_TILE_H - 14)
-#define PANEL_TILE_W	((SCR_W - 2 * PANEL_SIDE \
-			  - (PANEL_TILES - 1) * PANEL_TILE_GAP) / PANEL_TILES)
+/*
+ * The rest of the geometry lives in ui_panel.h, so tests/panel_geom can check
+ * it without LVGL, a board, or this file. Same move ui_slide_geom.h records
+ * making, for the same reason: the tile grid is arithmetic, and arithmetic
+ * that only runs on hardware is arithmetic nobody checks.
+ */
+#define PANEL_TILE_Y	(SCR_H - PANEL_TILE_H - PANEL_TILE_BOTTOM)
+#define PANEL_TILE_W	PANEL_TILE_W_IN(SCR_W, PANEL_TILE_COLS(4))
 
 /*
  * The MODEL, separate from the objects that draw it.
@@ -109,9 +108,41 @@ static uint8_t tone_of(const char *s)
 
 /* ------------------------------------------------------------------ paint */
 
+/*
+ * Put `n` tiles where they belong. Called on every paint because the shape
+ * depends on the panel being shown, and panels differ: the desk panel has one
+ * tile and the tool panel has six.
+ */
+static void place_tiles(int n)
+{
+	int cols = PANEL_TILE_COLS(n);
+	int rows = PANEL_TILE_ROWS(n);
+	int w = PANEL_TILE_W_IN(SCR_W, cols);
+	int top = PANEL_TILE_TOP(SCR_H, n);
+
+	if (n <= 0) {
+		return;
+	}
+	for (int i = 0; i < n && i < PANEL_TILES; i++) {
+		int r = i / cols;
+		int c = i % cols;
+		/* The last row is centred when it is short, so five tiles read
+		 * as 3 + 2 under the middle rather than 3 + 2 pushed left. */
+		int in_row = (r == rows - 1) ? (n - r * cols) : cols;
+		int span = in_row * w + (in_row - 1) * PANEL_TILE_GAP;
+		int x0 = (SCR_W - span) / 2;
+
+		lv_obj_set_size(tile_btn[i], w, PANEL_TILE_H);
+		lv_obj_set_pos(tile_btn[i], x0 + c * (w + PANEL_TILE_GAP),
+			       top + r * (PANEL_TILE_H + PANEL_TILE_GAP));
+	}
+}
+
+
 static void paint(void)
 {
 	const struct panel *p = &model[showing];
+	int shown_rows;
 
 	if (!panel) {
 		return;
@@ -131,8 +162,13 @@ static void paint(void)
 		lv_obj_add_flag(empty_lbl, LV_OBJ_FLAG_HIDDEN);
 	}
 
+	/* Rows that would sit under a second row of tiles are not drawn,
+	 * whatever the daemon sent. The daemon refuses to send them too; this
+	 * is the half that cannot be talked out of it by a bad line. */
+	shown_rows = p->used ? PANEL_TEXT_ROWS_FOR(p->ntiles, PANEL_ROWS) : PANEL_ROWS;
+
 	for (int i = 0; i < PANEL_ROWS; i++) {
-		bool live = p->used && i < p->nrows;
+		bool live = p->used && i < p->nrows && i < shown_rows;
 
 		if (!live) {
 			lv_obj_add_flag(row_lbl[i], LV_OBJ_FLAG_HIDDEN);
@@ -148,6 +184,9 @@ static void paint(void)
 					    tone_colour(p->rows[i].tone), 0);
 	}
 
+	if (p->used) {
+		place_tiles(p->ntiles);
+	}
 	for (int i = 0; i < PANEL_TILES; i++) {
 		bool live = p->used && i < p->ntiles;
 
@@ -232,8 +271,12 @@ void ui_panel_attach(lv_obj_t *scr)
 
 	for (int i = 0; i < PANEL_TILES; i++) {
 		tile_btn[i] = lv_btn_create(panel);
+		/* Size and position are set again in place_tiles(), which knows
+		 * how many tiles this particular panel has. These are only so
+		 * the object exists somewhere sane before the first paint. */
 		lv_obj_set_size(tile_btn[i], PANEL_TILE_W, PANEL_TILE_H);
-		lv_obj_set_pos(tile_btn[i], PANEL_SIDE + i * (PANEL_TILE_W + PANEL_TILE_GAP),
+		lv_obj_set_pos(tile_btn[i],
+			       PANEL_SIDE + i * (PANEL_TILE_W + PANEL_TILE_GAP),
 			       PANEL_TILE_Y);
 		lv_obj_set_style_border_width(tile_btn[i], 0, 0);
 		lv_obj_set_style_radius(tile_btn[i], 6, 0);

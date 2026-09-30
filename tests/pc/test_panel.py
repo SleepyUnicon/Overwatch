@@ -64,8 +64,14 @@ def test_fields_are_cut_on_this_side():
     assert len(row.value) == P.VALUE_MAX
     p = P.Panel("t" * 99, [P.Row("x", "y")] * 99, tiles=["z"] * 99)
     assert len(p.title) == P.TITLE_MAX
-    assert len(p.rows) == P.ROWS_MAX
     assert len(p.tiles) == P.TILES_MAX
+    # Three, not five: ninety-nine tiles is more than four, so they wrap to a
+    # second row on the board and paint over where rows 4 and 5 would be.
+    assert len(p.rows) == P.ROWS_WITH_MANY_TILES
+
+    # With a tile row that does not wrap, all five rows survive.
+    q = P.Panel("t", [P.Row("x", "y")] * 99, tiles=["z"] * P.TILES_ONE_ROW)
+    assert len(q.rows) == P.ROWS_MAX
 
 
 def test_an_unknown_tone_is_refused_here():

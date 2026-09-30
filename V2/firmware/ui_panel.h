@@ -56,9 +56,11 @@
  * because RAM is still the binding constraint on this board and the WiFi
  * build already fails to link by 18 KB.
  */
-#define PANEL_MAX	3
+#define PANEL_MAX	4
 #define PANEL_ROWS	5
-#define PANEL_TILES	4
+#define PANEL_TILES	6
+
+#include "ui_panel_geom.h"
 
 #define PANEL_TITLE_MAX	20
 #define PANEL_LABEL_MAX	14

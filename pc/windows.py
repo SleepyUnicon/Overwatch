@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 TIMEOUT_S = 5
 
@@ -151,7 +152,38 @@ def _x11_place(where):
 # Accessibility, not Automation. System Events can already be ASKED what is
 # frontmost with the grant `install` requests; MOVING a window is a separate
 # permission, and macOS refuses with -25211 until it is given.
-_AX_DENIED = ("-25211", "-1719")
+_AX_DENIED = ("-25211", "-1719", "-1728")
+
+# How often to repeat a refusal that is not going to change on its own.
+#
+# The panel rebuilds every few seconds, so the same sentence was written to the
+# log on every pass: 1,058 copies of "System Events has no assistive access" in
+# one file, which is not disclosure, it is a haystack. Five minutes is the
+# interval claude_usage_bridge.py already uses for the same shape of problem
+# (ERR_REPEAT_S) -- often enough that somebody tailing the log after granting
+# the permission sees it stop, rare enough to read.
+_DENIED_REPEAT_S = 300.0
+_denied_said_at = [0.0]
+
+
+def _say_denied():
+    now = time.monotonic()
+    if _denied_said_at[0] and now - _denied_said_at[0] < _DENIED_REPEAT_S:
+        return
+    first = not _denied_said_at[0]
+    _denied_said_at[0] = now
+    print("[windows] %sSystem Events has no assistive access. Allow Overwatch"
+          " under System Settings > Privacy & Security > Accessibility."
+          % ("" if first else "still: "), file=sys.stderr)
+
+
+def clear_denied_notice():
+    """Forget that we have complained, so the next refusal is reported.
+
+    Called when the grant comes back, so a LATER loss is not swallowed by the
+    five-minute window from the previous one.
+    """
+    _denied_said_at[0] = 0.0
 
 # NO `on error` HERE, and that is the point.
 #
@@ -196,9 +228,7 @@ def _osa(script):
         return None, "could not reach System Events"
     if p.returncode != 0:
         if any(c in (p.stderr or "") for c in _AX_DENIED):
-            print("[windows] System Events has no assistive access. Allow"
-                  " Overwatch under System Settings > Privacy & Security >"
-                  " Accessibility.", file=sys.stderr)
+            _say_denied()
             return None, "Accessibility off"
         return None, "the window did not move"
     return (p.stdout or "").strip(), None

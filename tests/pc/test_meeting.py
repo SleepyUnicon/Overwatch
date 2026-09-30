@@ -499,18 +499,22 @@ def test_the_panel_fits_the_board(quiet_desk):
         assert len(t) <= panel_mod.TILE_MAX
 
 
-def test_the_board_has_room_for_a_third_panel():
+def test_the_board_has_room_for_the_panels_that_exist():
     """The daemon's mirror of V2/firmware/ui_panel.h. A daemon that registers
     more panels than the board reserves would have the third one silently
     refused."""
     from V2 import panel as panel_mod
-    assert panel_mod.PANEL_MAX >= 3
+    assert panel_mod.PANEL_MAX >= 4
 
 
-def test_all_three_panels_register():
+def test_every_panel_registers():
+    """Four now: the desk, the window, the meeting and the app's tools. The
+    board reserves PANEL_MAX of them and a fifth would be refused."""
     from pc import widget_bridge
+    from V2 import panel as panel_mod
     ps = widget_bridge._default_panels()
-    assert len(ps._sources) == 3
+    assert len(ps._sources) == 4
+    assert len(ps._sources) <= panel_mod.PANEL_MAX
 
 
 def test_every_hint_fits_a_row():

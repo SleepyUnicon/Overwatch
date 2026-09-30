@@ -28,9 +28,17 @@ from pc import protocol                                          # noqa: E402
 # since it cannot trust a line it did not compose -- but truncating HERE means
 # the text that arrives is the text somebody chose the end of, rather than
 # whatever fell inside the limit.
-PANEL_MAX = 3
+PANEL_MAX = 4
 ROWS_MAX = 5
-TILES_MAX = 4
+TILES_MAX = 6
+
+# More than four tiles wraps to a second row of three on the board, which eats
+# the space the last two text rows would occupy. See PANEL_TILE_COLS in
+# V2/firmware/ui_panel.c. The board hides those rows whatever arrives; refusing
+# here as well means the panel that gets drawn is the panel somebody designed,
+# rather than one quietly trimmed in transit.
+TILES_ONE_ROW = 4
+ROWS_WITH_MANY_TILES = 3
 
 TITLE_MAX = 20
 LABEL_MAX = 14
@@ -49,6 +57,22 @@ LINE_BUDGET = 480
 
 def _cut(s, n):
     return ("" if s is None else str(s))[:n]
+
+
+_warned_trim = set()
+
+
+def _warn_trimmed(ntiles, nrows):
+    """Once per shape, not once per repaint -- panels rebuild every few
+    seconds and this would otherwise be the whole log."""
+    key = (ntiles, nrows)
+    if key in _warned_trim:
+        return
+    _warned_trim.add(key)
+    print("[panel] %d tiles wrap to a second row on the board, which leaves"
+          " room for %d text rows; dropping %d of %d."
+          % (ntiles, ROWS_WITH_MANY_TILES, nrows - ROWS_WITH_MANY_TILES,
+             nrows), file=sys.stderr)
 
 
 class Row:
@@ -77,6 +101,19 @@ class Panel:
     __slots__ = ("title", "rows", "tiles")
 
     def __init__(self, title, rows=(), tiles=()):
+        rows = list(rows)
+        tiles = list(tiles)
+        # CUT, not refuse. Everything else over-long on this side is cut --
+        # see _cut and the note in test_fields_are_cut_on_this_side -- and the
+        # board hides these rows anyway. Raising here would replace a working
+        # panel with an "Error: ValueError" box (see Panels.messages) over a
+        # layout detail the firmware already handles.
+        #
+        # Said out loud, once, because a row that silently is not there is the
+        # thing this project keeps having to go and find.
+        if len(tiles) > TILES_ONE_ROW and len(rows) > ROWS_WITH_MANY_TILES:
+            _warn_trimmed(len(tiles), len(rows))
+            rows = rows[:ROWS_WITH_MANY_TILES]
         self.title = _cut(title, TITLE_MAX)
         self.rows = list(rows)[:ROWS_MAX]
         self.tiles = [_cut(t, TILE_MAX) for t in tiles][:TILES_MAX]

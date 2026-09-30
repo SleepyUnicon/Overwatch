@@ -23,6 +23,7 @@ import os
 import shutil
 import subprocess
 import sys
+import textwrap
 import time
 
 from pc import (install_codex_hooks, install_hooks, install_statusline,
@@ -2607,6 +2608,32 @@ def cmd_status(args) -> int:
         print("Usage data  none yet -- open Claude Code once so it renders "
               "its status line")
     _source_lines()
+
+    # Accessibility, which nothing reported anywhere until now.
+    #
+    # macOS never prompts for it, so a missing grant is silent everywhere
+    # except the panel that needed it -- and that only says so once you have
+    # swiped to it. It is also lost on every update, because the designated
+    # requirement of an ad-hoc signature is a content hash. The long version
+    # is in pc/macperm.py.
+    if sys.platform == "darwin":
+        granted, ax_state = macperm.ax_check()
+        changed = macperm.ax_note(granted)
+        if granted:
+            print("Access      Accessibility granted")
+        elif changed == "lost":
+            print("Access      Accessibility LOST since the last check")
+            for line in textwrap.wrap(macperm.AX_LOST, 60):
+                print(f"            {line}")
+        elif ax_state == "denied":
+            print("Access      Accessibility not granted -- window snapping"
+                  " and tool tiles")
+            print("            will not work. Turn it on in System Settings >")
+            print("            Privacy & Security > Accessibility.")
+        else:
+            print("Access      could not check Accessibility (Automation is"
+                  " off)")
+
     if getattr(args, "wire", False):
         _wire_line()
     return 0

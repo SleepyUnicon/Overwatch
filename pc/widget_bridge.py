@@ -19,6 +19,7 @@ from pc.widgets import Launcher
 # any panel registered, so a broken import here cannot take the dials down.
 from V2 import host_panel
 from V2 import meeting_panel
+from V2 import tool_panel
 from V2 import window_panel
 from V2.panel import Panels
 
@@ -52,6 +53,7 @@ def _default_panels():
     ps.add(host_panel.build, on_tap=host_panel.on_tap)
     ps.add(window_panel.build, on_tap=window_panel.on_tap)
     ps.add(meeting_panel.build, on_tap=meeting_panel.on_tap)
+    ps.add(tool_panel.build, on_tap=tool_panel.on_tap)
     return ps
 
 

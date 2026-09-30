@@ -100,6 +100,9 @@ run_one upd_prompt  "upd_prompt.c"    ""
 run_one upd_row     "upd_row.c"       ""
 run_one upd_tap     "upd_tap.c"       ""
 run_one whatsnew    "whatsnew.c ota_parse.c" ""
+# Needs V2/firmware on the include path: the geometry header lives beside
+# the panel it belongs to, not in firmware/src.
+run_one panel_geom  ""                "-I $ROOT/V2/firmware"
 run_one usage_contrast ""              "-lm"
 run_one usage_freshness "usage_freshness.c" ""
 run_one usage_layout ""                ""

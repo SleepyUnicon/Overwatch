@@ -16,6 +16,8 @@ no message anywhere. Asking during `install` -- while the person is at the
 keyboard, having just typed something -- is the whole point of preflight().
 """
 
+import json
+import os
 import subprocess
 import sys
 
@@ -100,3 +102,171 @@ def preflight(out=None):
     else:
         say("      could not check (macOS did not answer).")
     return False
+
+
+# ===================================================================== AX
+#
+# ACCESSIBILITY IS NOT AUTOMATION, AND IT IS WORSE.
+#
+# Automation (above) at least prompts: the first osascript raises a dialog, and
+# preflight() exists to make that happen while somebody is at the keyboard.
+# macOS NEVER PROMPTS FOR ACCESSIBILITY. The app has to be added by hand, in a
+# pane the user has to be told to open, and until then everything that needs it
+# fails with -1728 and no dialog anywhere.
+#
+# And it does not stay granted. Measured on the owner's Mac, 2026-09-30:
+#
+#     $ codesign -d -r- ~/.overwatch/bin/overwatch
+#     # designated => cdhash H"40cb6c2b4aae6e125a537afb9f2e24d70d3b3acc"
+#
+# That is the whole designated requirement -- a raw content hash, which is all
+# an ad-hoc signature can produce. TCC records the grant against it, so every
+# `overwatch update` writes a new binary, gets a new cdhash, and the grant no
+# longer matches anything. It is not lost by accident; it cannot survive.
+#
+# Nothing in this file fixes that. A stable requirement needs a real signing
+# identity, where it becomes `identifier "..." and certificate leaf[...] =
+# TEAMID` and does not move when the bytes do. That is the same Developer ID
+# enrolment notarisation needs -- see docs/notarisation.md.
+#
+# What IS fixable is the silence. Losing the grant looked exactly like a
+# feature that had stopped working, twice, and cost an afternoon before anyone
+# read the designated requirement. So: check it, remember the answer, and when
+# it goes from granted to not, say which of the two happened.
+
+# `UI elements enabled` is System Events' own report of whether the CALLER is
+# trusted for Accessibility. It needs Automation to ask at all, which is why a
+# missing Automation grant is reported as "unknown" rather than "denied" --
+# they are different problems with different cures, and answering the wrong one
+# is how this project once told a Linux user to buy a Mac.
+AX_PROBE = 'tell application "System Events" to get UI elements enabled'
+
+# The pane, opened directly. Verified on macOS 26 (Darwin 27), 2026-09-30:
+# exits 0 and brings System Settings to the front on the right page.
+AX_PANE = ("x-apple.systempreferences:com.apple.preference.security"
+           "?Privacy_Accessibility")
+
+AX_HOW = ("System Settings > Privacy & Security > Accessibility, "
+          "then switch on Overwatch")
+
+
+def ax_check(run=subprocess.run):
+    """Is Accessibility granted to THIS binary? (granted, state).
+
+    state is None when granted, else "denied" or "unknown". Unknown covers the
+    cases where the question could not be put -- no Automation, osascript
+    missing, a timeout -- because "I could not ask" is a different sentence
+    from "the answer is no", and only one of them is fixed in the
+    Accessibility pane.
+    """
+    if sys.platform != "darwin":
+        return True, None          # nothing to grant; not a problem to report
+    try:
+        p = run(["osascript", "-e", AX_PROBE], capture_output=True, text=True,
+                timeout=TIMEOUT_S)
+    except (OSError, subprocess.SubprocessError):
+        return False, "unknown"
+    if p.returncode != 0:
+        # Automation refused, or System Events did not answer. Either way this
+        # is not a statement about Accessibility.
+        return False, "unknown"
+    answer = (p.stdout or "").strip().lower()
+    if answer == "true":
+        return True, None
+    if answer == "false":
+        return False, "denied"
+    return False, "unknown"
+
+
+def ax_explain(state, what="the window and tool panels"):
+    """One sentence to act on, and never the raw AppleScript error."""
+    if state == "denied":
+        return ("macOS is blocking Accessibility, so %s cannot move windows or "
+                "send keystrokes. Turn it on in %s." % (what, AX_HOW))
+    return ("Could not check macOS Accessibility -- Automation has to be on "
+            "first. %s" % HOW)
+
+
+def ax_open_pane(run=subprocess.run):
+    """Put the pane on screen. (ok, err).
+
+    Because "System Settings > Privacy & Security > Accessibility" is four
+    levels deep and the list it lands on is long. A person who has just been
+    told a permission is missing should not also have to go looking for it.
+    """
+    if sys.platform != "darwin":
+        return False, "macOS only"
+    try:
+        p = run(["open", AX_PANE], capture_output=True, text=True,
+                timeout=TIMEOUT_S)
+    except (OSError, subprocess.SubprocessError):
+        return False, "could not open System Settings"
+    return p.returncode == 0, (None if p.returncode == 0
+                               else "could not open System Settings")
+
+
+# --- remembering, so a loss can be told from a never-had ---------------
+
+AX_STATE = "accessibility.json"
+
+
+def _ax_path(home=None):
+    """Resolved on every call, never at import.
+
+    The same rule the rest of pc/ follows: a module-level expanduser is read
+    once, at import, and a test that sets HOME afterwards is talking to the
+    wrong file without being told.
+    """
+    base = home or os.path.join(os.path.expanduser("~"), ".overwatch")
+    return os.path.join(base, AX_STATE)
+
+
+def ax_last_known(home=None):
+    """What we saw last time: True, False, or None for never looked."""
+    try:
+        with open(_ax_path(home), encoding="utf-8") as fh:
+            v = json.load(fh).get("granted")
+    except (OSError, ValueError):
+        return None
+    return v if isinstance(v, bool) else None
+
+
+def ax_note(granted, home=None):
+    """Record today's answer and say what CHANGED. One of:
+
+        "lost"    -- had it, does not now. Almost always an update: the
+                     designated requirement is a cdhash and the bytes moved.
+        "gained"  -- someone ticked the box.
+        None      -- no change, or nothing to compare against.
+
+    The distinction is the whole point of the file. "Accessibility off" on a
+    machine that never had it is a setup step nobody has done yet; the same
+    words on a machine that had it five minutes ago are a regression, and
+    telling a person to go and switch on something they already switched on
+    reads as the software being broken -- which, in the sense that matters to
+    them, it is.
+    """
+    before = ax_last_known(home)
+    path = _ax_path(home)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"granted": bool(granted)}, fh)
+        os.replace(tmp, path)
+    except OSError:
+        # Not being able to remember is not worth failing over; the caller
+        # still gets a truthful "no change".
+        return None
+    if before is None or before == bool(granted):
+        return None
+    return "gained" if granted else "lost"
+
+
+AX_LOST = (
+    "Accessibility was granted and is not any more. An update replaced the"
+    " program, and macOS keys that permission to the exact bytes it was"
+    " granted to -- the designated requirement is a content hash, so a new"
+    " build is a different program as far as it is concerned. Switch"
+    " Overwatch back on in %s. It will keep happening on every update until"
+    " the program is signed with a Developer ID." % AX_HOW)
