@@ -17,7 +17,7 @@ TILES = ("Left", "Right", "Full", "Next")
 
 # A short reason fits the row; where to go about it does not fit beside it.
 _WHERE_TO_FIX = {
-    "Accessibility off": "Privacy settings",
+    "Accessibility off": "Device Control",
     "install xdotool for window control": "package manager",
     "install wmctrl for window control": "package manager",
 }
@@ -40,7 +40,12 @@ def build():
         # Overwatch under System Settings > Privacy & Security >
         # Accessibility" is not. The short reason names the problem; the
         # second row says where to go. The full sentence is in the log.
-        rows = [Row("Not yet", _fit(err, 18), tone="warn")]
+        # "Snapping", not "Not yet". The tools panel is blocked by the same
+        # permission and drew the same two rows, so the two pages were
+        # identical apart from a 20-character title -- and the owner swiped
+        # past one reporting there was no fourth page at all. A row that names
+        # what is lost tells them apart and is more use besides.
+        rows = [Row("Snapping", _fit(err, 18), tone="warn")]
         hint = _WHERE_TO_FIX.get(err)
         if hint:
             rows.append(Row("Fix in", hint, tone="dim"))

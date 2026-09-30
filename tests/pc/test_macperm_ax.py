@@ -312,3 +312,19 @@ def test_an_unrecognised_refusal_logs_its_code(monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "(-9999)" in err
     assert "something new" not in err, "the script's text must not be logged"
+
+
+def test_the_instructions_name_the_pane_on_both_macos_versions():
+    """macOS 27 renamed Privacy & Security > Accessibility to "Device Control
+    and Data Access". Telling somebody on 27 to open "Accessibility" sends
+    them to the VoiceOver pane, which is the only Accessibility left and does
+    nothing for this -- measured on the owner's machine, twice, before anyone
+    looked at the list instead of the instruction."""
+    assert "Device Control and Data Access" in macperm.AX_HOW
+    assert "Accessibility" in macperm.AX_HOW
+    assert "macOS 27" in macperm.AX_HOW
+
+
+def test_the_short_form_fits_a_panel_row():
+    from V2 import panel as pm
+    assert len(macperm.AX_WHERE_SHORT) <= pm.VALUE_MAX

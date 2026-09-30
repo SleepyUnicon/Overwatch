@@ -20,7 +20,7 @@ from pc import actions, apptools, macperm, windows
 from V2.panel import Panel, Row
 
 _WHERE_TO_FIX = {
-    "Accessibility off": "Privacy settings",
+    "Accessibility off": "Device Control",
     "not on this OS": "macOS and X11",
 }
 
@@ -51,7 +51,10 @@ def _plan():
     """
     fields, err = windows.current()
     if err:
-        rows = [Row("Not yet", _fit(err, 18), tone="warn")]
+        # Named for what it costs, so this page is not mistaken for the
+        # window panel -- which is blocked by the same permission and used to
+        # draw exactly these two rows. See V2/window_panel.py.
+        rows = [Row("Tool tiles", _fit(err, 18), tone="warn")]
         hint = _WHERE_TO_FIX.get(err)
         if hint:
             rows.append(Row("Fix in", hint, tone="dim"))

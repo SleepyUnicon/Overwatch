@@ -224,7 +224,7 @@ def test_a_problem_gets_a_second_row_saying_where_to_fix_it(monkeypatch):
                         lambda: (None, "Accessibility off"))
     p = window_panel.build()
     assert [r.value for r in p.rows] == ["Accessibility off",
-                                         "Privacy settings"]
+                                         "Device Control"]
     assert p.tiles == [], "no point offering tiles that cannot work"
 
 

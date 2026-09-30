@@ -171,7 +171,7 @@ def test_a_permission_problem_says_where_to_fix_it(monkeypatch):
                         lambda: (None, "Accessibility off"))
     p = tool_panel.build()
     assert p.tiles == []
-    assert any(r.value == "Privacy settings" for r in p.rows)
+    assert any(r.value == "Device Control" for r in p.rows)
 
 
 # --- taps -------------------------------------------------------------
@@ -220,3 +220,20 @@ def test_a_failed_send_blames_the_permission_not_the_app(in_illustrator,
 def test_all_four_panels_register():
     from pc import widget_bridge
     assert len(widget_bridge._default_panels()._sources) == 4
+
+
+def test_two_panels_blocked_by_one_permission_do_not_look_alike(monkeypatch):
+    """Window and Tools are both gated on Accessibility, and both used to draw
+    "Not yet / Accessibility off" over "Fix in / Privacy settings" -- identical
+    apart from a title. The owner swiped through all four pages and reported
+    that the fourth did not exist, which is exactly what two identical pages
+    look like.
+    """
+    from V2 import window_panel
+    monkeypatch.setattr(windows, "current", lambda: (None, "Accessibility off"))
+    w = window_panel.build()
+    t = tool_panel.build()
+    assert [r.label for r in w.rows] != [r.label for r in t.rows]
+    # And each says what IS lost, rather than only why.
+    assert any("Snap" in r.label for r in w.rows)
+    assert any("Tool" in r.label for r in t.rows)

@@ -164,14 +164,27 @@ AX_PANES = (
 )
 AX_PANE = AX_PANES[0]
 
-# The path, in words. This is the authority; the URLs above are a shortcut.
+# The path, in words -- and the words MOVED.
 #
-# "Privacy & Security" matters: there is a top-level Accessibility pane too,
-# and it is the wrong one -- it configures VoiceOver and Zoom rather than
-# listing the apps allowed to control the computer.
-AX_HOW = ("System Settings > Privacy & Security > Accessibility "
-          "(NOT the Accessibility pane in the sidebar), "
-          "then switch on Overwatch")
+# On macOS 26 and earlier this list is Privacy & Security > Accessibility. On
+# macOS 27 there is no such entry: Apple renamed it "Device Control and Data
+# Access", and the only Accessibility left is the top-level pane that
+# configures VoiceOver and Zoom, which is a different thing that happens to
+# share the name.
+#
+# Seen on the owner's machine, 2026-09-30, macOS 27.0.1: told to open
+# Privacy & Security > Accessibility, they found no such row, went to the
+# pane that IS called Accessibility, and granted nothing. Twice. The deep
+# link had been landing on "Device Control and Data Access" the whole time
+# and I read that as another wrong guess rather than as the answer.
+#
+# Both names, because a person on either version has to recognise theirs.
+AX_HOW = ("System Settings > Privacy & Security > Device Control and Data "
+          "Access (called Accessibility before macOS 27; NOT the "
+          "Accessibility pane in the sidebar), then switch on Overwatch")
+
+# Short enough for a panel row, where the long form does not fit.
+AX_WHERE_SHORT = "Device Control"
 
 
 def ax_check(run=subprocess.run):
