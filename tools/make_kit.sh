@@ -46,9 +46,17 @@ mkdir -p "$KIT/1-print-the-case/upright-frame" \
 
 SHA=$(cd "$(dirname "$BIN")" && shasum -a 256 "$(basename "$BIN")" | cut -d' ' -f1)
 
-# @VERSION@ and @SHA256@ out of the committed sources and into the copy.
+# The day this kit was built. @DATE@ exists because the manual's cover carried a
+# hand-typed date beside a hand-typed version, and both went stale: the cover
+# read "Release 2.1.0 - 26 September 2026" for nine releases, up to and
+# including 2.3.2. A number nobody has to remember to change is the only kind
+# that stays right.
+DATE=$(date "+%-d %B %Y")
+
+# @VERSION@, @SHA256@ and @DATE@ out of the committed sources and into the copy.
 fill() {
-	sed -e "s/@VERSION@/$VER/g" -e "s/@SHA256@/$SHA/g" "$1" > "$2"
+	sed -e "s/@VERSION@/$VER/g" -e "s/@SHA256@/$SHA/g" \
+	    -e "s/@DATE@/$DATE/g" "$1" > "$2"
 }
 
 # ---------------------------------------------------------------- the parts

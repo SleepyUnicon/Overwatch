@@ -11,10 +11,10 @@
   dials, plus a music transport, an app launcher and a face — built on an ESP32,
   driven by a small daemon on your computer over USB.</p>
   <div class="meta">
-    <b>Release</b> &nbsp;2.1.0 &nbsp;·&nbsp; 26 September 2026<br>
+    <b>Release</b> &nbsp;@VERSION@ &nbsp;·&nbsp; @DATE@<br>
     <b>Repository</b> &nbsp;github.com/SleepyUnicon/Overwatch<br>
     <b>Setup page</b> &nbsp;sleepyunicon.github.io/Overwatch<br>
-    <b>Document</b> &nbsp;28 September 2026<br>
+    <b>Document</b> &nbsp;@DATE@<br>
     <b>Licence</b> &nbsp;PolyForm Noncommercial 1.0.0
   </div>
 </section>
@@ -257,7 +257,10 @@ aside by itself as soon as the daemon introduces itself.</p>
 <tr><td>Swipe left / right</td><td>moves between pages — music, gauges, launcher</td></tr>
 <tr><td>Tap the gear</td><td>settings: theme, edition, the setup QR, factory reset</td></tr>
 <tr><td>Tap the face cue</td><td>the idle face, on its own page</td></tr>
-<tr><td>Tap a launcher tile</td><td>brings that app to the front on your computer</td></tr>
+<tr><td>Tap a launcher tile</td><td>brings that app to the front on your
+    computer — or sends a keystroke, or runs a command (see below)</td></tr>
+<tr><td>Tap a panel tile</td><td>does that panel's job: snaps a window, mutes
+    your microphone, raises a call</td></tr>
 <tr><td>Long-press the version line</td><td>reveals the detail behind it</td></tr>
 </table>
 
@@ -273,7 +276,112 @@ aside by itself as soon as the daemon introduces itself.</p>
     without reflashing.</li>
 <li><strong>Face</strong> — two eyes and a mouth, drawn rather than played, with
     moods that blend into one another.</li>
+<li><strong>Panels</strong> — three pages the computer fills in: your machine,
+    the window in front, and the call you are on. See below.</li>
 </ul>
+
+<h3>The panels</h3>
+<p>Three pages whose contents come from the computer, not the firmware. The
+board reserves three slots and draws whatever rows and tiles arrive; it is told
+nothing about what they mean, and a tap goes back as a slot number and a tile
+number. So a new panel is a Python file on the computer — no firmware build, no
+release, no reflash.</p>
+
+<ul>
+<li><strong>Your machine</strong> — disk free, memory free, uptime, and on Linux
+    the temperature and fan speed as well. Titled after the machine's own name
+    rather than its platform, because "This Mac" on a Linux desktop is the kind
+    of small lie that makes everything else suspect.</li>
+<li><strong>Window</strong> — which window is in front, how big it is, and which
+    screen it is on. Four tiles put it on the left half, the right half, the
+    whole screen, or the next screen along. The point is not the snapping, which
+    a keyboard shortcut already does: it is that the panel <em>shows you which
+    window is about to move</em> before you touch anything.</li>
+<li><strong>Meeting</strong> — whether you are in a call, and whether your
+    microphone is live. <code>Mute</code> toggles it, <code>Sound</code> silences
+    the speakers, and <code>Show</code> brings the call back to the front.</li>
+</ul>
+
+<div class="note"><b>Mute means the system microphone</b>
+<p>Not the meeting's own mute button. Zoho Meeting, Google Meet and half of
+Teams run in a browser tab, and driving their buttons would mean guessing each
+application's keyboard shortcut. The system microphone is one control for all of
+them, needs no window focus, and — the part that matters for a panel — <em>can be
+read back</em>, so the row shows what is true rather than what the last tap
+intended.</p>
+<p>The trade-off: the meeting still shows you as unmuted, because as far as it
+knows you are. Nobody hears you, and the other participants see an open
+microphone icon. If you would rather drive the application's own button, bind its
+shortcut to a launcher tile instead.</p></div>
+
+<p>A call is detected from the browser's open tabs on macOS and from window
+titles on X11. The Linux side is weaker and says so: no browser publishes its
+tabs to the window manager, so a call in a background tab will not be seen.</p>
+
+<div class="note"><b>What the panels need, per platform</b>
+<table class="tight">
+<tr><th style="width:26%">Panel</th><th>macOS</th><th>Linux</th></tr>
+<tr><td>Your machine</td><td>nothing</td><td>nothing</td></tr>
+<tr><td>Window</td>
+    <td><strong>Accessibility</strong> — System Settings &rsaquo; Privacy &amp;
+    Security &rsaquo; Accessibility. Until it is granted the panel says
+    "Accessibility off" and offers no tiles, rather than offering tiles that
+    would do nothing.</td>
+    <td><code>xdotool</code> and <code>wmctrl</code>, and <strong>X11</strong>.
+    Wayland forbids one program from moving another's windows, so the panel
+    refuses there rather than failing quietly.</td></tr>
+<tr><td>Meeting</td>
+    <td>Automation for your browser, to read tab addresses. The microphone
+    itself needs nothing.</td>
+    <td><code>pactl</code> for the microphone, <code>wmctrl</code> to see the
+    call.</td></tr>
+</table>
+<p class="small">On Windows both panels say "not on this OS" and show no tiles.
+Only the machine panel works there.</p></div>
+
+<h3>Launcher tiles that are not apps</h3>
+<p>The six launcher slots live in <code>~/.overwatch/apps.json</code>, and a slot
+can be three things. The board is unchanged by any of it — it still sends a slot
+number and draws an icon or a label.</p>
+
+<pre>[
+  "Terminal",
+  {"keys": "cmd+shift+4", "label": "Shot"},
+  {"run": ["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"],
+   "label": "Mute", "icon": "settings"},
+  "Visual Studio Code",
+  "", ""
+]</pre>
+
+<ul>
+<li><strong>A name</strong> — the app to bring to the front. On Linux the command
+    comes from the application's own desktop entry, not from the name run as if
+    it were a program.</li>
+<li><strong><code>keys</code></strong> — a keystroke to send. Write
+    <code>cmd</code> on either platform; on Linux it becomes Super. Needs
+    Accessibility on macOS and <code>xdotool</code> on X11.</li>
+<li><strong><code>run</code></strong> — a command to start. It is not waited for,
+    so a tile may launch something long-running.</li>
+<li><strong><code>icon</code></strong> — optional on any of them. One of
+    <code>claude</code>, <code>illustrator</code>, <code>photoshop</code>,
+    <code>spotify</code>, <code>brave</code>, <code>chrome</code>,
+    <code>vscode</code>, <code>terminal</code>, <code>obs</code>,
+    <code>pcsx2</code>, <code>settings</code>. An icon beats a label on the
+    tile; an unknown name is ignored and the label is drawn instead.</li>
+</ul>
+
+<div class="note"><b><code>run</code> must be a list, never a string</b>
+<p>A list is passed straight to the operating system as a program and its
+arguments. A string would be handed to a shell, and the difference between the
+two is the difference between running a program called
+<code>x; rm -rf ~</code> and running the second half of it. A string is
+therefore refused outright, as is an empty list — the slot falls back to the
+stock grid rather than the daemon refusing to start.</p></div>
+
+<p>The web picker on <code>127.0.0.1:8730</code> edits this file too, and keeps
+hand-written <code>keys</code> and <code>run</code> entries it cannot draw. An
+earlier version kept only the plain names, so editing any one tile silently
+erased every command in the file.</p>
 
 <h3>Themes</h3>
 <p>Light is the default. Dark is in settings. Switching rebuilds the screen
@@ -308,13 +416,23 @@ update is offered at all — the daemon writes the slot in place with no test bo
 behind it, so "probably fine" is not a good enough basis for the one operation
 that can leave you holding a device that does not start.</p>
 
-<div class="note"><b>After a self-update on macOS</b>
-<p>You may see <em>"the background service is not running"</em> immediately
-after <code>update</code>. It is usually wrong. Replacing the running binary
-invalidates its code signature and macOS kills the old process
-(<code>last exit reason = OS_REASON_CODESIGNING</code>); launchd restarts it a
-moment later, but the check runs during that gap. Confirm with
-<code>overwatch status</code> before running anything else.</p></div>
+<div class="note"><b>After a self-update — fixed in 2.3.2</b>
+<p>Older versions said <em>"the background service is not running"</em>
+immediately after <code>update</code>, and were wrong. Replacing the running
+binary invalidates its code signature and macOS kills the old process
+(<code>last exit reason = OS_REASON_CODESIGNING</code>); launchd restarts it,
+but the check gave up before it came back.</p>
+<p>Not by a little. Measured on 30 September 2026: the bounce went out at
+10:21:57, the check gave up at 10:22:02 after its five-second budget, and the
+new daemon's first log line is 10:22:08 — <strong>eleven seconds</strong> to
+start, because macOS has to assess the signature of a freshly written 12.8 MB
+bundle and its fifty-one inner Mach-O files before it will run any of them. A
+bounce of a binary already assessed answers in 0.02 s, so the wait is only ever
+spent when something is genuinely slow. The budget is now thirty seconds and
+prints a line so it does not read as a hang.</p>
+<p>If you are updating <em>from</em> a version before 2.3.2 you will see the old
+message one last time, because the old code is the code running the bounce.
+Confirm with <code>overwatch status</code> and carry on.</p></div>
 
 <h2 id="s7"><span class="n">7</span>Uninstalling</h2>
 <pre class="term">~/.overwatch/bin/overwatch uninstall</pre>
@@ -348,9 +466,22 @@ permanently invisible.</p>
 <tr><td>Setup screen will not leave</td>
     <td>Fixed in 2.0.7. Update the app, then unplug and replug the board.</td></tr>
 <tr><td>Service "not running" right after an update</td>
-    <td>Usually a false alarm — see the note in §6.2.</td></tr>
+    <td>A false alarm, fixed in 2.3.2 — and shown one last time by the update
+    that installs the fix. See the note in §6.2. Confirm with
+    <code>overwatch status</code>.</td></tr>
+<tr><td>Window panel says "Accessibility off"</td>
+    <td>macOS: allow Overwatch under System Settings &rsaquo; Privacy &amp;
+    Security &rsaquo; Accessibility. Linux: install <code>xdotool</code> and
+    <code>wmctrl</code>. The panel names which.</td></tr>
+<tr><td>A panel says "not on this OS"</td>
+    <td>That panel has no implementation for this platform — window snapping and
+    call detection are macOS and X11 only. Nothing to fix.</td></tr>
 <tr><td>Nothing else works</td>
-    <td>The log is <code>~/.overwatch/bridge.log</code> and it is verbose.</td></tr>
+    <td><strong>macOS and Windows:</strong> the log is
+    <code>~/.overwatch/bridge.log</code> and it is verbose.
+    <strong>Linux:</strong> there is no such file — systemd keeps it, so use
+    <code>journalctl --user -u overwatch -n 40</code>. Looking for the file on
+    Linux wasted a day once.</td></tr>
 </table>
 
 <h1 class="part">Part II — What has been built</h1>
@@ -635,7 +766,16 @@ them.</p>
 <h2 id="s17"><span class="n">17</span>Release history</h2>
 <table class="tight">
 <tr><th style="width:14%">Version</th><th>What changed</th></tr>
-<tr><td><strong>2.1.0</strong></td><td>In dark mode, red means red · Update notes fit their page</td></tr>
+<tr><td><strong>2.3.2</strong></td><td>No false alarm after updating</td></tr>
+<tr><td>2.3.1</td><td>Updates know when they worked · A stuck one says what to do</td></tr>
+<tr><td>2.3.0</td><td>Mute your mic from the desk · Snap windows where you want</td></tr>
+<tr><td>2.2.5</td><td>The panel names your machine · Temperature and fans on Linux</td></tr>
+<tr><td>2.2.4</td><td>The desk panel works on Linux</td></tr>
+<tr><td>2.2.3</td><td>The launcher finds Linux apps</td></tr>
+<tr><td>2.2.2</td><td>Music really works on Linux now</td></tr>
+<tr><td>2.2.1</td><td>Music controls work on Linux</td></tr>
+<tr><td>2.2.0</td><td>A page your computer can fill · It says why it will not link</td></tr>
+<tr><td>2.1.0</td><td>In dark mode, red means red · Update notes fit their page</td></tr>
 <tr><td>2.0.9</td><td>The face stays on its own page</td></tr>
 <tr><td>2.0.8</td><td>A failed update can be retried</td></tr>
 <tr><td>2.0.7</td><td>The setup screen steps aside</td></tr>
@@ -647,9 +787,11 @@ them.</p>
 <tr><td>2.0.1</td><td>It boots to its own mark now · Updates arrive over the cable</td></tr>
 <tr><td>2.0.0</td><td>Five pages, swipe between them · A launcher, music, a light theme</td></tr>
 </table>
-<p class="small">Eleven releases between 25 and 26 September 2026, plus an
+<p class="small">Twenty releases between 25 and 30 September 2026, plus an
 initial 0.1.0 on 23 September. Each carries firmware and four platform binaries
-under one tag.</p>
+under one tag. The board shows the same notes on its own screen, sixteen releases
+deep; older entries are trimmed from the tail as new ones arrive, because the
+page array it draws them into holds sixteen.</p>
 
 <h1 class="part">Part III — Reference</h1>
 
