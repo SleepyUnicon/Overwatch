@@ -141,12 +141,36 @@ def preflight(out=None):
 # is how this project once told a Linux user to buy a Mac.
 AX_PROBE = 'tell application "System Events" to get UI elements enabled'
 
-# The pane, opened directly. Verified on macOS 26 (Darwin 27), 2026-09-30:
-# exits 0 and brings System Settings to the front on the right page.
-AX_PANE = ("x-apple.systempreferences:com.apple.preference.security"
-           "?Privacy_Accessibility")
+# Deep links into System Settings, newest scheme first.
+#
+# NOT verified to land on the right page, and the comment here used to claim it
+# was. What was actually checked was that `open` exited 0 and System Settings
+# came to the front -- which it does for a URL that lands somewhere else
+# entirely. On macOS 27 the old identifier opens the Accessibility FEATURES
+# pane (VoiceOver, Zoom, Hover Text), which is a different thing with the same
+# name, and the person following the instruction ends up switching on nothing.
+#
+# `open` reports success either way, so there is no way from here to tell a
+# good landing from a bad one. That is why AX_HOW is the words and the URL is
+# only a convenience: the words are what a person can follow when the link
+# misses, and they do not rot between releases of macOS.
+AX_PANES = (
+    # macOS 13+ System Settings.
+    "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
+    "?Privacy_Accessibility",
+    # Older System Preferences.
+    "x-apple.systempreferences:com.apple.preference.security"
+    "?Privacy_Accessibility",
+)
+AX_PANE = AX_PANES[0]
 
-AX_HOW = ("System Settings > Privacy & Security > Accessibility, "
+# The path, in words. This is the authority; the URLs above are a shortcut.
+#
+# "Privacy & Security" matters: there is a top-level Accessibility pane too,
+# and it is the wrong one -- it configures VoiceOver and Zoom rather than
+# listing the apps allowed to control the computer.
+AX_HOW = ("System Settings > Privacy & Security > Accessibility "
+          "(NOT the Accessibility pane in the sidebar), "
           "then switch on Overwatch")
 
 
@@ -196,13 +220,18 @@ def ax_open_pane(run=subprocess.run):
     """
     if sys.platform != "darwin":
         return False, "macOS only"
-    try:
-        p = run(["open", AX_PANE], capture_output=True, text=True,
-                timeout=TIMEOUT_S)
-    except (OSError, subprocess.SubprocessError):
-        return False, "could not open System Settings"
-    return p.returncode == 0, (None if p.returncode == 0
-                               else "could not open System Settings")
+    for url in AX_PANES:
+        try:
+            p = run(["open", url], capture_output=True, text=True,
+                    timeout=TIMEOUT_S)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if p.returncode == 0:
+            # Deliberately NOT reported as "opened the right page". `open`
+            # cannot tell us that, and claiming it is how the wrong pane got
+            # recommended in the first place.
+            return True, None
+    return False, "could not open System Settings"
 
 
 # --- remembering, so a loss can be told from a never-had ---------------

@@ -157,12 +157,40 @@ def test_the_loss_message_explains_why_rather_than_just_asking_again():
     assert "Accessibility" in macperm.AX_LOST
 
 
-def test_the_pane_link_is_the_settings_url():
-    """Verified against macOS 26 on 2026-09-30: exits 0 and lands on the right
-    page. Pinned because a wrong URL fails silently -- `open` succeeds and the
-    user gets the front page of System Settings."""
-    assert macperm.AX_PANE.startswith("x-apple.systempreferences:")
-    assert "Privacy_Accessibility" in macperm.AX_PANE
+def test_the_pane_links_are_settings_urls():
+    """NOT a claim that they land correctly. `open` exits 0 for a URL that
+    opens the wrong pane, so nothing here -- or anywhere else -- can check
+    that from code. On macOS 27 the older identifier opens the Accessibility
+    FEATURES pane, which is a different thing with the same name."""
+    assert macperm.AX_PANES
+    for url in macperm.AX_PANES:
+        assert url.startswith("x-apple.systempreferences:")
+        assert "Privacy_Accessibility" in url
+
+
+def test_the_words_say_which_accessibility_is_meant():
+    """The one that matters, because the URL cannot be trusted and there are
+    two panes with this name. A person sent to the wrong one switches on
+    nothing and reports the feature as broken."""
+    assert "Privacy & Security" in macperm.AX_HOW
+    assert "NOT" in macperm.AX_HOW
+
+
+def test_a_later_url_is_tried_when_the_first_fails(monkeypatch):
+    tried = []
+
+    class R:
+        def __init__(self, rc): self.returncode = rc
+        stdout = stderr = ""
+
+    monkeypatch.setattr(macperm.sys, "platform", "darwin")
+    monkeypatch.setattr(macperm, "AX_PANES", ("one", "two"))
+    def run(argv, **k):
+        tried.append(argv[-1])
+        return R(1 if argv[-1] == "one" else 0)
+    ok, err = macperm.ax_open_pane(run=run)
+    assert ok and err is None
+    assert tried == ["one", "two"]
 
 
 def test_opening_the_pane_is_refused_off_mac(monkeypatch):

@@ -329,7 +329,9 @@ tabs to the window manager, so a call in a background tab will not be seen.</p>
 <tr><td>Your machine</td><td>nothing</td><td>nothing</td></tr>
 <tr><td>Window</td>
     <td><strong>Accessibility</strong> — System Settings &rsaquo; Privacy &amp;
-    Security &rsaquo; Accessibility. Until it is granted the panel says
+    Security &rsaquo; Accessibility. <em>Not</em> the Accessibility pane in the
+    sidebar: that one configures VoiceOver and Zoom, and switching things on
+    there does nothing for this. Until the grant is given the panel says
     "Accessibility off" and offers no tiles, rather than offering tiles that
     would do nothing.</td>
     <td><code>xdotool</code> and <code>wmctrl</code>, and <strong>X11</strong>.
@@ -521,10 +523,17 @@ permanently invisible.</p>
     <td>A false alarm, fixed in 2.3.2 — and shown one last time by the update
     that installs the fix. See the note in §6.2. Confirm with
     <code>overwatch status</code>.</td></tr>
-<tr><td>Window panel says "Accessibility off"</td>
+<tr><td>Window or Tools panel says "Accessibility off"</td>
     <td>macOS: allow Overwatch under System Settings &rsaquo; Privacy &amp;
-    Security &rsaquo; Accessibility. Linux: install <code>xdotool</code> and
-    <code>wmctrl</code>. The panel names which.</td></tr>
+    Security &rsaquo; Accessibility — the list of apps, <em>not</em> the
+    Accessibility pane in the sidebar, which is a different page with the same
+    name. Linux: install <code>xdotool</code> and <code>wmctrl</code>. The panel
+    names which.</td></tr>
+<tr><td>It was granted, and stopped working after an update</td>
+    <td>Expected, and not something the update did wrong. macOS keys that
+    permission to the program's exact bytes, so a new build is a new program to
+    it. Switch Overwatch on again. It will keep happening until the program is
+    signed with a Developer ID.</td></tr>
 <tr><td>A panel says "not on this OS"</td>
     <td>That panel has no implementation for this platform — window snapping and
     call detection are macOS and X11 only. Nothing to fix.</td></tr>
