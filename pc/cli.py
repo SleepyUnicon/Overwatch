@@ -749,7 +749,51 @@ def _service_command():
     return [sys.executable, os.path.join(repo, "overwatch_main.py"), "run"]
 
 
-def _confirm_running(probe, tries=4) -> bool:
+# How long to keep asking a service manager before believing the answer.
+#
+# MEASURED, 2026-09-30, on the owner's Mac running `overwatch update` 2.3.0 ->
+# 2.3.1. The kickstart went out at 10:21:57, this gave up at 10:22:02, and the
+# new daemon's first log line is 10:22:08 -- so the service came up ELEVEN
+# seconds after the bounce and the old five-second budget missed it by more
+# than half. The message it printed ("launchd reports it is not running -- see
+# the log") was true at the instant it was checked, useless six seconds later,
+# and sent the reader to run `overwatch install` for nothing. It did that on
+# two consecutive updates.
+#
+# Eleven seconds because `update` has just replaced a 12.8 MB PyInstaller
+# bundle: macOS has to assess the signature of a freshly written binary and its
+# fifty-one inner Mach-O files before it will exec any of them. A normal
+# kickstart, with the binary already assessed, answers in 0.02 s -- measured
+# three times running -- so a generous budget costs nothing whenever anything
+# is working. It is only spent on the path that is already in trouble, and
+# waiting there is better than being wrong quickly.
+#
+# Thirty, not eleven: that measurement is one machine, warm, with the page
+# cache full of the bundle it had just written.
+CONFIRM_BUDGET_S = 30.0
+
+
+def _confirm_delays(budget_s=CONFIRM_BUDGET_S):
+    """Escalating waits that add up to about `budget_s`.
+
+    A LIST of sleeps rather than a wall-clock deadline, which is not a style
+    choice: the tests for the failure path patch time.sleep to a no-op, and a
+    deadline read off time.monotonic() would busy-spin against a clock that
+    still moves -- thirty real seconds per test. Counting ticks keeps the loop
+    bounded however sleep behaves.
+
+    Short waits first so the ordinary case (0.02 s) still returns at once, then
+    longer ones so a slow start is not paid for in a hundred probes.
+    """
+    delays, total, d = [], 0.0, 0.25
+    while total < budget_s:
+        delays.append(d)
+        total += d
+        d = min(d * 1.5, 3.0)
+    return delays
+
+
+def _confirm_running(probe, budget_s=CONFIRM_BUDGET_S) -> bool:
     """Keep asking a service manager whether something is REALLY running.
 
     All three backends had the same hole and only one of them had learned:
@@ -767,18 +811,32 @@ def _confirm_running(probe, tries=4) -> bool:
     re-read on every attempt, because a daemon that has not started yet has
     not written one.
 
-    Four tries over five seconds: long enough for a start that is merely
-    slow, short enough that nobody watching `overwatch update` thinks it hung.
+    See CONFIRM_BUDGET_S for how long, and for the measurement that set it.
+    The old budget was five seconds and the thing it was watching took eleven.
 
     Returns False on anything it cannot recognise. That lean is deliberate
     and it is the whole point -- the one thing this must never do again is
-    print a claim it cannot see.
+    print a claim it cannot see. Which cuts both ways, and did: "I cannot see
+    it" is only honest while it is still true, and saying it after five
+    seconds of a start that takes eleven is its own kind of wrong answer.
     """
-    for attempt in range(tries):
+    said = False
+    waited = 0.0
+    for d in _confirm_delays(budget_s):
         if probe():
             return True
-        time.sleep(0.5 * (attempt + 1))
-    return False
+        # Something on the screen after a few seconds, or a wait this long
+        # reads as a hang -- which is what the five-second budget was
+        # protecting against, and worth keeping while fixing what it broke.
+        if not said and waited >= 4.0:
+            said = True
+            print("    (still waiting for the service to come up)",
+                  file=sys.stderr)
+        time.sleep(d)
+        waited += d
+    # One last look: the final wait is the longest, and giving up without
+    # spending it would make the budget shorter than it says it is.
+    return bool(probe())
 
 
 class _Backend:
@@ -1265,7 +1323,7 @@ class _SchtasksBackend(_Backend):
         #
         # Six tries, not four: this is the first run of a freshly copied .exe,
         # and Windows may hold it while a virus scanner reads all of it.
-        if _confirm_running(self._is_running, tries=6):
+        if _confirm_running(self._is_running):
             return "running (Scheduled Task)"
         return ("registered as a Scheduled Task, but it is not running -- "
                 f'start it with: schtasks /run /tn "{TASK_NAME}"')
@@ -1308,7 +1366,7 @@ class _SchtasksBackend(_Backend):
         # nothing above has stopped it.
         _kill_recorded_daemon()
         _start_launcher()
-        if _confirm_running(self._is_running, tries=6):
+        if _confirm_running(self._is_running):
             return "running (starts when you log in)"
         return ("set to start when you log in, but it is not running yet -- "
                 f"see {log_path()}")
@@ -1371,7 +1429,7 @@ class _SchtasksBackend(_Backend):
             if not _autostart_present():
                 return "could not restart it"
             _start_launcher()
-        if _confirm_running(self._is_running, tries=6):
+        if _confirm_running(self._is_running):
             return "restarted"
         # This is the `overwatch update` path: the .exe under the task was just
         # replaced. If the new one cannot start, /run still succeeds and the
