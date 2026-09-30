@@ -170,28 +170,84 @@ def test_a_missing_tool_is_named(monkeypatch):
 # --- macOS: correct or refuse -----------------------------------------
 
 
-def test_macos_refuses_to_snap_across_several_displays(monkeypatch):
-    """Finder reports ONE rectangle spanning every monitor -- 0,0,4920,2188
-    on a three-screen desk -- and AppleScript offers no per-display bounds.
-    Half of that rectangle lands across two screens, so this refuses rather
-    than being confidently wrong."""
-    monkeypatch.setattr(windows.sys, "platform", "darwin")
-    monkeypatch.setattr(windows, "_mac_displays", lambda: 3)
-    ok, err = windows.place("left")
-    assert not ok
-    assert "3 displays" in err
+# Three displays in ACCESSIBILITY coordinates, as AppKit reports the owner's
+# desk: a left monitor, the main one with its 30 px menu bar, and a portrait
+# panel to the right.
+MAC_SCREENS = [(-1920, 0, 1920, 1080), (0, 30, 1920, 1050), (1920, 0, 1080, 1920)]
 
 
-def test_macos_snaps_happily_on_one_display(monkeypatch):
-    monkeypatch.setattr(windows.sys, "platform", "darwin")
-    monkeypatch.setattr(windows, "_mac_displays", lambda: 1)
-    monkeypatch.setattr(windows, "_mac_screen", lambda: (0, 0, 1800, 1100))
+def _mac(monkeypatch, at=(0, 30, 1920, 1050)):
+    """A Mac with three displays and a window on the one given."""
+    x, y, w, h = at
     sent = []
+    monkeypatch.setattr(windows.sys, "platform", "darwin")
+    monkeypatch.setattr(windows, "_mac_screens", lambda: list(MAC_SCREENS))
+    monkeypatch.setattr(windows, "_mac_current", lambda: (
+        {"wid": "", "app": "Thing", "title": "Thing", "screen": 0,
+         "screens": 3, "x": x + 10, "y": y + 10, "w": 400, "h": 300}, None))
     monkeypatch.setattr(windows, "_osa",
                         lambda s: (sent.append(s) or ("", None)))
-    ok, err = windows.place("right")
+    return sent
+
+
+def test_macos_snaps_on_the_display_the_window_is_on(monkeypatch):
+    """This used to REFUSE on any machine with more than one display, because
+    Finder reports one rectangle spanning the lot -- (-1920, 0, 4920, 1920) on
+    this desk -- and half of that lands across two screens. AppKit knows each
+    display separately, so the refusal was a limit of the question being
+    asked, not of macOS.
+    """
+    sent = _mac(monkeypatch, at=MAC_SCREENS[0])     # the left monitor
+    ok, err = windows.place("left")
     assert ok and err is None
-    assert "900" in sent[-1]
+    # Left half of the LEFT display, not of the desk.
+    assert "{-1920, 0}" in sent[-1] or "-1920, 0" in sent[-1]
+    assert "960" in sent[-1]
+
+
+def test_macos_snaps_within_the_main_display_too(monkeypatch):
+    sent = _mac(monkeypatch, at=MAC_SCREENS[1])
+    windows.place("right")
+    assert "960" in sent[-1]
+    # And below the menu bar: the main display's usable area starts at y=30.
+    assert "30" in sent[-1]
+
+
+def test_macos_next_moves_to_the_following_display(monkeypatch):
+    sent = _mac(monkeypatch, at=MAC_SCREENS[0])
+    ok, _ = windows.place("next")
+    assert ok
+    assert "1920" in sent[-1]
+
+
+def test_macos_next_refuses_with_only_one_display(monkeypatch):
+    monkeypatch.setattr(windows.sys, "platform", "darwin")
+    monkeypatch.setattr(windows, "_mac_screens", lambda: [(0, 0, 1920, 1080)])
+    monkeypatch.setattr(windows, "_mac_current", lambda: (
+        {"x": 0, "y": 0, "w": 100, "h": 100}, None))
+    ok, err = windows.place("next")
+    assert not ok and "one display" in err
+
+
+def test_macos_refuses_when_it_cannot_read_the_screens(monkeypatch):
+    """No AppKit, no frames. Finder's single rectangle is still there and
+    still spans every display, so falling back to it would be the
+    confidently-wrong behaviour this replaced."""
+    monkeypatch.setattr(windows.sys, "platform", "darwin")
+    monkeypatch.setattr(windows, "_mac_screens", lambda: [])
+    ok, err = windows.place("left")
+    assert not ok and "screens" in err
+
+
+def test_the_halves_are_halves_on_every_platform():
+    """_box is shared, because a half is a half and the arithmetic was
+    written twice before."""
+    s = (100, 200, 800, 600)
+    assert windows._box(s, "left") == (100, 200, 400, 600)
+    assert windows._box(s, "right") == (500, 200, 400, 600)
+    assert windows._box(s, "top") == (100, 200, 800, 300)
+    assert windows._box(s, "bottom") == (100, 500, 800, 300)
+    assert windows._box(s, "full") == s
 
 
 def test_the_accessibility_refusal_is_short_enough_for_a_row(monkeypatch):
@@ -209,14 +265,18 @@ def test_the_accessibility_refusal_is_short_enough_for_a_row(monkeypatch):
 # --- the panel --------------------------------------------------------
 
 
-def test_the_panel_names_the_window_and_offers_four_places(x11):
+def test_the_panel_names_the_window_and_offers_six_places(x11):
     p = window_panel.build()
-    assert p.tiles == ["Left", "Right", "Full", "Next"]
+    assert p.tiles == ["Left", "Right", "Top", "Bottom", "Full", "Next"]
     # The application, from WM_CLASS -- not the whole document title, which
     # is 23 characters against a row's 18 and would arrive truncated.
     assert any(r.label == "Window" and r.value == "Gedit" for r in p.rows)
     assert any(r.label == "Title" for r in p.rows)
     assert any(r.label == "Screen" and r.value == "2 of 3" for r in p.rows)
+    # Three rows, not four: six tiles wrap on the board and take the space.
+    # Chosen here rather than trimmed in transit, where whichever row happened
+    # to be last would be the one lost.
+    assert len(p.rows) <= 3
 
 
 def test_a_problem_gets_a_second_row_saying_where_to_fix_it(monkeypatch):

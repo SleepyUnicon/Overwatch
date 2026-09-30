@@ -27,9 +27,11 @@ TIMEOUT_S = 5
 # "window control is\u2026" -- cutting away the half that says what to do.
 _NOT_HERE = "not on this OS"
 
-# Where a window can be put. Deliberately four, matching the four tiles a
-# panel has: any more and the labels stop fitting a 66 px button.
-PLACES = ("left", "right", "full", "next")
+# Where a window can be put. Six, matching the six tiles a panel now holds and
+# -- not by coincidence -- the halves and fill that macOS's own green-button
+# menu offers. At three tiles to a row each button is 90 px, about eleven
+# characters, so every label here fits.
+PLACES = ("left", "right", "top", "bottom", "full", "next")
 
 
 def _linux():
@@ -132,12 +134,7 @@ def _x11_place(where):
         where = "full"
     x, y, w, h = screens[min(i, len(screens) - 1)]
 
-    if where == "left":
-        box = (x, y, w // 2, h)
-    elif where == "right":
-        box = (x + w // 2, y, w // 2, h)
-    else:
-        box = (x, y, w, h)
+    box = _box((x, y, w, h), where)
 
     # Unmaximise first. wmctrl -e is ignored outright on a maximised window,
     # which reads as a tile that does nothing on exactly the windows somebody
@@ -278,41 +275,85 @@ def _osa(script):
     return (p.stdout or "").strip(), None
 
 
-def _mac_displays():
-    """How many displays. AppleScript will count them and nothing more.
+# Per-display frames, via AppKit rather than Finder.
+#
+# THIS IS WHAT THE OLD REFUSAL WAS FOR. `bounds of window of desktop` returns
+# ONE rectangle spanning every monitor -- measured on a three-display desk as
+# (-1920, 0, 4920, 1920) -- so "left half" of it lands across two screens.
+# Rather than be confidently wrong, _mac_place declined outright on any machine
+# with more than one display, which is most desks that would want this.
+#
+# AppleScript can load AppKit, and NSScreen knows each display separately. Its
+# visibleFrame already excludes the menu bar and the Dock, which is exactly the
+# area a window should be snapped into.
+#
+# COORDINATES, which is where this would have gone wrong. NSScreen is Cocoa:
+# origin at the BOTTOM-left of the main display, y upwards. Accessibility --
+# what actually moves the window -- is top-left, y downwards. So
+#
+#     ax_y = main_full_height - (cocoa_y + cocoa_height)
+#
+# Checked against a real window rather than derived and hoped for: the main
+# display is 1080 tall with a 1050-tall visibleFrame at cocoa y=0, giving
+# ax_y = 30 -- and a maximised window on it reported y=30.
+_SCREENS = r'''
+use framework "AppKit"
+use scripting additions
+set m to item 1 of (current application's NSScreen's screens())
+set mh to (item 2 of item 2 of (m's frame())) as integer
+set out to ""
+repeat with s in (current application's NSScreen's screens())
+  set f to s's visibleFrame()
+  set x to (item 1 of item 1 of f) as integer
+  set y to (item 2 of item 1 of f) as integer
+  set w to (item 1 of item 2 of f) as integer
+  set h to (item 2 of item 2 of f) as integer
+  set out to out & x & "," & (mh - (y + h)) & "," & w & "," & h & linefeed
+end repeat
+return out
+'''
 
-    `count desktops` answers; `bounds of every desktop` does not exist, and
-    Finder reports ONE rectangle spanning the lot -- 0,0,4920,2188 on a
-    three-monitor desk. Splitting that in half puts a window across two
-    screens, which is worse than refusing.
 
-    Per-display frames need CGGetActiveDisplayList, which means a compiled
-    helper. See _mac_place.
+def _mac_screens():
+    """[(x, y, w, h)] per display in ACCESSIBILITY coordinates, left to right.
+
+    Sorted by x so "next" means the one to the right, which is what somebody
+    looking at their desk means. Empty when AppKit cannot be reached, and the
+    caller refuses rather than guessing.
     """
-    out, err = _osa('tell application "System Events" to count desktops')
-    if err or not (out or "").strip().isdigit():
-        return 1
-    return max(1, int(out.strip()))
-
-
-def _mac_screen():
-    """(x, y, w, h) of the main screen's usable area.
-
-    Finder's desktop bounds, which already exclude the menu bar. Multiple
-    displays are not handled: Finder reports one rectangle spanning them all,
-    and splitting that correctly needs the per-screen frames only a compiled
-    helper can ask for. "next" says so rather than moving a window somewhere
-    surprising.
-    """
-    out, err = _osa('tell application "Finder" to get bounds of window '
-                    'of desktop')
+    out, err = _osa(_SCREENS)
     if err or not out:
-        return None
-    parts = [int(p.strip()) for p in out.split(",") if p.strip().lstrip("-").isdigit()]
-    if len(parts) != 4:
-        return None
-    x1, y1, x2, y2 = parts
-    return (x1, y1, x2 - x1, y2 - y1)
+        return []
+    found = []
+    for line in out.splitlines():
+        parts = [q.strip() for q in line.split(",")]
+        if len(parts) != 4:
+            continue
+        try:
+            x, y, w, h = (int(q) for q in parts)
+        except ValueError:
+            continue
+        if w > 0 and h > 0:
+            found.append((x, y, w, h))
+    return sorted(found)
+
+
+def _box(screen, where):
+    """The rectangle for `where` within `screen`.
+
+    Shared by both platforms: a half is a half, and the arithmetic was already
+    written twice.
+    """
+    x, y, w, h = screen
+    if where == "left":
+        return (x, y, w // 2, h)
+    if where == "right":
+        return (x + w // 2, y, w // 2, h)
+    if where == "top":
+        return (x, y, w, h // 2)
+    if where == "bottom":
+        return (x, y + h // 2, w, h // 2)
+    return (x, y, w, h)
 
 
 def _record_ax(granted):
@@ -363,34 +404,52 @@ def _mac_current():
     # it back is proof of the grant rather than an assumption about it.
     _record_ax(True)
     clear_denied_notice()
+    # Which display, now that there is a way to know. It was hardcoded to
+    # "screen 0 of 1" because Finder only ever reported one rectangle; the
+    # panel therefore never showed the Screen row on a Mac, on exactly the
+    # desks where it matters most.
+    screens = _mac_screens()
+    at = 0
+    cx, cy = x + w // 2, y + h // 2
+    for i, (sx, sy, sw, sh) in enumerate(screens):
+        if sx <= cx < sx + sw and sy <= cy < sy + sh:
+            at = i
+            break
     return {"wid": "", "app": lines[0], "title": lines[1],
-            "screen": 0, "screens": 1,
+            "screen": at, "screens": len(screens) or 1,
             "x": x, "y": y, "w": w, "h": h}, None
 
 
 def _mac_place(where):
+    screens = _mac_screens()
+    if not screens:
+        # No AppKit, no frames, no honest answer. Finder's single rectangle is
+        # still available and still spans every display, so falling back to it
+        # would be the confidently-wrong behaviour this replaced.
+        return False, "could not read screens"
+
+    cur, err = _mac_current()
+    if cur is None:
+        return False, err or "nothing in front"
+
+    # The display the window is MOSTLY on, by its centre. Using whichever
+    # screen happens to be first would move somebody's window to another
+    # monitor for asking it to fill the one it is already on.
+    cx = cur.get("x", 0) + cur.get("w", 0) // 2
+    cy = cur.get("y", 0) + cur.get("h", 0) // 2
+    at = 0
+    for i, (x, y, w, h) in enumerate(screens):
+        if x <= cx < x + w and y <= cy < y + h:
+            at = i
+            break
+
     if where == "next":
-        return False, "one display only"
-    n = _mac_displays()
-    if n > 1:
-        # Correct or refuse. Finder's rectangle spans every monitor, so
-        # "left half" of it lands across two of them -- confidently wrong,
-        # which is the failure this project keeps having to unlearn.
-        print("[windows] %d displays: macOS gives no per-display bounds to"
-              " AppleScript, so snapping is refused rather than guessed."
-              % n, file=sys.stderr)
-        return False, "%d displays on macOS" % n
-    screen = _mac_screen()
-    if screen is None:
-        return False, "could not measure the screen"
-    x, y, w, h = screen
-    if where == "left":
-        box = (x, y, w // 2, h)
-    elif where == "right":
-        box = (x + w // 2, y, w // 2, h)
-    else:
-        box = (x, y, w, h)
-    _, err = _osa(_PLACE % box)
+        if len(screens) < 2:
+            return False, "only one display"
+        at = (at + 1) % len(screens)
+        where = "full"
+
+    _, err = _osa(_PLACE % _box(screens[at], where))
     return (err is None), err
 
 

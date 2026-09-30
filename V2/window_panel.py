@@ -13,7 +13,10 @@ import sys
 from pc import windows
 from V2.panel import Panel, Row
 
-TILES = ("Left", "Right", "Full", "Next")
+# Six, in the order PLACES lists them: three to a row on the board, halves on
+# the top row and the whole-screen ones below. Every label fits the 90 px a
+# button gets at three across.
+TILES = ("Left", "Right", "Top", "Bottom", "Full", "Next")
 
 # A short reason fits the row; where to go about it does not fit beside it.
 _WHERE_TO_FIX = {
@@ -63,12 +66,20 @@ def build():
     if fields.get("app") and fields.get("title"):
         rows.append(Row("Title", _fit(fields["title"], 18), tone="dim"))
 
-    if fields.get("w") and fields.get("h"):
-        rows.append(Row("Size", "%d x %d" % (fields["w"], fields["h"]),
-                        tone="dim"))
+    # THREE rows, because six tiles wrap to a second row on the board and take
+    # the space the other two would use. Chosen rather than trimmed: a panel
+    # that builds four and has one dropped in transit loses whichever happens
+    # to be last, which is not a decision anybody made.
+    #
+    # Size goes. Which screen a window is on is the one fact you cannot see by
+    # looking at the window, and on a three-monitor desk it is the one that
+    # decides whether "Left" means what you want.
     if fields.get("screens", 1) > 1:
         rows.append(Row("Screen", "%d of %d" % (fields.get("screen", 0) + 1,
                                                 fields["screens"])))
+    elif fields.get("w") and fields.get("h"):
+        rows.append(Row("Size", "%d x %d" % (fields["w"], fields["h"]),
+                        tone="dim"))
     if not rows:
         rows.append(Row("Window", "in front"))
 
