@@ -2795,8 +2795,34 @@ static void zone_dir_cb(lv_event_t *e)
  * or hang the step off a long-press on the centre page -- the gesture the
  * peek card already uses and the only spare one left.
  */
+/*
+ * `mark` is a symbol drawn in the zone, or NULL for one that stays bare.
+ *
+ * These zones have been here since the cross was built and every one of them
+ * is LV_OPA_TRANSP, which makes the whole tap path invisible. The owner --
+ * whose panel does not take swipes at all -- spent a day believing the device
+ * could only be navigated by a gesture it cannot do, and said so. The
+ * navigation was there. Nothing on the glass said where.
+ *
+ * It is the same judgement the panel's title band needed, in the same week: a
+ * control nobody can see is worse than no control, because the person
+ * concludes the thing is broken rather than that they have not found it.
+ *
+ * ONLY LEFT AND RIGHT GET A MARK, and that is a space argument rather than a
+ * design one:
+ *
+ *   left/right  the strips are 44 px and the dials span 46..146 and 174..274,
+ *               so there is clear room with 2 px to spare. See the note above
+ *               GAUGE_CX in usage_layout.h, which this depends on.
+ *   bottom      the face cue is already drawn there and already means "a page
+ *               is down here". A second mark beside it would be noise.
+ *   top         the header owns y=0..40 entirely -- brand, pips, status. There
+ *               is nowhere to put one, so settings stays the one direction you
+ *               have to be told about. Written down rather than left as a
+ *               surprise.
+ */
 static void mk_edge_zone(lv_obj_t *scr, lv_align_t align, enum ui_dir d,
-			 int w, int h)
+			 int w, int h, const char *mark)
 {
 	lv_obj_t *z = lv_btn_create(scr);
 
@@ -2807,6 +2833,18 @@ static void mk_edge_zone(lv_obj_t *scr, lv_align_t align, enum ui_dir d,
 	lv_obj_add_flag(z, LV_OBJ_FLAG_GESTURE_BUBBLE);
 	lv_obj_add_event_cb(z, zone_dir_cb, LV_EVENT_CLICKED,
 			    (void *)(intptr_t)d);
+
+	if (mark != NULL) {
+		lv_obj_t *l = lv_label_create(z);
+
+		lv_label_set_text(l, mark);
+		/* Dim, because this is furniture and the dials are the page.
+		 * Visible enough to be found, quiet enough not to compete. */
+		lv_obj_set_style_text_color(l, COL_DIM, 0);
+		lv_obj_center(l);
+		/* The label must not eat the tap: the zone is the control. */
+		lv_obj_clear_flag(l, LV_OBJ_FLAG_CLICKABLE);
+	}
 }
 
 /*
@@ -2883,10 +2921,12 @@ void ui_settings_attach(lv_obj_t *scr)
 	 * both. The rarer one goes where the rest of the once-in-a-while
 	 * lives.
 	 */
-	mk_edge_zone(scr, LV_ALIGN_LEFT_MID, UI_DIR_LEFT, 44, 150);
-	mk_edge_zone(scr, LV_ALIGN_RIGHT_MID, UI_DIR_RIGHT, 44, 150);
-	mk_edge_zone(scr, LV_ALIGN_TOP_MID, UI_DIR_UP, 150, 40);
-	mk_edge_zone(scr, LV_ALIGN_BOTTOM_MID, UI_DIR_DOWN, 200, 40);
+	mk_edge_zone(scr, LV_ALIGN_LEFT_MID, UI_DIR_LEFT, 44, 150,
+		     LV_SYMBOL_LEFT);
+	mk_edge_zone(scr, LV_ALIGN_RIGHT_MID, UI_DIR_RIGHT, 44, 150,
+		     LV_SYMBOL_RIGHT);
+	mk_edge_zone(scr, LV_ALIGN_TOP_MID, UI_DIR_UP, 150, 40, NULL);
+	mk_edge_zone(scr, LV_ALIGN_BOTTOM_MID, UI_DIR_DOWN, 200, 40, NULL);
 
 	/* The OTA watcher runs from here on, not from the panel build: the boot
 	 * prompt, the download bar and the outcome popup are all screen-level

@@ -480,6 +480,29 @@ int main(void)
 			   "123456789012345678901234567 is waiting for you"),
 	      "a pathological label overruns the card, so it must ellipsize");
 
+	/* --- the edge strips have room for their marks ---------------- */
+	{
+		/* ui_settings.c draws LV_SYMBOL_LEFT and _RIGHT inside the
+		 * 44 px tap strips at each side, so the tap path is visible at
+		 * all. Those zones were LV_OPA_TRANSP for the whole life of the
+		 * cross, and an owner whose panel does not take swipes spent a
+		 * day believing the device could only be navigated by a gesture
+		 * it cannot do. The navigation was there; nothing said where.
+		 *
+		 * The marks only fit because the dials were pulled in from 80
+		 * to 64. If anyone pushes them back out, this fails here rather
+		 * than on somebody's desk.
+		 */
+		int zone = 44;
+		int left_edge = SCR_MID_X - GAUGE_CX - GAUGE_ARC_SZ / 2;
+		int right_edge = SCR_MID_X + GAUGE_CX + GAUGE_ARC_SZ / 2;
+
+		CHECK(left_edge >= zone,
+		      "the left dial clears the left tap strip");
+		CHECK(SCR_W - right_edge >= zone,
+		      "the right dial clears the right tap strip");
+	}
+
 	printf(failures ? "\n%d FAILED\n" : "\nall layout checks passed\n",
 	       failures);
 	return failures ? 1 : 0;
