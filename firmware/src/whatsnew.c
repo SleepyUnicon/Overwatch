@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.4.3", "Snap windows on any monitor\nHalves, top, bottom and next" },
 	{ "2.4.2", "Tap the title to change panel\nIt shows which one you are on" },
 	{ "2.4.1", "Panels say what they need\nAnd where to switch it on" },
 	{ "2.4.0", "Your app's tools on the desk\nSix buttons on a panel now" },
