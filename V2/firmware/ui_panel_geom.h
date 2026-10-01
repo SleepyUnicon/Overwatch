@@ -27,7 +27,25 @@
 #define PANEL_SIDE		16
 #define PANEL_TILE_H		34
 #define PANEL_TILE_GAP		8
-#define PANEL_TILE_BOTTOM	14
+/*
+ * The home strip -- "< USAGE" -- lives at the bottom 40 px of every widget
+ * page. ui_pages.c owns it (HOME_H), and this is a MIRROR of that number,
+ * which tests/panel_geom pins against the real one.
+ *
+ * It is here because leaving it out cost a release. Tiles were laid out
+ * against the screen, 240 px, so they ended at y=226 while the strip starts
+ * at 200: twenty-six pixels of every tile row sat underneath it, and with six
+ * tiles the entire second row was invisible. The owner photographed the board
+ * showing "Left Right Top" and nothing else, which is the first time anyone
+ * had seen this page on glass.
+ *
+ * tests/panel_geom checked that tiles stayed within the 240 px screen. They
+ * did. It was the wrong bound, and no test on this side could have caught the
+ * right one while the constant lived in another file.
+ */
+#define PANEL_HOME_H		40
+#define PANEL_HOME_GAP		8
+#define PANEL_TILE_BOTTOM	(PANEL_HOME_H + PANEL_HOME_GAP)
 
 /* Above this many, tiles wrap. */
 #define PANEL_TILES_ONE_ROW	4
@@ -41,7 +59,20 @@
 /* `all` is the panel's full row count; the caller passes PANEL_ROWS. Taken as
  * an argument rather than read from ui_panel.h so this header stays free of
  * everything that file needs. */
-#define PANEL_TEXT_ROWS_FOR(n, all) ((n) > PANEL_TILES_ONE_ROW ? 3 : (all))
+/*
+ * How many text rows survive beside `n` tiles, given `all` of them exist.
+ *
+ * Both numbers are smaller than they were, because both were computed against
+ * a screen that is 40 px shorter than anyone had written down:
+ *
+ *   one tile row  -> tiles start at 158, so rows may reach 156: FOUR
+ *   two tile rows -> tiles start at 116, so rows may reach 104: TWO
+ *
+ * Five rows never fitted even with a single row of tiles. The fifth was drawn
+ * under the buttons.
+ */
+#define PANEL_TEXT_ROWS_FOR(n, all) \
+	((n) > PANEL_TILES_ONE_ROW ? 2 : ((all) > 4 ? 4 : (all)))
 
 /* Top of the tile block, for a screen `h` tall holding `n` tiles. */
 #define PANEL_TILE_TOP(h, n)	((h) - PANEL_TILE_BOTTOM \

@@ -198,3 +198,28 @@ def test_the_limits_match_the_firmware_header():
     assert P.LABEL_MAX == define("PANEL_LABEL_MAX")
     assert P.VALUE_MAX == define("PANEL_VALUE_MAX")
     assert P.TILE_MAX == define("PANEL_TILE_MAX")
+
+
+def test_the_home_strip_height_is_the_same_in_both_files():
+    """V2/firmware/ui_panel_geom.h mirrors HOME_H from firmware/src/ui_pages.c,
+    which owns the "< USAGE" strip.
+
+    A mirror that drifts is how the tiles came to be laid out against the
+    screen instead of against the strip: they ended at y=226 while it starts
+    at 200, so twenty-six pixels of every tile row were underneath it and with
+    six tiles the entire second row was invisible. Nothing caught it until the
+    owner photographed the board.
+    """
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parent.parent.parent
+    pages = (root / "firmware" / "src" / "ui_pages.c").read_text(encoding="utf-8")
+    geom = (root / "V2" / "firmware" / "ui_panel_geom.h").read_text(encoding="utf-8")
+
+    def define(src, name):
+        m = re.search(r"#define\s+%s\s+(\d+)" % name, src)
+        assert m, "%s not found" % name
+        return int(m.group(1))
+
+    assert define(geom, "PANEL_HOME_H") == define(pages, "HOME_H")

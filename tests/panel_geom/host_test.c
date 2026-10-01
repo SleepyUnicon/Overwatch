@@ -89,6 +89,22 @@ int main(void)
 			      && tile_top(n) + PANEL_TILE_ROWS(n) * PANEL_TILE_H
 				 + (PANEL_TILE_ROWS(n) - 1) * PANEL_TILE_GAP
 				 <= SCR_H, msg);
+
+			/*
+			 * THE CHECK THAT WAS MISSING, and it is the one that
+			 * mattered. "Stays on the screen" was true while
+			 * twenty-six pixels of every tile row sat under the
+			 * "< USAGE" strip, and with six tiles the whole second
+			 * row was invisible. The owner photographed a board
+			 * showing "Left Right Top" and nothing else.
+			 *
+			 * The screen is not the bound. The home strip is.
+			 */
+			snprintf(msg, sizeof msg,
+				 "%d tiles clear the home strip", n);
+			CHECK(tile_top(n) + PANEL_TILE_ROWS(n) * PANEL_TILE_H
+			      + (PANEL_TILE_ROWS(n) - 1) * PANEL_TILE_GAP
+			      <= SCR_H - PANEL_HOME_H, msg);
 		}
 	}
 
@@ -113,12 +129,31 @@ int main(void)
 	 * header needs LVGL -- and tests/pc/test_panel.py already pins the
 	 * Python mirror against the real define, so the two cannot drift
 	 * without something failing. */
-	CHECK(PANEL_TEXT_ROWS_FOR(1, ALL_ROWS) == ALL_ROWS,
-	      "one tile still leaves all five text rows");
-	CHECK(PANEL_TEXT_ROWS_FOR(4, ALL_ROWS) == ALL_ROWS,
-	      "four tiles still leave all five text rows");
-	CHECK(PANEL_TEXT_ROWS_FOR(5, ALL_ROWS) < ALL_ROWS,
-	      "wrapping costs text rows, and says so");
+	/* Four, not five: the fifth row ends at y=182 and a single row of
+	 * tiles now starts at 158. It never fitted -- it was drawn under the
+	 * buttons, on a screen nobody had looked at. */
+	CHECK(PANEL_TEXT_ROWS_FOR(1, ALL_ROWS) == 4,
+	      "one tile row leaves four text rows, not five");
+	CHECK(PANEL_TEXT_ROWS_FOR(4, ALL_ROWS) == 4,
+	      "four tiles leave four text rows");
+	CHECK(PANEL_TEXT_ROWS_FOR(6, ALL_ROWS) == 2,
+	      "six tiles leave two text rows");
+
+	/* Every row a panel is allowed to draw must end above the tiles. */
+	{
+		int n;
+
+		for (n = 1; n <= 6; n++) {
+			int rows = PANEL_TEXT_ROWS_FOR(n, ALL_ROWS);
+			char msg[96];
+
+			snprintf(msg, sizeof msg,
+				 "%d tiles: %d rows end above the buttons",
+				 n, rows);
+			CHECK(PANEL_ROW_TOP + rows * PANEL_ROW_H
+			      <= tile_top(n), msg);
+		}
+	}
 
 	/* --- the tap path has to be reachable ------------------------- */
 	{

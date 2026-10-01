@@ -271,12 +271,14 @@ def test_the_panel_names_the_window_and_offers_six_places(x11):
     # The application, from WM_CLASS -- not the whole document title, which
     # is 23 characters against a row's 18 and would arrive truncated.
     assert any(r.label == "Window" and r.value == "Gedit" for r in p.rows)
-    assert any(r.label == "Title" for r in p.rows)
     assert any(r.label == "Screen" and r.value == "2 of 3" for r in p.rows)
-    # Three rows, not four: six tiles wrap on the board and take the space.
-    # Chosen here rather than trimmed in transit, where whichever row happened
-    # to be last would be the one lost.
-    assert len(p.rows) <= 3
+    # TWO rows beside six tiles, which is what fits above them once the home
+    # strip is accounted for -- and what the owner asked for: "Window - Claude
+    # and just the 6 buttons so that there is space".
+    assert len(p.rows) <= 2
+    # Title is gone. It repeated the application on every window that has not
+    # been renamed; the board read "Window Claude / Title Claude".
+    assert not any(r.label == "Title" for r in p.rows)
 
 
 def test_a_problem_gets_a_second_row_saying_where_to_fix_it(monkeypatch):

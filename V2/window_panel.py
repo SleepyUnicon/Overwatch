@@ -63,23 +63,21 @@ def build():
     who = fields.get("app") or fields.get("title")
     if who:
         rows.append(Row("Window", _fit(who, 18)))
-    if fields.get("app") and fields.get("title"):
-        rows.append(Row("Title", _fit(fields["title"], 18), tone="dim"))
+    # The Title row is gone. It repeated the application name on every window
+    # that has not been renamed -- the board read "Window Claude / Title
+    # Claude" -- and six tiles leave room for two rows, not three.
 
-    # THREE rows, because six tiles wrap to a second row on the board and take
-    # the space the other two would use. Chosen rather than trimmed: a panel
-    # that builds four and has one dropped in transit loses whichever happens
-    # to be last, which is not a decision anybody made.
+    # Which screen, and nothing else. Two rows is what fits beside six tiles,
+    # and the owner asked for one and some air: "Window - Claude and just the 6
+    # buttons so that there is space".
     #
-    # Size goes. Which screen a window is on is the one fact you cannot see by
-    # looking at the window, and on a three-monitor desk it is the one that
-    # decides whether "Left" means what you want.
+    # Screen is the second one worth having. It is the only fact here you
+    # cannot get by looking at the window itself, and on a three-monitor desk
+    # it decides whether "Left" means what you wanted. Size went: a window's
+    # size is visible by looking at it.
     if fields.get("screens", 1) > 1:
         rows.append(Row("Screen", "%d of %d" % (fields.get("screen", 0) + 1,
-                                                fields["screens"])))
-    elif fields.get("w") and fields.get("h"):
-        rows.append(Row("Size", "%d x %d" % (fields["w"], fields["h"]),
-                        tone="dim"))
+                                                fields["screens"]), tone="dim"))
     if not rows:
         rows.append(Row("Window", "in front"))
 

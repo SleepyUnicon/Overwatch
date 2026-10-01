@@ -38,7 +38,7 @@ TILES_MAX = 6
 # here as well means the panel that gets drawn is the panel somebody designed,
 # rather than one quietly trimmed in transit.
 TILES_ONE_ROW = 4
-ROWS_WITH_MANY_TILES = 3
+ROWS_WITH_MANY_TILES = 2
 
 TITLE_MAX = 20
 LABEL_MAX = 14
