@@ -33,6 +33,7 @@ static const struct {
 	const char *version;
 	const char *lines;
 } NOTES[] = {
+	{ "2.4.4", "Every button is on the screen\nThe window page has room" },
 	{ "2.4.3", "Snap windows on any monitor\nHalves, top, bottom and next" },
 	{ "2.4.2", "Tap the title to change panel\nIt shows which one you are on" },
 	{ "2.4.1", "Panels say what they need\nAnd where to switch it on" },
@@ -47,8 +48,6 @@ static const struct {
 	{ "2.2.1", "Music controls work on Linux" },
 	{ "2.2.0", "A page your computer can fill\nIt says why it will not link" },
 	{ "2.1.0", "In dark mode, red means red\nUpdate notes fit their page" },
-	{ "2.0.9", "The face stays on its own page" },
-	{ "2.0.8", "A failed update can be retried" },
 };
 
 #define N_NOTES ((int)(sizeof(NOTES) / sizeof(NOTES[0])))
